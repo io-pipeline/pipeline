@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Configuration",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "pipelineSteps": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "$ref": "#/definitions/pipelineStep"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["name", "pipelineSteps"],
+  "definitions": {
+    "pipelineStep": {
+      "type": "object",
+      "properties": {
+        "stepName": {
+          "type": "string"
+        },
+        "stepType": {
+          "enum": ["INITIAL_PIPELINE", "PIPELINE", "SINK"]
+        }
+      },
+      "required": ["stepName", "stepType"]
+    }
+  }
+}
