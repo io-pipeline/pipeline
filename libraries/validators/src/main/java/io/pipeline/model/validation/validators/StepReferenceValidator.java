@@ -5,6 +5,7 @@ import io.pipeline.api.model.PipelineStepConfig;
 import io.pipeline.api.model.TransportType;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
+import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -83,5 +84,11 @@ public class StepReferenceValidator implements PipelineConfigValidator {
     @Override
     public String getValidatorName() {
         return "StepReferenceValidator";
+    }
+    
+    @Override
+    public Set<ValidationMode> supportedModes() {
+        // Basic structural validation needed in all modes
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN, ValidationMode.TESTING);
     }
 }

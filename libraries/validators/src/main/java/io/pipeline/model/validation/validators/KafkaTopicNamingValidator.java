@@ -6,12 +6,14 @@ import io.pipeline.api.model.PipelineStepConfig;
 import io.pipeline.api.model.TransportType;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
+import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Validates Kafka topic naming conventions according to Kafka's requirements:
@@ -137,5 +139,11 @@ public class KafkaTopicNamingValidator implements PipelineConfigValidator {
     @Override
     public String getValidatorName() {
         return "KafkaTopicNamingValidator";
+    }
+    
+    @Override
+    public Set<ValidationMode> supportedModes() {
+        // Topic naming is important for design and production but can be relaxed for testing
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN);
     }
 }

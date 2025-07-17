@@ -3,6 +3,7 @@ package io.pipeline.model.validation.validators;
 import io.pipeline.api.model.*;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
+import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,6 +12,7 @@ import org.jboss.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Validates transport configurations (Kafka and gRPC) for consistency and best practices.
@@ -253,5 +255,11 @@ public class TransportConfigValidator implements PipelineConfigValidator {
     @Override
     public String getValidatorName() {
         return "TransportConfigValidator";
+    }
+    
+    @Override
+    public Set<ValidationMode> supportedModes() {
+        // Basic transport configuration needed in all modes
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN, ValidationMode.TESTING);
     }
 }

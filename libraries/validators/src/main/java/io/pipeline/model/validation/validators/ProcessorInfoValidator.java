@@ -111,7 +111,8 @@ public class ProcessorInfoValidator implements PipelineConfigValidator {
     
     @Override
     public Set<ValidationMode> supportedModes() {
-        // Only run in PRODUCTION mode - design and testing modes may have incomplete processor info
-        return Set.of(ValidationMode.PRODUCTION);
+        // Run in both PRODUCTION and DESIGN modes - processor details should be validated in design mode too
+        // Testing mode may have incomplete processor info
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN);
     }
 }

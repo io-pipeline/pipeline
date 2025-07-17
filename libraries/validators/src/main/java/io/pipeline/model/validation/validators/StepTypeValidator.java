@@ -4,12 +4,14 @@ import io.pipeline.api.model.PipelineStepConfig;
 import io.pipeline.api.model.StepType;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
+import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Validates step types and their constraints.
@@ -128,5 +130,11 @@ public class StepTypeValidator implements PipelineConfigValidator {
     @Override
     public String getValidatorName() {
         return "StepTypeValidator";
+    }
+    
+    @Override
+    public Set<ValidationMode> supportedModes() {
+        // Basic type validation needed in all modes
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN, ValidationMode.TESTING);
     }
 }

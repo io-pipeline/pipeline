@@ -3,12 +3,14 @@ package io.pipeline.model.validation.validators;
 import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
+import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Validates that there are no circular dependencies within a pipeline.
@@ -43,5 +45,11 @@ public class IntraPipelineLoopValidator implements PipelineConfigValidator {
     @Override
     public String getValidatorName() {
         return "IntraPipelineLoopValidator";
+    }
+    
+    @Override
+    public Set<ValidationMode> supportedModes() {
+        // Loop detection is important for design and production but can be relaxed for testing
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN);
     }
 }

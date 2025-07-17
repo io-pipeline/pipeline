@@ -193,7 +193,7 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
     
     @Override
     public Set<ValidationMode> supportedModes() {
-        // Only run in PRODUCTION mode - design and testing modes may have incomplete routing
-        return Set.of(ValidationMode.PRODUCTION);
+        // Run in both PRODUCTION and DESIGN modes - output routing is important for design but can be relaxed for testing
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN);
     }
 }

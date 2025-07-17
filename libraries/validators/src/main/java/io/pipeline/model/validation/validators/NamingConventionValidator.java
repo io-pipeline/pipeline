@@ -1,20 +1,25 @@
 package io.pipeline.model.validation.validators;
 
-
 import io.pipeline.api.model.KafkaTransportConfig;
 import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.model.PipelineStepConfig;
 import io.pipeline.api.model.TransportType;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
+import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
+/**
+ * Validates naming conventions for pipelines, steps, and Kafka topics.
+ * Enforces standard naming patterns to ensure consistency across the system.
+ */
 @ApplicationScoped
 public class NamingConventionValidator implements PipelineConfigValidator {
     
@@ -192,5 +197,11 @@ public class NamingConventionValidator implements PipelineConfigValidator {
     @Override
     public int getPriority() {
         return 200;
+    }
+    
+    @Override
+    public Set<ValidationMode> supportedModes() {
+        // Naming conventions are important for design and production but can be relaxed for testing
+        return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN);
     }
 }
