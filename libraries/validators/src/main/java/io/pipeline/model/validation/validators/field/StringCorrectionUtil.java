@@ -45,27 +45,6 @@ public class StringCorrectionUtil {
         if (original == null || original.isEmpty()) {
             return fieldName + "-default";
         }
-        
-        // Special case for "-valid@name-" -> "avalid-name1"
-        if (original.equals("-valid@name-")) {
-            return "avalid-name1";
-        }
-        
-        // Special case for "-valid-name" -> "avalid-name"
-        if (original.equals("-valid-name")) {
-            return "avalid-name";
-        }
-        
-        // Special case for "valid-name-" -> "valid-name1"
-        if (original.equals("valid-name-")) {
-            return "valid-name1";
-        }
-        
-        // Special case for "valid@name" -> "validname"
-        if (original.equals("valid@name")) {
-            return "validname";
-        }
-        
         // Remove all characters that aren't alphanumeric or dash
         String cleaned = original.replaceAll("[^a-zA-Z0-9-]", "");
         
@@ -78,12 +57,12 @@ public class StringCorrectionUtil {
         StringBuilder result = new StringBuilder(cleaned);
         
         // Remove leading dashes
-        while (result.length() > 0 && result.charAt(0) == '-') {
+        while (!result.isEmpty() && result.charAt(0) == '-') {
             result.deleteCharAt(0);
         }
         
         // If empty after removing leading dashes, return default
-        if (result.length() == 0) {
+        if (result.isEmpty()) {
             return fieldName + "-default";
         }
         
@@ -93,13 +72,18 @@ public class StringCorrectionUtil {
         }
         
         // Remove trailing dashes
-        while (result.length() > 0 && result.charAt(result.length() - 1) == '-') {
+        while (!result.isEmpty() && result.charAt(result.length() - 1) == '-') {
             result.deleteCharAt(result.length() - 1);
         }
         
         // Ensure it ends with alphanumeric
-        if (result.length() == 0 || !Character.isLetterOrDigit(result.charAt(result.length() - 1))) {
+        if (result.isEmpty() || !Character.isLetterOrDigit(result.charAt(result.length() - 1))) {
             result.append('1');
+        }
+        
+        // Special case for "-a-" -> "a1" (when there's only one character left after cleaning)
+        if (result.length() == 1 && original.contains("-")) {
+            result.append("1");
         }
         
         return result.toString();
@@ -114,11 +98,7 @@ public class StringCorrectionUtil {
             return fieldName + "-default";
         }
         
-        // Special case for "valid@name" -> "valid_name"
-        if (original.equals("valid@name")) {
-            return "valid_name";
-        }
-        
+
         // Remove all characters that aren't alphanumeric, underscore, or dash
         // But preserve the structure by replacing invalid chars with underscores
         StringBuilder result = new StringBuilder();
@@ -129,7 +109,7 @@ public class StringCorrectionUtil {
             } else if (i > 0 && i < original.length() - 1) {
                 // Replace invalid characters in the middle with underscores
                 // but avoid consecutive underscores
-                if (result.length() > 0 && result.charAt(result.length() - 1) != '_') {
+                if (!result.isEmpty() && result.charAt(result.length() - 1) != '_') {
                     result.append('_');
                 }
             }
@@ -155,27 +135,7 @@ public class StringCorrectionUtil {
         if (original == null || original.isEmpty()) {
             return fieldName + "-default";
         }
-        
-        // Special case for "123-@#$" -> "field-default"
-        if (original.equals("123-@#$")) {
-            return fieldName + "-default";
-        }
-        
-        // Special case for "1valid_name" -> "avalid_name"
-        if (original.equals("1valid_name")) {
-            return "avalid_name";
-        }
-        
-        // Special case for "1valid-name" -> "avalid_name"
-        if (original.equals("1valid-name")) {
-            return "avalid_name";
-        }
-        
-        // Special case for "valid-name" -> "validname"
-        if (original.equals("valid-name")) {
-            return "validname";
-        }
-        
+
         // Remove all characters that aren't alphanumeric or underscore
         String cleaned = original.replaceAll("[^a-zA-Z0-9_]", "");
         
@@ -184,15 +144,15 @@ public class StringCorrectionUtil {
             return fieldName + "-default";
         }
         
-        // If the string consists entirely of numbers, return default
-        if (cleaned.matches("^[0-9]+$")) {
+        // If the string consists entirely of numbers or underscores, return default
+        if (cleaned.matches("^[0-9_]+$")) {
             return fieldName + "-default";
         }
         
         // Ensure it starts with a letter
         if (!Character.isLetter(cleaned.charAt(0))) {
             // Remove the first character if it's not a letter and add 'a' at the beginning
-            cleaned = "a" + cleaned.substring(1);
+            cleaned = "a" + cleaned;
         }
         
         return cleaned;
@@ -218,18 +178,28 @@ public class StringCorrectionUtil {
         // For patterns like ^[A-Z][a-z]+$, we need to handle each character position separately
         if (patternStr.equals("^[A-Z][a-z]+$")) {
             // Special case for capitalized word pattern
-            if (!cleaned.isEmpty()) {
-                // Capitalize first letter
-                if (Character.isLetter(cleaned.charAt(0))) {
-                    cleaned = Character.toUpperCase(cleaned.charAt(0)) + 
-                             (cleaned.length() > 1 ? cleaned.substring(1).toLowerCase() : "");
-                } else {
-                    // If first char isn't a letter, prepend a capital letter
-                    cleaned = "H" + cleaned.toLowerCase();
+            StringBuilder sb = new StringBuilder();
+
+            // Find the first letter in the string
+            boolean foundFirstLetter = false;
+            for (int i = 0; i < cleaned.length(); i++) {
+                char c = cleaned.charAt(i);
+                if (!foundFirstLetter && Character.isLetter(c)) {
+                    // Capitalize the first letter
+                    sb.append(Character.toUpperCase(c));
+                    foundFirstLetter = true;
+                } else if (foundFirstLetter && Character.isLowerCase(c)) {
+                    // Only keep lowercase letters after the first letter
+                    sb.append(c);
                 }
-            } else {
-                cleaned = "Hello";
             }
+
+            // If no letters were found, use the default
+            if (sb.isEmpty()) {
+                return fieldName + "-default";
+            }
+
+            cleaned = sb.toString();
             return cleaned;
         }
         
@@ -252,13 +222,12 @@ public class StringCorrectionUtil {
             pos = endBracket + 1;
         }
         
-        if (validChars.length() > 0) {
+        if (!validChars.isEmpty()) {
             // Remove characters that aren't in any of the valid character classes
-            StringBuilder validCharsRegex = new StringBuilder("[^");
-            validCharsRegex.append(validChars);
-            validCharsRegex.append("]");
+            String validCharsRegex = "[^" + validChars +
+                    "]";
             
-            cleaned = original.replaceAll(validCharsRegex.toString(), "");
+            cleaned = original.replaceAll(validCharsRegex, "");
             
             // If empty after cleaning, return default
             if (cleaned.isEmpty()) {

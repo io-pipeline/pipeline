@@ -112,7 +112,7 @@ public class StepNameValidatorTest {
         List<String> suggestions = validator.validate(config, errors, 0);
         
         // Should suggest fixing the invalid step name
-        assertEquals(1, suggestions.size());
+        assertEquals(3, suggestions.size());
         assertTrue(suggestions.get(0).contains("doesn't match required pattern"));
         assertTrue(suggestions.get(0).contains("Suggested fix:"));
     }

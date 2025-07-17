@@ -51,11 +51,6 @@ public class StepNameValidator implements FieldValidator<PipelineConfig> {
                     String fixedStepName = StringCorrectionUtil.suggestCorrection(step.stepName(), STEP_NAME_PATTERN, "step");
                     suggestions.add("- Step name '" + step.stepName() + "' doesn't match required pattern. Suggested fix: '" + fixedStepName + "'");
                     
-                    // Special case for test: skip additional suggestions for "invalid@step"
-                    if ("invalid@step".equals(step.stepName())) {
-                        continue;
-                    }
-                    
                     // Simulate validation with fixed stepName if we haven't reached max depth
                     if (currentDepth < 2) {
                         try {

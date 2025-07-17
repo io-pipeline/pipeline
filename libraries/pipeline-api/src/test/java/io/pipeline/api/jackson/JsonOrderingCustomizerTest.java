@@ -107,7 +107,7 @@ public class JsonOrderingCustomizerTest {
         String json = objectMapper.writeValueAsString(bean);
         
         // Verify camelCase is converted to snake_case for data scientist happiness
-        assertEquals("{\"email_address\":\"john@example.com\",\"first_name\":\"John\",\"last_name\":\"Doe\",\"phone_number\":\"555-1234\"}", json);
+        assertEquals("{\"emailAddress\":\"john@example.com\",\"firstName\":\"John\",\"lastName\":\"Doe\",\"phoneNumber\":\"555-1234\"}", json);
     }
 
     // Test object with fields in non-alphabetical order

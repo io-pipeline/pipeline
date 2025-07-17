@@ -191,15 +191,19 @@ The development should proceed in two parallel streams:
 
 This parallel approach ensures that the validation logic is robust and well-tested before it is integrated with the core pipeline engine or any front-end components.
 
-### 7.3. New Validator: Schema Compliance
+### 7.3. The Field-Level Validation Pattern
 
-Before running the logical validators, it's crucial to ensure that the pipeline configuration JSON is structurally sound. Therefore, a new, high-priority validator should be created:
+The new `FieldValidator` pattern is a powerful addition to the validation framework. It provides a structured way to implement granular validation rules, provide intelligent suggestions, and even simulate fixes to find downstream errors. This pattern should be used for all new validators and, where appropriate, existing validators should be refactored to use it.
+
+### 7.4. New Validator: Schema Compliance
+
+Before running the logical validators, it's crucial to ensure that the pipeline configuration JSON is structurally sound. Therefore, a new, high-priority validator should be implemented:
 
 *   **`SchemaComplianceValidator`:** This validator will use a JSON Schema v7 library (e.g., `com.networknt:json-schema-validator`) to validate the incoming pipeline configuration against a formal JSON schema. This will catch basic structural errors early and provide clear, actionable error messages.
 
 This validator should be the first to run in the validation chain.
 
-### 7.4. Loop Detection Implementation (Adapted from Previous Work)
+### 7.5. Loop Detection Implementation (Adapted from Previous Work)
 
 The archived `yappy_consul` implementation provides a proven and robust foundation for loop detection. The following plan adapts that logic to the new data model.
 
@@ -219,7 +223,7 @@ This validator will be adapted from `IntraPipelineLoopValidator_yappy_consul.jav
 
 This validator will be adapted from `InterPipelineLoopValidator_yappy_consul.java`. The logic for resolving topic names with placeholders and building a cluster-wide graph will be preserved. The main adaptation will be to the new `PipelineClusterConfig` and `PipelineConfig` data structures.
 
-### 7.5. Test Data Generation Strategy
+### 7.6. Test Data Generation Strategy
 
 **Phase 1: Mock Data Generation**
 
@@ -230,17 +234,11 @@ For initial development and testing, you can create a utility class to generate 
 
 public class MockPipelineGenerator {
 
-    public static PipelineConfig createSimplePipeline() {
-        // ... create a simple pipeline with a few steps
-    }
+    public static PipelineConfig createSimpleLinearPipeline() { /* ... */ }
 
-    public static PipelineConfig createPipelineWithLoop() {
-        // ... create a pipeline with a clear loop
-    }
+    public static PipelineConfig createPipelineWithLoop() { /* ... */ }
 
-    public static PipelineClusterConfig createClusterWithInterLoop() {
-        // ... create a cluster with two pipelines that loop through a Kafka topic
-    }
+    public static PipelineClusterConfig createClusterWithInterLoop() { /* ... */ }
 
     // ... other generation methods for different scenarios
 }
@@ -248,7 +246,7 @@ public class MockPipelineGenerator {
 
 **Phase 2: Realistic Data Generation**
 
-Once the core validation logic is in place, you can move on to generating more realistic test data that uses the actual modules defined in your project. This can be done by:
+Once the validators have been thoroughly tested with mock data, the next step is to generate more realistic pipeline configurations that use the actual modules you are developing.
 
 1.  **Scanning for Modules:** Programmatically scan the `./modules` directory to get a list of available modules and their configurations.
 2.  **Creating a Module-Aware Generator:** Create a new generator that uses the scanned module information to create valid pipeline configurations.

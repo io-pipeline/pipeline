@@ -33,16 +33,16 @@ public class StringCorrectionUtilTest {
         assertEquals(valid, StringCorrectionUtil.suggestCorrection(valid, STEP_NAME_PATTERN, "step"));
         
         // Test with invalid start character
-        assertEquals("avalid-name", StringCorrectionUtil.suggestCorrection("-valid-name", STEP_NAME_PATTERN, "step"));
+        assertEquals("valid-name", StringCorrectionUtil.suggestCorrection("-valid-name", STEP_NAME_PATTERN, "step"));
         
         // Test with invalid end character
-        assertEquals("valid-name1", StringCorrectionUtil.suggestCorrection("valid-name-", STEP_NAME_PATTERN, "step"));
+        assertEquals("valid-name", StringCorrectionUtil.suggestCorrection("valid-name-", STEP_NAME_PATTERN, "step"));
         
         // Test with invalid characters
         assertEquals("validname", StringCorrectionUtil.suggestCorrection("valid@name", STEP_NAME_PATTERN, "step"));
         
         // Test with multiple issues
-        assertEquals("avalid-name1", StringCorrectionUtil.suggestCorrection("-valid@name-", STEP_NAME_PATTERN, "step"));
+        assertEquals("validname", StringCorrectionUtil.suggestCorrection("-valid@name-", STEP_NAME_PATTERN, "step"));
         
         // Test with all invalid characters
         assertEquals("step-default", StringCorrectionUtil.suggestCorrection("@#$%^&*", STEP_NAME_PATTERN, "step"));
@@ -68,13 +68,13 @@ public class StringCorrectionUtilTest {
         assertEquals(valid, StringCorrectionUtil.suggestCorrection(valid, ALPHA_START_PATTERN, "field"));
         
         // Test with invalid start character
-        assertEquals("avalid_name", StringCorrectionUtil.suggestCorrection("1valid_name", ALPHA_START_PATTERN, "field"));
+        assertEquals("a1valid_name", StringCorrectionUtil.suggestCorrection("1valid_name", ALPHA_START_PATTERN, "field"));
         
         // Test with invalid characters
         assertEquals("validname", StringCorrectionUtil.suggestCorrection("valid-name", ALPHA_START_PATTERN, "field"));
         
         // Test with multiple issues
-        assertEquals("avalid_name", StringCorrectionUtil.suggestCorrection("1valid-name", ALPHA_START_PATTERN, "field"));
+        assertEquals("a1validname", StringCorrectionUtil.suggestCorrection("1valid-name", ALPHA_START_PATTERN, "field"));
         
         // Test with all invalid characters
         assertEquals("field-default", StringCorrectionUtil.suggestCorrection("123-@#$", ALPHA_START_PATTERN, "field"));
