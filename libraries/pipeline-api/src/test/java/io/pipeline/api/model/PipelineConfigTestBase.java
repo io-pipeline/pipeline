@@ -30,7 +30,7 @@ public abstract class PipelineConfigTestBase {
         
         PipelineStepConfig step1 = new PipelineStepConfig(
                 "parser-step",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 processorInfo1
         );
         
@@ -146,7 +146,7 @@ public abstract class PipelineConfigTestBase {
         
         steps.put("parser", new PipelineStepConfig(
                 "document-parser",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 "Parser Step",
                 null,
                 new PipelineStepConfig.JsonConfigOptions(Map.of("format", "pdf", "maxSize", "10MB")),
@@ -242,7 +242,7 @@ public abstract class PipelineConfigTestBase {
         // Verify specific step details
         PipelineStepConfig parserStep = deserialized.pipelineSteps().get("parser");
         assertEquals("document-parser", parserStep.stepName());
-        assertEquals(StepType.INITIAL_PIPELINE, parserStep.stepType());
+        assertEquals(StepType.CONNECTOR, parserStep.stepType());
         assertEquals("pdf", parserStep.customConfig().configParams().get("format"));
     }
 

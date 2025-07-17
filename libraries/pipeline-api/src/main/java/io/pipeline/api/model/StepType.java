@@ -18,7 +18,7 @@ public enum StepType {
      * Initial pipeline step that can only have outputs, not inputs.
      * These steps serve as entry points to the pipeline.
      */
-    INITIAL_PIPELINE,
+    CONNECTOR,
 
     /**
      * Terminal pipeline step that can have inputs but no outputs.

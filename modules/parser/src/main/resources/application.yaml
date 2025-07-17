@@ -1,0 +1,4 @@
+quarkus:
+  grpc:
+    server:
+      use-separate-server: false

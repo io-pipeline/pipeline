@@ -1,0 +1,183 @@
+quarkus:
+  application:
+    name: testing-harness
+  http:
+    port: 39100  # Standard internal module port
+    test-port: 0  # Random port for tests
+  grpc:
+    server:
+      use-separate-server: false  # Use unified server
+      host: 0.0.0.0
+      enable-reflection-service: true
+      max-inbound-message-size: 1073741824  # 1GB
+      health:
+        enabled: true
+    clients:
+      testService:
+        max-inbound-message-size: 1073741824  # 1GB
+      TestHarness:
+        host: localhost
+        port: ${quarkus.http.port}  # Use HTTP port for unified server
+  log:
+    level: INFO
+    category:
+      "com.rokkon":
+        level: DEBUG
+  container-image:
+    build: false  # Disable by default, enable via profile
+    push: false
+    name: testing-harness
+    tag: 1.0.0-SNAPSHOT
+    group: rokkon
+    # Use docker builder
+    builder: docker
+    # Additional files to include
+    docker:
+      dockerfile-jvm-path: src/main/docker/Dockerfile.jvm
+      # Build context includes the files we need
+      additional-build-args:
+        - "--progress=plain"
+
+# Module specific configuration
+test:
+  processor:
+    name: test-processor
+    delay:
+      ms: 0
+    failure:
+      rate: 0.0  # Random failure rate (0.0-1.0) for testing error handling
+  harness:
+    health:
+      degraded:
+        threshold: 0.5  # Failure rate above this = DEGRADED status
+      unhealthy:
+        threshold: 0.8  # Failure rate above this = UNHEALTHY status
+      always:
+        healthy: false  # If true, always report HEALTHY (useful for tests/dev)
+    consul:
+      check:
+        enabled: false  # Enable actual Consul registration checks
+
+# Module registration configuration
+module:
+  auto-register:
+    enabled: true
+  version: 1.0.0
+  type: test-harness
+  metadata: category=testing,purpose=integration-testing
+registration:
+  service:
+    host: registration-service
+    port: 39100
+
+# gRPC client configuration for registration service
+quarkus:
+  grpc:
+    clients:
+      registration-service:
+        host: registration-service
+        port: 39100
+  # Stork service discovery for registration-service
+  stork:
+    registration-service:
+      service-discovery:
+        type: consul
+        consul-host: ${CONSUL_HOST:consul}
+        consul-port: ${CONSUL_PORT:8500}
+
+# OpenTelemetry configuration
+otel:
+  enabled: true
+  traces:
+    enabled: true
+  metrics:
+    enabled: true
+  logs:
+    enabled: true
+  exporter:
+    otlp:
+      # In production, this will be set via environment variable to the sidecar collector
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+      protocol: ${OTEL_EXPORTER_OTLP_PROTOCOL:grpc}
+  resource:
+    attributes:
+      service.name: testing-harness
+      service.namespace: pipeline
+      deployment.environment: ${quarkus.profile:prod}
+
+# Micrometer metrics configuration
+micrometer:
+  enabled: true
+  export:
+    prometheus:
+      enabled: true
+  binder:
+    jvm: true
+    system: true
+    grpc:
+      server: true
+      client: true
+
+# Dev profile configuration
+"%dev":
+  quarkus:
+    http:
+      port: 38006  # Dev port for test-harness
+    grpc:
+      clients:
+        registration-service:
+          host: localhost
+          port: 38001
+        testService:
+          host: localhost
+          port: 38006
+    stork:
+      registration-service:
+        service-discovery:
+          consul-host: localhost
+          consul-port: 8500
+  registration:
+    service:
+      host: localhost
+      port: 38001
+  consul:
+    host: localhost
+    port: 8500
+  # Dev-specific test configuration
+  test:
+    processor:
+      failure:
+        rate: 0.1  # 10% failure rate in dev for testing error handling
+
+# Test profile configuration
+"%test":
+  module:
+    auto-register:
+      enabled: false  # Disable auto-registration in tests
+  test:
+    harness:
+      health:
+        always:
+          healthy: true  # Always report healthy in tests
+  quarkus:
+    grpc:
+      server:
+        port: 0  # Use random port for tests
+        max-inbound-message-size: 1073741824  # 1GB for tests
+      clients:
+        testService:
+          max-inbound-message-size: 1073741824  # 1GB
+    # Disable OpenTelemetry in tests
+    otel:
+      enabled: false
+      sdk:
+        disabled: true
+    # Disable container image building in tests
+    container-image:
+      build: false
+
+# Build profile - enable container image building
+"%build":
+  quarkus:
+    container-image:
+      build: true

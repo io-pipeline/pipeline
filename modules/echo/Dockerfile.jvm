@@ -1,0 +1,13 @@
+FROM eclipse-temurin:21-jre
+
+WORKDIR /work/
+
+# Copy the application from the correct module path
+COPY modules/echo/build/quarkus-app/lib/ /work/lib/
+COPY modules/echo/build/quarkus-app/quarkus/ /work/quarkus/
+COPY modules/echo/build/quarkus-app/app/ /work/app/
+COPY modules/echo/build/quarkus-app/quarkus-run.jar /work/
+
+EXPOSE 8080 50051
+
+CMD ["java", "-jar", "quarkus-run.jar"]

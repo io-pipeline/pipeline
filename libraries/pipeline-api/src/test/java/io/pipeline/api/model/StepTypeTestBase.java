@@ -22,8 +22,8 @@ public abstract class StepTypeTestBase {
 
     @Test
     public void testSerializeInitialPipeline() throws Exception {
-        String json = getObjectMapper().writeValueAsString(StepType.INITIAL_PIPELINE);
-        assertEquals("\"INITIAL_PIPELINE\"", json);
+        String json = getObjectMapper().writeValueAsString(StepType.CONNECTOR);
+        assertEquals("\"CONNECTOR\"", json);
     }
 
     @Test
@@ -40,8 +40,8 @@ public abstract class StepTypeTestBase {
 
     @Test
     public void testDeserializeInitialPipeline() throws Exception {
-        StepType type = getObjectMapper().readValue("\"INITIAL_PIPELINE\"", StepType.class);
-        assertEquals(StepType.INITIAL_PIPELINE, type);
+        StepType type = getObjectMapper().readValue("\"CONNECTOR\"", StepType.class);
+        assertEquals(StepType.CONNECTOR, type);
     }
 
     @Test
@@ -54,7 +54,7 @@ public abstract class StepTypeTestBase {
     public void testAllValues() {
         StepType[] values = StepType.values();
         assertEquals(3, values.length);
-        assertArrayEquals(new Object[]{StepType.PIPELINE, StepType.INITIAL_PIPELINE, StepType.SINK}, values);
+        assertArrayEquals(new Object[]{StepType.PIPELINE, StepType.CONNECTOR, StepType.SINK}, values);
     }
 
     @Test
@@ -122,7 +122,7 @@ public abstract class StepTypeTestBase {
     public void testValueOf() {
         // Test standard enum valueOf behavior
         assertEquals(StepType.PIPELINE, StepType.valueOf("PIPELINE"));
-        assertEquals(StepType.INITIAL_PIPELINE, StepType.valueOf("INITIAL_PIPELINE"));
+        assertEquals(StepType.CONNECTOR, StepType.valueOf("CONNECTOR"));
         assertEquals(StepType.SINK, StepType.valueOf("SINK"));
         
         // Test invalid enum value

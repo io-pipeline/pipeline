@@ -19,7 +19,7 @@ include ':libraries:pipeline-api'
 include ':libraries:pipeline-common'
 include ':libraries:testing-commons'
 include ':libraries:data-util'
-
+include ':libraries:validators'
 // Modules
 // include ':modules:your-module'
 

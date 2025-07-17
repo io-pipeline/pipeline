@@ -202,7 +202,7 @@ public abstract class PipelineGraphConfigTestBase {
             "embedder", TransportType.GRPC, grpcTransport, null);
         
         PipelineStepConfig chunkerStep = new PipelineStepConfig(
-            "chunker", StepType.INITIAL_PIPELINE, "Chunks documents",
+            "chunker", StepType.CONNECTOR, "Chunks documents",
             null, null, Collections.emptyList(), Map.of("output", chunkerOutput),
             3, 1000L, 30000L, 2.0, null, chunkerProcessor);
             

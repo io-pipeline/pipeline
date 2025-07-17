@@ -1,0 +1,15 @@
+FROM eclipse-temurin:21-jre
+
+WORKDIR /work/
+
+# Copy the application files
+COPY applications/registration-service/build/quarkus-app/lib/ /work/lib/
+COPY applications/registration-service/build/quarkus-app/quarkus/ /work/quarkus/
+COPY applications/registration-service/build/quarkus-app/app/ /work/app/
+COPY applications/registration-service/build/quarkus-app/quarkus-run.jar /work/
+
+# Expose ports
+EXPOSE 39100
+
+# Run the application
+CMD ["java", "-jar", "quarkus-run.jar"]

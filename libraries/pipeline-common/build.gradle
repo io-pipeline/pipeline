@@ -13,11 +13,18 @@ dependencies {
     
     // Protobuf
     implementation libs.protobuf.java
-    
+
+    implementation project(':libraries:pipeline-api')
+
+    implementation project(':grpc-stubs')
     // No internal dependencies - this is a base library
     
     // Testing
     testImplementation libs.quarkus.junit5
+
+// https://mvnrepository.com/artifact/com.google.jimfs/jimfs
+    testImplementation 'com.google.jimfs:jimfs:1.3.0'
+    implementation 'com.github.marschall:memoryfilesystem:2.8.1'
 }
 
 java {

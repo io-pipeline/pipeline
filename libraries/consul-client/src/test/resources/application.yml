@@ -1,0 +1,6 @@
+# Test configuration - activates test profile
+quarkus:
+  test:
+    profile: test
+
+# This file activates the test profile which loads application-test.yml

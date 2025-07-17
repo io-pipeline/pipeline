@@ -1,0 +1,42 @@
+pipeline:
+  consul:
+    kv-prefix: pipeline
+    watch:
+      enabled: false
+    cleanup:
+      interval: 30m
+  engine:
+    grpc-port: 49000
+    rest-port: 8080
+    debug: false
+  modules:
+    auto-discover: false
+    service-prefix: module-
+    require-whitelist: true
+    connection-timeout: 30s
+    max-instances-per-module: 10
+  default-cluster:
+    name: default
+    auto-create: true
+    description: Default cluster for pipelines
+  cluster:
+    name: default
+
+consul:
+  host: localhost
+  port: 8500
+  secure: false
+  timeout: 10s
+  trust-all: false
+  kv:
+    prefix: pipeline
+
+# Test-specific configuration
+quarkus:
+  test:
+    profile: test
+  log:
+    category:
+      # Suppress JSON schema validation errors in tests (only show FATAL and above)
+      "com.rokkon.pipeline.consul.service.GlobalModuleRegistryServiceImpl":
+        level: FATAL

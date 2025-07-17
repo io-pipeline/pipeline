@@ -309,7 +309,7 @@ public abstract class PipelineClusterConfigTestBase {
                             "pipelineSteps": {
                                 "parser": {
                                     "stepName": "tika-parser",
-                                    "stepType": "INITIAL_PIPELINE",
+                                    "stepType": "CONNECTOR",
                                     "processorInfo": {
                                         "grpcServiceName": "tika-parser-service"
                                     }

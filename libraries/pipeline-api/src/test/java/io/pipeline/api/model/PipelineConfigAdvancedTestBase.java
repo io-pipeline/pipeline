@@ -2,8 +2,7 @@ package io.pipeline.api.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
+
 import java.util.Set;
 import java.util.HashSet;
 
@@ -43,7 +42,7 @@ public abstract class PipelineConfigAdvancedTestBase {
         
         steps.put("parser", new PipelineStepConfig(
                 "document-parser",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 "Parses documents and fans out to multiple processors",
                 null,
                 new PipelineStepConfig.JsonConfigOptions(Map.of("format", "pdf")),
@@ -110,7 +109,7 @@ public abstract class PipelineConfigAdvancedTestBase {
         
         steps.put("text-extractor", new PipelineStepConfig(
                 "text-extraction",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 "Extracts text from documents",
                 null,
                 null,
@@ -134,7 +133,7 @@ public abstract class PipelineConfigAdvancedTestBase {
         
         steps.put("metadata-extractor", new PipelineStepConfig(
                 "metadata-extraction",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 "Extracts metadata from documents",
                 null,
                 null,
@@ -204,7 +203,7 @@ public abstract class PipelineConfigAdvancedTestBase {
         
         steps.put("loader", new PipelineStepConfig(
                 "data-loader",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 "Loads data using internal transport",
                 null,
                 null,
@@ -294,7 +293,7 @@ public abstract class PipelineConfigAdvancedTestBase {
         
         steps.put("step-a", new PipelineStepConfig(
                 "initial-processor",
-                StepType.INITIAL_PIPELINE,
+                StepType.CONNECTOR,
                 "Initial step that splits processing",
                 null,
                 null,
