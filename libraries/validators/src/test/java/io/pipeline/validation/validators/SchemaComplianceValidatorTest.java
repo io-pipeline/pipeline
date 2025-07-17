@@ -6,6 +6,7 @@ import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import io.pipeline.api.model.PipelineClusterConfig;
 import io.pipeline.api.model.PipelineConfig;
+import io.pipeline.api.validation.PipelineClusterConfigValidatable;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.data.util.json.MockPipelineGenerator;
 import io.pipeline.model.validation.validators.SchemaComplianceValidator;

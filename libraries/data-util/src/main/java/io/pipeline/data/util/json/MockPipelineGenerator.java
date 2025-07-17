@@ -20,7 +20,39 @@ public class MockPipelineGenerator {
                 null,  // pipelineModuleMap can be null
                 null,  // defaultPipelineName can be null
                 Collections.emptySet(),  // allowedKafkaTopics
-                Collections.emptySet()   // allowedGrpcServices
+                Collections.emptySet()   // allowedGrpcervices
+        );
+    }
+
+    /**
+     * Creates a basic, valid cluster configuration containing a single, empty pipeline.
+     * This represents the most minimal valid configuration for a cluster.
+     * <p>
+     * Use Case: Initial setup of a new pipeline cluster before any steps are added.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should pass {@code PRODUCTION} validation.
+     * - Should pass {@code DRAFT} validation.
+     *
+     * @return A {@link PipelineClusterConfig} instance.
+     */
+    public static PipelineClusterConfig createClusterWithEmptyPipeline() {
+        PipelineConfig emptyPipeline = new PipelineConfig(
+                "empty-pipeline",
+                Collections.emptyMap()
+        );
+
+        PipelineGraphConfig graphConfig = new PipelineGraphConfig(
+                Map.of("empty-pipeline", emptyPipeline)
+        );
+
+        return new PipelineClusterConfig(
+                "default-cluster",
+                graphConfig,
+                null,
+                "empty-pipeline",
+                Collections.emptySet(),
+                Collections.emptySet()
         );
     }
 
@@ -56,6 +88,25 @@ public class MockPipelineGenerator {
         return new PipelineConfig("invalid-pipeline-with-schema-violation", Map.of(
                 "invalid-step", invalidStep
         ));
+    }
+
+    /**
+     * Creates a pipeline with a name that violates the naming convention (contains a dot).
+     * This should be rejected by all validation modes.
+     * <p>
+     * Use Case: Testing the NamingConventionValidator for pipeline names.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DRAFT} validation.
+     *
+     * @return A {@link PipelineConfig} instance with an invalid name.
+     */
+    public static PipelineConfig createPipelineWithNamingViolation() {
+        return new PipelineConfig(
+                "invalid.pipeline.name",
+                Collections.emptyMap()
+        );
     }
 
     private static PipelineStepConfig createStep(String name, StepType type, ProcessorInfo processorInfo,
