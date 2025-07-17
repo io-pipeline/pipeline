@@ -1,6 +1,6 @@
 package io.pipeline.model.validation.validators;
 
-import com.rokkon.pipeline.validation.validators.KafkaTopicNamingValidatorTestBase;
+import io.pipeline.validation.validators.KafkaTopicNamingValidatorTestBase;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 

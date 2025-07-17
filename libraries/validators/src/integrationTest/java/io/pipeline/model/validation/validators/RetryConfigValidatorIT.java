@@ -1,6 +1,6 @@
 package io.pipeline.model.validation.validators;
 
-import com.rokkon.pipeline.validation.validators.RetryConfigValidatorTestBase;
+import io.pipeline.validation.validators.RetryConfigValidatorTestBase;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 
 @QuarkusIntegrationTest

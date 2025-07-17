@@ -1,6 +1,6 @@
 package io.pipeline.model.validation.validators;
 
-import com.rokkon.pipeline.validation.validators.OutputRoutingValidatorTestBase;
+import io.pipeline.validation.validators.OutputRoutingValidatorTestBase;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 
 @QuarkusIntegrationTest

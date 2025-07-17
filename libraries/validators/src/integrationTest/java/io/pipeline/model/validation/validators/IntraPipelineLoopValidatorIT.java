@@ -1,6 +1,6 @@
 package io.pipeline.model.validation.validators;
 
-import com.rokkon.pipeline.validation.validators.IntraPipelineLoopValidatorTestBase;
+import io.pipeline.validation.validators.IntraPipelineLoopValidatorTestBase;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 
