@@ -25,7 +25,7 @@
           "type": "string"
         },
         "stepType": {
-          "enum": ["INITIAL_PIPELINE", "PIPELINE", "SINK"]
+          "enum": ["CONNECTOR", "PIPELINE", "SINK"]
         }
       },
       "required": ["stepName", "stepType"]

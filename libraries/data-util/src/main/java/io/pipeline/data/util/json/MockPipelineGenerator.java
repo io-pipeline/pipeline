@@ -13,6 +13,17 @@ import java.util.UUID;
 
 public class MockPipelineGenerator {
 
+    public static PipelineClusterConfig createSimpleClusterOnlySetup() {
+        return new PipelineClusterConfig(
+                "default-cluster",
+                null,  // pipelineGraphConfig can be null
+                null,  // pipelineModuleMap can be null
+                null,  // defaultPipelineName can be null
+                Collections.emptySet(),  // allowedKafkaTopics
+                Collections.emptySet()   // allowedGrpcServices
+        );
+    }
+
     public static PipelineConfig createSimpleLinearPipeline() {
         ProcessorInfo processorInfo1 = new ProcessorInfo(null, "bean-step1");
         ProcessorInfo processorInfo2 = new ProcessorInfo(null, "bean-step2");
@@ -28,8 +39,23 @@ public class MockPipelineGenerator {
     }
 
     public static PipelineConfig createPipelineWithSchemaViolation() {
-        // This pipeline is missing the 'name' property, which is required by the schema.
-        return new PipelineConfig(null, Collections.emptyMap());
+        // Create a pipeline with a valid name but invalid step configuration
+        // This will pass constructor validation but fail schema validation
+        PipelineStepConfig invalidStep = new PipelineStepConfig(
+                null, // null name is invalid according to schema
+                StepType.CONNECTOR,
+                "Invalid Step",
+                null,
+                new JsonConfigOptions(JsonNodeFactory.instance.objectNode(), Collections.emptyMap()),
+                Collections.emptyList(),
+                Collections.emptyMap(),
+                0, 1000L, 30000L, 2.0, null,
+                new ProcessorInfo(null, "bean-invalid")
+        );
+        
+        return new PipelineConfig("invalid-pipeline-with-schema-violation", Map.of(
+                "invalid-step", invalidStep
+        ));
     }
 
     private static PipelineStepConfig createStep(String name, StepType type, ProcessorInfo processorInfo,
