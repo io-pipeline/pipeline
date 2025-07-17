@@ -28,3 +28,24 @@ subprojects {
         }
     }
 }
+
+// Skip grpc-stubs compilation and tests unless clean is involved
+// This prevents the 10+ second gRPC stub regeneration during normal test runs
+gradle.taskGraph.whenReady { taskGraph ->
+    boolean isCleanBuild = taskGraph.hasTask(':clean') || 
+                          taskGraph.allTasks.any { it.name.contains('clean') }
+    boolean forceGrpcGeneration = project.hasProperty('forceGrpcGeneration')
+    
+    if (!isCleanBuild && !forceGrpcGeneration) {
+        // Skip grpc-stubs tasks that would trigger compilation or code generation
+        taskGraph.allTasks.each { task ->
+            if (task.project.path == ':grpc-stubs' && 
+                (task.name.contains('compile') || task.name.contains('test') || task.name.contains('build') ||
+                 task.name.startsWith('quarkusGenerate') || task.name.contains('classes') || 
+                 task.name.contains('resources') || task.name.contains('jar'))) {
+                task.enabled = false
+                println "🚀 Skipping ${task.path} for faster test runs (use clean or -PforceGrpcGeneration=true to include)"
+            }
+        }
+    }
+}

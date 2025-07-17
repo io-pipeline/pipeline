@@ -37,6 +37,24 @@ tasks.compileTestJava {
     dependsOn tasks.jandex
 }
 
+// Task to force gRPC code generation
+task generateGrpcStubs {
+    description = "Force regeneration of gRPC stubs"
+    group = "build"
+    
+    doLast {
+        // Clear build directory to force regeneration
+        delete file("$buildDir/classes")
+        delete file("$buildDir/generated-sources")
+        
+        // Set flag to force generation
+        project.ext.forceGrpcGeneration = true
+        
+        // Run compilation with forced generation
+        tasks.compileJava.execute()
+    }
+}
+
 test {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
 }
