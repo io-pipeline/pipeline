@@ -13,6 +13,8 @@ import io.pipeline.api.validation.PipelineConfigValidator;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
 import io.pipeline.data.util.json.MockPipelineGenerator;
+import io.pipeline.model.validation.validators.field.FieldValidator;
+import io.pipeline.model.validation.validators.field.FieldValidatorRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -30,12 +32,15 @@ public class SchemaComplianceValidator implements PipelineConfigValidator {
     private final JsonSchema schema;
     private final ObjectMapper objectMapper;
     private final int maxRecursionDepth;
+    private final FieldValidatorRegistry validatorRegistry;
 
     @Inject
     public SchemaComplianceValidator(
             ObjectMapper objectMapper,
+            FieldValidatorRegistry validatorRegistry,
             @ConfigProperty(name = "pipeline.validation.max-recursion-depth", defaultValue = "2") int maxRecursionDepth) {
         this.objectMapper = objectMapper;
+        this.validatorRegistry = validatorRegistry;
         this.maxRecursionDepth = maxRecursionDepth;
         JsonSchemaFactory factory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7);
         InputStream schemaStream = getClass().getResourceAsStream("/pipeline-schema.json");
@@ -43,10 +48,11 @@ public class SchemaComplianceValidator implements PipelineConfigValidator {
     }
     
     // Constructor for testing with custom recursion depth
-    public SchemaComplianceValidator(ObjectMapper objectMapper, int maxRecursionDepth, JsonSchema schema) {
+    public SchemaComplianceValidator(ObjectMapper objectMapper, int maxRecursionDepth, JsonSchema schema, FieldValidatorRegistry validatorRegistry) {
         this.objectMapper = objectMapper;
         this.maxRecursionDepth = maxRecursionDepth;
         this.schema = schema;
+        this.validatorRegistry = validatorRegistry;
     }
 
     @Override
@@ -94,9 +100,30 @@ public class SchemaComplianceValidator implements PipelineConfigValidator {
         
         List<String> suggestions = new ArrayList<>();
         
-        // Check if this is a PipelineConfig that might need a cluster
-        if (validatable instanceof PipelineConfig pipelineConfig) {
-            // Check if any errors are related to missing cluster
+        // Get all applicable field validators for this validatable object
+        List<FieldValidator<?>> validators = validatorRegistry.getValidatorsFor(validatable);
+        
+        // Apply each validator and collect suggestions
+        for (FieldValidator<?> validator : validators) {
+            try {
+                // Use type erasure to our advantage here - we know the validator can handle this type
+                @SuppressWarnings("unchecked")
+                FieldValidator<PipelineConfigValidatable> typedValidator = (FieldValidator<PipelineConfigValidatable>) validator;
+                
+                // Apply the validator and collect suggestions
+                List<String> validatorSuggestions = typedValidator.validate(validatable, errors, currentDepth);
+                if (!validatorSuggestions.isEmpty()) {
+                    suggestions.addAll(validatorSuggestions);
+                }
+            } catch (Exception e) {
+                // Ignore errors in the validation process
+                suggestions.add("- Error applying validator " + validator.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }
+        
+        // If no field validators provided suggestions, fall back to the legacy approach
+        if (suggestions.isEmpty() && validatable instanceof PipelineConfig pipelineConfig) {
+            // Legacy cluster validation logic
             boolean missingCluster = errors.stream()
                     .anyMatch(error -> error.getMessage().contains("cluster"));
                     
@@ -137,8 +164,6 @@ public class SchemaComplianceValidator implements PipelineConfigValidator {
                     suggestions.add("- Error simulating fix: " + e.getMessage());
                 }
             }
-            
-            // Add other types of fixes here with similar recursion pattern
         }
         
         return suggestions;

@@ -9,6 +9,10 @@ import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.data.util.json.MockPipelineGenerator;
 import io.pipeline.model.validation.validators.SchemaComplianceValidator;
+import io.pipeline.model.validation.validators.field.FieldValidator;
+import io.pipeline.model.validation.validators.field.FieldValidatorRegistry;
+
+import java.util.Collections;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -46,10 +50,13 @@ class SchemaComplianceValidatorTest {
         InputStream schemaStream = getClass().getResourceAsStream("/pipeline-schema.json");
         JsonSchema schema = factory.getSchema(schemaStream);
         
+        // Create an empty FieldValidatorRegistry for testing
+        FieldValidatorRegistry emptyRegistry = new FieldValidatorRegistry(Collections.emptyList());
+        
         // Create validators with different recursion depths
-        SchemaComplianceValidator zeroDepthValidator = new SchemaComplianceValidator(objectMapper, 0, schema);
-        SchemaComplianceValidator oneDepthValidator = new SchemaComplianceValidator(objectMapper, 1, schema);
-        SchemaComplianceValidator twoDepthValidator = new SchemaComplianceValidator(objectMapper, 2, schema);
+        SchemaComplianceValidator zeroDepthValidator = new SchemaComplianceValidator(objectMapper, 0, schema, emptyRegistry);
+        SchemaComplianceValidator oneDepthValidator = new SchemaComplianceValidator(objectMapper, 1, schema, emptyRegistry);
+        SchemaComplianceValidator twoDepthValidator = new SchemaComplianceValidator(objectMapper, 2, schema, emptyRegistry);
         
         // Just verify that they can be created without errors
         assertNotNull(zeroDepthValidator);
