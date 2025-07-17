@@ -1,0 +1,30 @@
+plugins {
+    id 'base'
+    alias(libs.plugins.quarkus) apply false
+    alias(libs.plugins.jandex) apply false
+}
+
+allprojects {
+    group = 'io.pipeline'
+    version = '1.0.0-SNAPSHOT'
+    
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+}
+
+// Configure Java projects
+subprojects {
+    pluginManager.withPlugin('java') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+        
+        test {
+            systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+            useJUnitPlatform()
+        }
+    }
+}

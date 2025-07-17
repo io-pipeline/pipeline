@@ -1,0 +1,34 @@
+plugins {
+    id 'java-platform'
+    id 'maven-publish'
+}
+
+description = 'Pipeline BOM - Bill of Materials'
+
+javaPlatform {
+    allowDependencies()
+}
+
+dependencies {
+    // Quarkus BOM - This ALWAYS wins
+    api platform(libs.quarkus.bom)
+    
+    // Any additional constraints for libraries not managed by Quarkus
+    // These will only apply if Quarkus doesn't already manage them
+    constraints {
+        // Our internal libraries will be added here
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.javaPlatform
+            artifactId = 'pipeline-bom'
+            pom {
+                name.set('Pipeline BOM')
+                description.set('Bill of Materials for Pipeline project')
+            }
+        }
+    }
+}

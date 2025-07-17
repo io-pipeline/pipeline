@@ -1,0 +1,42 @@
+[versions]
+quarkus = "3.24.3"
+jandex-plugin = "2.2.0-SNAPSHOT"
+
+[libraries]
+# Quarkus BOM
+quarkus-bom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
+
+# Quarkus extensions
+quarkus-grpc = { module = "io.quarkus:quarkus-grpc" }
+quarkus-mutiny = { module = "io.quarkus:quarkus-mutiny" }
+quarkus-arc = { module = "io.quarkus:quarkus-arc" }
+quarkus-rest = { module = "io.quarkus:quarkus-rest" }
+quarkus-rest-jackson = { module = "io.quarkus:quarkus-rest-jackson" }
+quarkus-jackson = { module = "io.quarkus:quarkus-jackson" }
+quarkus-consul-config = { module = "io.quarkus:quarkus-consul-config" }
+quarkus-micrometer = { module = "io.quarkus:quarkus-micrometer" }
+quarkus-micrometer-registry-prometheus = { module = "io.quarkus:quarkus-micrometer-registry-prometheus" }
+
+# gRPC and Protobuf
+protobuf-java = { module = "com.google.protobuf:protobuf-java" }
+protobuf-java-util = { module = "com.google.protobuf:protobuf-java-util" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf" }
+grpc-stub = { module = "io.grpc:grpc-stub" }
+proto-google-common-protos = { module = "com.google.api.grpc:proto-google-common-protos" }
+
+# Data processing
+opencsv = { module = "com.opencsv:opencsv", version = "5.11.2" }
+
+# Testing
+quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }
+rest-assured = { module = "io.rest-assured:rest-assured" }
+
+[plugins]
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }
+jandex = { id = "org.kordamp.gradle.jandex", version.ref = "jandex-plugin" }
+
+[bundles]
+# Common Quarkus dependencies
+quarkus-common = ["quarkus-arc", "quarkus-mutiny"]
+quarkus-grpc = ["quarkus-grpc"]
+quarkus-rest = ["quarkus-rest", "quarkus-rest-jackson"]

@@ -1,0 +1,31 @@
+pluginManagement {
+    repositories {
+        mavenLocal()
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'pipeline'
+
+include ':bom'
+include ':grpc-stubs'
+
+// Applications
+// include ':applications:your-app'
+
+// Libraries  
+include ':libraries:pipeline-api'
+include ':libraries:pipeline-common'
+include ':libraries:testing-commons'
+include ':libraries:data-util'
+
+// Modules
+// include ':modules:your-module'
+
+// Build cache for faster builds
+buildCache {
+    local {
+        enabled = true
+    }
+}

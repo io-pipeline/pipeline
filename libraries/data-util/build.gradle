@@ -1,0 +1,42 @@
+plugins {
+    id 'java-library'
+    alias(libs.plugins.quarkus)
+    alias(libs.plugins.jandex)
+}
+
+dependencies {
+    implementation platform(project(':bom'))
+    
+    // Quarkus dependencies
+    implementation libs.bundles.quarkus.common
+    implementation libs.quarkus.jackson
+    
+    // Internal dependencies
+    implementation project(':grpc-stubs')
+    implementation project(':libraries:pipeline-api')
+    implementation project(':libraries:pipeline-common')
+    
+    // Protobuf
+    implementation libs.protobuf.java
+    implementation libs.protobuf.java.util
+    
+    // CSV parsing
+    implementation libs.opencsv
+    
+    // Testing
+    testImplementation libs.quarkus.junit5
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+}

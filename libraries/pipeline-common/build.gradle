@@ -1,0 +1,35 @@
+plugins {
+    id 'java-library'
+    alias(libs.plugins.quarkus)
+    alias(libs.plugins.jandex)
+}
+
+dependencies {
+    implementation platform(project(':bom'))
+    
+    // Quarkus dependencies
+    implementation libs.bundles.quarkus.common
+    implementation libs.quarkus.jackson
+    
+    // Protobuf
+    implementation libs.protobuf.java
+    
+    // No internal dependencies - this is a base library
+    
+    // Testing
+    testImplementation libs.quarkus.junit5
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+}
