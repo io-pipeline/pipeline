@@ -59,12 +59,13 @@ public class PipelineValidatorProducer {
     /**
      * Produces a validator for PRODUCTION mode.
      * All validators run with strict validation (warnings become errors).
+     * Returns the concrete implementation type for direct injection.
      */
     @Produces
     @Composite
     @Named("productionPipelineValidator")
     @ApplicationScoped
-    public PipelineConfigValidator produceProductionPipelineConfigValidator() {
+    public ProductionPipelineConfigValidator produceProductionPipelineConfigValidator() {
         List<ConfigValidator<PipelineConfigValidatable>> validatorList = new ArrayList<>();
         
         // Add all validators - CompositeValidator will filter based on supportedModes()
@@ -84,14 +85,27 @@ public class PipelineValidatorProducer {
     }
     
     /**
+     * Produces a validator for PRODUCTION mode as the interface type.
+     * This method is for backward compatibility and generic injection.
+     */
+    @Produces
+    @Composite
+    @Named("productionPipelineValidatorInterface")
+    @ApplicationScoped
+    public PipelineConfigValidator produceProductionPipelineConfigValidatorInterface() {
+        return produceProductionPipelineConfigValidator();
+    }
+    
+    /**
      * Produces a validator for DESIGN mode.
      * Most validators run except highly technical ones, warnings allowed.
+     * Returns the concrete implementation type for direct injection.
      */
     @Produces
     @Composite
     @Named("designPipelineValidator")
     @ApplicationScoped
-    public PipelineConfigValidator produceDesignPipelineConfigValidator() {
+    public DesignPipelineConfigValidator produceDesignPipelineConfigValidator() {
         List<ConfigValidator<PipelineConfigValidatable>> validatorList = new ArrayList<>();
         
         // Add all validators - CompositeValidator will filter based on supportedModes()
@@ -111,14 +125,27 @@ public class PipelineValidatorProducer {
     }
     
     /**
+     * Produces a validator for DESIGN mode as the interface type.
+     * This method is for backward compatibility and generic injection.
+     */
+    @Produces
+    @Composite
+    @Named("designPipelineValidatorInterface")
+    @ApplicationScoped
+    public PipelineConfigValidator produceDesignPipelineConfigValidatorInterface() {
+        return produceDesignPipelineConfigValidator();
+    }
+    
+    /**
      * Produces a validator for TESTING mode.
      * Only essential validators run, many warnings ignored.
+     * Returns the concrete implementation type for direct injection.
      */
     @Produces
     @Composite
     @Named("testingPipelineValidator")
     @ApplicationScoped
-    public PipelineConfigValidator produceTestingPipelineConfigValidator() {
+    public TestingPipelineConfigValidator produceTestingPipelineConfigValidator() {
         List<ConfigValidator<PipelineConfigValidatable>> validatorList = new ArrayList<>();
         
         // Add all validators - CompositeValidator will filter based on supportedModes()
@@ -135,5 +162,17 @@ public class PipelineValidatorProducer {
         
         // Create and return a concrete implementation for TESTING mode
         return new TestingPipelineConfigValidator(validatorList);
+    }
+    
+    /**
+     * Produces a validator for TESTING mode as the interface type.
+     * This method is for backward compatibility and generic injection.
+     */
+    @Produces
+    @Composite
+    @Named("testingPipelineValidatorInterface")
+    @ApplicationScoped
+    public PipelineConfigValidator produceTestingPipelineConfigValidatorInterface() {
+        return produceTestingPipelineConfigValidator();
     }
 }
