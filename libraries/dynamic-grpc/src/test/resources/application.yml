@@ -1,7 +1,11 @@
 quarkus:
+  application:
+    name: dynamic-grpc
   generate-code:
     grpc:
       scan-for-proto: none
+      server:
+        use-separate-server: false
   
   # Test configuration
   test:

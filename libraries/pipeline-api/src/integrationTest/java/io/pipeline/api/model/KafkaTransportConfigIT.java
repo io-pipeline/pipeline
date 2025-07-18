@@ -14,10 +14,11 @@ public class KafkaTransportConfigIT extends KafkaTransportConfigTestBase {
     private final ObjectMapper objectMapper;
     
     public KafkaTransportConfigIT() {
-        this.objectMapper = new ObjectMapper();
-        // Apply same configuration as JsonOrderingCustomizer
-        this.objectMapper.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
-        this.objectMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+        objectMapper = MapperFactory.getObjectMapper();
+//        this.objectMapper = new ObjectMapper();
+//        // Apply same configuration as JsonOrderingCustomizer
+//        this.objectMapper.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+//        this.objectMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
     
     @Override

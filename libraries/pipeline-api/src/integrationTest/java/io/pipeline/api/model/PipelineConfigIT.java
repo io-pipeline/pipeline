@@ -13,11 +13,8 @@ public class PipelineConfigIT extends PipelineConfigTestBase {
 
     private final ObjectMapper objectMapper;
     
-    public PipelineConfigIT() {
-        this.objectMapper = new ObjectMapper();
-        // Apply same configuration as JsonOrderingCustomizer
-        this.objectMapper.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
-        this.objectMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+    public PipelineConfigIT(){
+        objectMapper = MapperFactory.getObjectMapper();
     }
     
     @Override

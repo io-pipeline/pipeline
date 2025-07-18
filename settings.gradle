@@ -20,6 +20,7 @@ include ':libraries:pipeline-common'
 include ':libraries:testing-commons'
 include ':libraries:data-util'
 include ':libraries:validators'
+include ':libraries:dynamic-grpc'
 // Modules
 // include ':modules:your-module'
 

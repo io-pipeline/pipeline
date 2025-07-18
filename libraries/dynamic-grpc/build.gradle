@@ -1,0 +1,68 @@
+plugins {
+    id 'java-library'
+    id 'io.quarkus'
+    id 'org.kordamp.gradle.jandex' version '2.2.0-SNAPSHOT'
+}
+
+group = 'com.rokkon.pipeline'
+version = '1.0.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'io.quarkus:quarkus-grpc'
+    // Library BOM provides gRPC code generation without server components
+    implementation platform(project(':bom'))
+    
+    // --- Core dependencies ---
+    implementation 'io.grpc:grpc-services'
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-vertx'
+    
+    // --- Service Discovery ---
+    implementation 'io.quarkus:quarkus-smallrye-stork'
+    implementation 'io.smallrye.stork:stork-service-discovery-consul'
+    implementation 'io.smallrye.stork:stork-configuration-generator'
+    
+    // --- Consul Client ---
+    implementation 'io.vertx:vertx-consul-client'
+    implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-consul-client'
+    
+    // --- Caching ---
+    implementation 'io.quarkus:quarkus-cache'
+    
+    // --- Commons dependencies ---
+    implementation project(':grpc-stubs')
+    implementation project(':libraries:pipeline-api')
+    
+    // --- Testing ---
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.quarkus:quarkus-junit5-mockito'
+    testImplementation 'io.rest-assured:rest-assured'
+    testImplementation 'org.assertj:assertj-core:3.24.2'
+    testImplementation 'org.awaitility:awaitility:4.2.0'
+    testImplementation 'org.testcontainers:consul:1.19.0'
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.0'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    systemProperty 'java.util.logging.manager', 'org.jboss.logmanager.LogManager'
+    useJUnitPlatform()
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+    dependsOn tasks.named('compileQuarkusGeneratedSourcesJava')
+}
+
+compileTestJava {
+    dependsOn tasks.named('jandex')
+}
