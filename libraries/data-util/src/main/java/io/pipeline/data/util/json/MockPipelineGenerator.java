@@ -74,14 +74,15 @@ public class MockPipelineGenerator {
         // Create a pipeline with a valid name but invalid step configuration
         // This will pass constructor validation but fail schema validation
         PipelineStepConfig invalidStep = new PipelineStepConfig(
-                null, // null name is invalid according to schema
-                StepType.CONNECTOR,
-                "Invalid Step",
+                "invalid-step-name", // Valid name to avoid NullPointerException
+                StepType.SINK, // SINK steps don't require outputs
+                "", // Empty description is a schema violation
                 null,
                 new JsonConfigOptions(JsonNodeFactory.instance.objectNode(), Collections.emptyMap()),
                 Collections.emptyList(),
-                Collections.emptyMap(),
-                0, 1000L, 30000L, 2.0, null,
+                Collections.emptyMap(), // Empty outputs is valid for SINK steps
+                -1, // Negative maxRetries is a schema violation
+                1000L, 30000L, 2.0, null,
                 new ProcessorInfo(null, "bean-invalid")
         );
         
@@ -98,7 +99,8 @@ public class MockPipelineGenerator {
      * <p>
      * Expected Validation Outcome:
      * - Should FAIL {@code PRODUCTION} validation.
-     * - Should FAIL {@code DRAFT} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation (naming conventions relaxed).
      *
      * @return A {@link PipelineConfig} instance with an invalid name.
      */
@@ -106,6 +108,81 @@ public class MockPipelineGenerator {
         return new PipelineConfig(
                 "invalid.pipeline.name",
                 Collections.emptyMap()
+        );
+    }
+    
+    /**
+     * Creates a pipeline with incomplete processor information.
+     * The processor has a very short gRPC service name that violates validation rules.
+     * <p>
+     * Use Case: Testing the ProcessorInfoValidator across different validation modes.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation (processor info validation relaxed).
+     *
+     * @return A {@link PipelineConfig} instance with incomplete processor info.
+     */
+    public static PipelineConfig createPipelineWithIncompleteProcessorInfo() {
+        // Create a processor with a very short gRPC service name (less than 3 chars)
+        // This violates the ProcessorInfoValidator rules
+        ProcessorInfo invalidProcessorInfo = new ProcessorInfo("ab", null);
+        
+        PipelineStepConfig step = createStep(
+                "processor-step", 
+                StepType.PIPELINE, 
+                invalidProcessorInfo,
+                null, 
+                Collections.emptyMap()
+        );
+        
+        return new PipelineConfig(
+                "pipeline-with-incomplete-processor-info",
+                Map.of("processor-step", step)
+        );
+    }
+    
+    /**
+     * Creates a pipeline with configuration that generates warnings but not errors.
+     * This is useful for testing how different validation modes handle warnings.
+     * <p>
+     * Use Case: Testing warning handling across different validation modes.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation (warnings become errors).
+     * - Should PASS {@code DESIGN} validation (warnings allowed).
+     * - Should PASS {@code TESTING} validation (warnings ignored).
+     *
+     * @return A {@link PipelineConfig} instance that generates warnings.
+     */
+    public static PipelineConfig createPipelineWithWarnings() {
+        // Create a step with a very high retry count (generates warnings)
+        // Use a valid Java identifier for the bean name to avoid errors
+        ProcessorInfo processorInfo = new ProcessorInfo(null, "beanStep");
+        
+        // Create a SINK step with a high retry count and long timeout
+        // Using SINK type avoids the need for outputs, which can cause errors
+        // These values will generate warnings but not errors
+        PipelineStepConfig step = new PipelineStepConfig(
+                "warning-step", 
+                StepType.SINK, // SINK steps don't need outputs
+                "Step with warnings", 
+                null,
+                new JsonConfigOptions(JsonNodeFactory.instance.objectNode(), Collections.emptyMap()),
+                Collections.emptyList(), // No inputs - will generate a warning but not an error
+                Collections.emptyMap(), // No outputs - valid for SINK steps
+                20, // maxRetries > 10 generates a warning
+                30000L, // retryBackoffMs > 10000 generates a warning
+                600000L, // stepTimeoutMs > 300000 generates a warning
+                2.0, 
+                null,
+                processorInfo
+        );
+        
+        return new PipelineConfig(
+                "pipeline-with-warnings",
+                Map.of("warning-step", step)
         );
     }
 

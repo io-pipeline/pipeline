@@ -79,8 +79,8 @@ public class PipelineValidatorProducer {
         validatorList.add(intraPipelineLoopValidator);
         validatorList.add(stepTypeValidator);
         
-        // Create and return a concrete implementation with PRODUCTION mode
-        return new ModePipelineConfigValidator(validatorList, ValidationMode.PRODUCTION);
+        // Create and return a concrete implementation for PRODUCTION mode
+        return new ProductionPipelineConfigValidator(validatorList);
     }
     
     /**
@@ -106,8 +106,8 @@ public class PipelineValidatorProducer {
         validatorList.add(intraPipelineLoopValidator);
         validatorList.add(stepTypeValidator);
         
-        // Create and return a concrete implementation with DESIGN mode
-        return new ModePipelineConfigValidator(validatorList, ValidationMode.DESIGN);
+        // Create and return a concrete implementation for DESIGN mode
+        return new DesignPipelineConfigValidator(validatorList);
     }
     
     /**
@@ -133,7 +133,7 @@ public class PipelineValidatorProducer {
         validatorList.add(intraPipelineLoopValidator);
         validatorList.add(stepTypeValidator);
         
-        // Create and return a concrete implementation with TESTING mode
-        return new ModePipelineConfigValidator(validatorList, ValidationMode.TESTING);
+        // Create and return a concrete implementation for TESTING mode
+        return new TestingPipelineConfigValidator(validatorList);
     }
 }

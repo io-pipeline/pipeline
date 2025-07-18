@@ -1,7 +1,5 @@
-
 package io.pipeline.validation;
 
-import io.pipeline.api.model.PipelineClusterConfig;
 import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.validation.Composite;
 import io.pipeline.api.validation.PipelineConfigValidator;
@@ -10,16 +8,28 @@ import io.pipeline.data.util.json.MockPipelineGenerator;
 import io.pipeline.model.validation.validators.InterPipelineLoopValidator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests for the PRODUCTION validation mode.
+ * In PRODUCTION mode:
+ * - All validators run
+ * - All checks are strict (warnings become errors)
+ * - No incomplete configurations allowed
+ * - Full naming convention enforcement
+ * - Complete processor information required
+ * - Loop detection enforced
+ */
 @QuarkusTest
 public class ProductionValidationTest {
 
     @Inject
     @Composite
-    PipelineConfigValidator compositePipelineValidator;
+    @Named("productionPipelineValidator")
+    PipelineConfigValidator productionPipelineValidator;
 
     @Inject
     InterPipelineLoopValidator interPipelineLoopValidator;
@@ -30,33 +40,11 @@ public class ProductionValidationTest {
      */
     @Test
     void testEmptyClusterIsValidInProduction() {
-        // 1. Generate the configuration object
-        PipelineClusterConfig clusterConfig = MockPipelineGenerator.createClusterWithEmptyPipeline();
-
-        // 2. Validate the cluster-level configuration
-        ValidationResult clusterResult = interPipelineLoopValidator.validate(clusterConfig);
-        assertTrue(clusterResult.valid(), "Cluster-level validation should pass.");
-        // The placeholder validator currently returns a warning, so we check for that.
-        // When the validator is implemented, this should be changed to assertTrue(clusterResult.warnings().isEmpty());
-        assertFalse(clusterResult.warnings().isEmpty(), "Expected a warning from the placeholder InterPipelineLoopValidator.");
-        assertEquals(1, clusterResult.warnings().size());
-        assertEquals("Inter-pipeline loop detection is not yet implemented", clusterResult.warnings().get(0));
-
-
-        // 3. Validate each pipeline within the cluster
-        assertNotNull(clusterConfig.pipelineGraphConfig(), "PipelineGraphConfig should not be null.");
-        assertNotNull(clusterConfig.pipelineGraphConfig().pipelines(), "Pipelines map should not be null.");
-
-        for (PipelineConfig pipelineConfig : clusterConfig.pipelineGraphConfig().pipelines().values()) {
-            // The composite validator defaults to PRODUCTION mode.
-            ValidationResult pipelineResult = compositePipelineValidator.validate(pipelineConfig);
-
-            // An empty pipeline is valid and should have no errors or warnings.
-            // The IntraPipelineLoopValidator has a guard clause for empty pipelines.
-            assertTrue(pipelineResult.valid(), "Pipeline '" + pipelineConfig.name() + "' should be valid.");
-            assertTrue(pipelineResult.warnings().isEmpty(), "An empty pipeline should have no warnings.");
-            assertTrue(pipelineResult.errors().isEmpty(), "Pipeline '" + pipelineConfig.name() + "' should have no errors.");
-        }
+        ValidationTestHelper.testEmptyClusterIsValid(
+                productionPipelineValidator,
+                interPipelineLoopValidator,
+                "PRODUCTION"
+        );
     }
 
     /**
@@ -65,17 +53,45 @@ public class ProductionValidationTest {
      */
     @Test
     void testPipelineWithNamingViolationFailsInProduction() {
-        // 1. Generate the invalid configuration
-        PipelineConfig invalidConfig = MockPipelineGenerator.createPipelineWithNamingViolation();
+        ValidationTestHelper.testPipelineWithNamingViolation(
+                productionPipelineValidator,
+                "PRODUCTION",
+                true // Should fail in PRODUCTION mode
+        );
+    }
 
-        // 2. Validate in PRODUCTION mode
-        ValidationResult result = compositePipelineValidator.validate(invalidConfig);
+    /**
+     * Tests that a pipeline with incomplete processor information
+     * fails validation in PRODUCTION mode.
+     */
+    @Test
+    void testPipelineWithIncompleteProcessorInfoFailsInProduction() {
+        ValidationTestHelper.testPipelineWithIncompleteProcessorInfo(
+                productionPipelineValidator,
+                "PRODUCTION",
+                true // Should fail in PRODUCTION mode
+        );
+    }
 
-        // 3. Assert that validation fails and contains the correct error
-        assertFalse(result.valid(), "Validation should fail for a pipeline with a dot in its name.");
-        assertFalse(result.errors().isEmpty(), "Expected at least one validation error.");
-
-        String expectedError = "Pipeline name 'invalid.pipeline.name' cannot contain dots - dots are reserved as delimiters in topic naming convention";
-        assertTrue(result.errors().contains(expectedError), "The specific naming convention error should be reported.");
+    /**
+     * Tests that warnings are converted to errors in PRODUCTION mode.
+     * This is a key difference from DESIGN and TESTING modes.
+     */
+    @Test
+    void testWarningsConvertedToErrorsInProduction() {
+        // Create a pipeline with configuration that generates warnings but not errors
+        PipelineConfig config = MockPipelineGenerator.createPipelineWithWarnings();
+        
+        // Validate in PRODUCTION mode
+        ValidationResult result = productionPipelineValidator.validate(config);
+        
+        // In PRODUCTION mode, warnings should cause validation to fail
+        assertFalse(result.valid(), "Pipeline with warnings should fail validation in PRODUCTION mode");
+        
+        // Warnings should be converted to errors
+        assertFalse(result.errors().isEmpty(), "Pipeline should have errors in PRODUCTION mode");
+        
+        // Print errors for debugging
+        System.out.println("PRODUCTION mode errors: " + result.errors());
     }
 }

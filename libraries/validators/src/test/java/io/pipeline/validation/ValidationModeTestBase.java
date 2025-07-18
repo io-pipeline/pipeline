@@ -24,10 +24,16 @@ public abstract class ValidationModeTestBase {
     void testValidatorSupportsModes() {
         // Test that validators can declare supported modes
         ProcessorInfoValidator processorValidator = new ProcessorInfoValidator();
-        assertEquals(Collections.singleton(ValidationMode.PRODUCTION), processorValidator.supportedModes());
+        assertEquals(
+            Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN),
+            processorValidator.supportedModes()
+        );
 
         OutputRoutingValidator routingValidator = new OutputRoutingValidator();
-        assertEquals(Collections.singleton(ValidationMode.PRODUCTION), routingValidator.supportedModes());
+        assertEquals(
+            Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN),
+            routingValidator.supportedModes()
+        );
 
         RequiredFieldsValidator requiredValidator = new RequiredFieldsValidator();
         assertEquals(

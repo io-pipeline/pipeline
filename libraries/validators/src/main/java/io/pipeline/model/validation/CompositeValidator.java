@@ -6,6 +6,7 @@ import io.pipeline.common.validation.ValidationResultFactory;
 import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -106,6 +107,41 @@ public class CompositeValidator<T extends ConfigValidatable> implements ConfigVa
                 result = result.combine(ValidationResultFactory.failure(errorMessage));
             }
         }
+
+        LOG.infof("Before applying mode-specific behavior: mode=%s, valid=%s, errors=%s, warnings=%s", 
+            mode, result.valid(), result.errors(), result.warnings());
+            
+        // Apply mode-specific behavior to the final result
+        if (mode.isProduction()) {
+            // In PRODUCTION mode, warnings become errors
+            if (!result.warnings().isEmpty()) {
+                LOG.infof("Converting %d warnings to errors in PRODUCTION mode", result.warnings().size());
+                List<String> allErrors = new ArrayList<>(result.errors());
+                allErrors.addAll(result.warnings());
+                result = ValidationResultFactory.failure(allErrors, Collections.emptyList());
+            }
+        } else if (mode.isDesign()) {
+            // In DESIGN mode, warnings remain as warnings and don't cause validation to fail
+            if (!result.errors().isEmpty()) {
+                LOG.infof("DESIGN mode has %d errors: %s", result.errors().size(), result.errors());
+            }
+            if (!result.warnings().isEmpty()) {
+                LOG.infof("DESIGN mode has %d warnings: %s", result.warnings().size(), result.warnings());
+            }
+            
+            // If there are only warnings and no errors, the validation should pass
+            if (result.errors().isEmpty() && !result.warnings().isEmpty()) {
+                LOG.infof("DESIGN mode: Converting result with only warnings to valid result");
+                result = ValidationResultFactory.successWithWarnings(result.warnings());
+            }
+        } else if (mode.isTesting()) {
+            // In TESTING mode, warnings are ignored and many errors are downgraded to warnings
+            LOG.infof("TESTING mode has %d errors and %d warnings", 
+                result.errors().size(), result.warnings().size());
+        }
+        
+        LOG.infof("After applying mode-specific behavior: mode=%s, valid=%s, errors=%s, warnings=%s", 
+            mode, result.valid(), result.errors(), result.warnings());
 
         LOG.debugf("CompositeValidator final result: valid=%s, errors=%s, warnings=%s", 
             result.valid(), result.errors(), result.warnings());
