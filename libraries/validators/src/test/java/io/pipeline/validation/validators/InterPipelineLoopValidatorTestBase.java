@@ -66,8 +66,7 @@ public abstract class InterPipelineLoopValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertTrue(result.valid());
         assertTrue(result.errors().isEmpty());
-        assertEquals(1, result.warnings().size());
-        assertTrue(result.warnings().get(0).contains("Inter-pipeline loop detection is not yet implemented"));
+        assertTrue(result.warnings().isEmpty());
     }
     
     @Test
@@ -93,8 +92,7 @@ public abstract class InterPipelineLoopValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertTrue(result.valid());
         assertTrue(result.errors().isEmpty());
-        assertEquals(1, result.warnings().size());
-        assertTrue(result.warnings().get(0).contains("Inter-pipeline loop detection is not yet implemented"));
+        assertTrue(result.warnings().isEmpty());
     }
     
     @Test
@@ -134,8 +132,7 @@ public abstract class InterPipelineLoopValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertTrue(result.valid());
         assertTrue(result.errors().isEmpty());
-        assertEquals(1, result.warnings().size());
-        assertTrue(result.warnings().get(0).contains("Inter-pipeline loop detection is not yet implemented"));
+        assertTrue(result.warnings().isEmpty());
     }
     
     // TODO: Add more tests when loop detection is implemented

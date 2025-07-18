@@ -22,7 +22,7 @@ public abstract class OutputRoutingValidatorTestBase {
         ValidationResult result = getValidator().validate(null);
         
         assertFalse(result.valid());
-        assertThat(result.errors(), contains("Pipeline configuration or steps cannot be null"));
+        assertThat(result.errors(), contains("[OutputRoutingValidator] Pipeline configuration or steps cannot be null"));
         assertTrue(result.warnings().isEmpty());
     }
 
@@ -109,7 +109,7 @@ public abstract class OutputRoutingValidatorTestBase {
         
         assertFalse(result.valid());
         assertThat(result.errors(), contains(
-            "Step 'test-step' output 'default': Target step 'non-existent-step' does not exist in pipeline"
+            "[OutputRoutingValidator] Step 'test-step' output 'default': Target step 'non-existent-step' does not exist in pipeline"
         ));
         assertTrue(result.warnings().isEmpty());
     }
@@ -147,8 +147,8 @@ public abstract class OutputRoutingValidatorTestBase {
         
         assertFalse(result.valid());
         assertThat(result.errors(), containsInAnyOrder(
-            "Step 'sink-step': SINK steps should not have outputs",
-            "Step 'sink-step' output 'default': Target step 'another-step' does not exist in pipeline"
+            "[OutputRoutingValidator] Step 'sink-step': SINK steps should not have outputs",
+            "[OutputRoutingValidator] Step 'sink-step' output 'default': Target step 'another-step' does not exist in pipeline"
         ));
         assertTrue(result.warnings().isEmpty());
     }
@@ -179,7 +179,7 @@ public abstract class OutputRoutingValidatorTestBase {
         assertTrue(result.valid());
         assertTrue(result.errors().isEmpty());
         assertThat(result.warnings(), contains(
-            "Step 'test-step': No outputs defined for non-SINK step"
+            "[OutputRoutingValidator] Step 'test-step': No outputs defined for non-SINK step"
         ));
     }
 
@@ -276,7 +276,7 @@ public abstract class OutputRoutingValidatorTestBase {
         assertTrue(result.valid());
         assertTrue(result.errors().isEmpty());
         assertThat(result.warnings(), contains(
-            "Step 'test-step': Single output should be named 'default' for clarity"
+            "[OutputRoutingValidator] Step 'test-step': Single output should be named 'default' for clarity"
         ));
     }
 

@@ -60,4 +60,20 @@ public class TestingValidationTest {
                 false // Should pass
         );
     }
+
+    @Test
+    void testPipelineWithSingleStepNoRoutingPassesInTesting() {
+        ValidationTestHelper.testPipelineWithSingleStepNoRouting(
+                testingPipelineValidator,
+                "TESTING"
+        );
+    }
+
+    @Test
+    void testPipelineWithConnectorStepPassesInTesting() {
+        ValidationTestHelper.testPipelineWithConnectorStep(
+                testingPipelineValidator,
+                "TESTING"
+        );
+    }
 }

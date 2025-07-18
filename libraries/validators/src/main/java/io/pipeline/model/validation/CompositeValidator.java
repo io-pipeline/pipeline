@@ -71,18 +71,19 @@ public class CompositeValidator<T extends ConfigValidatable> implements ConfigVa
      * @return The combined validation result
      */
     public ValidationResult validate(T object, ValidationMode mode) {
-        LOG.debugf("CompositeValidator.validate called with %d validators in %s mode", validators.size(), mode);
+        LOG.info("CompositeValidator.validate called with " + validators.size() + " validators in " + mode + " mode");
         ValidationResult result = EmptyValidationResult.instance();
 
         for (ConfigValidator<T> validator : validators) {
+            String validatorName = validator.getValidatorName();
+            LOG.info("Executing validator: " + validatorName);
             // Check if this validator supports the current mode
             if (!validator.supportedModes().contains(mode)) {
-                LOG.debugf("Skipping validator %s - does not support %s mode", validator.getValidatorName(), mode);
+                LOG.info("Skipping validator " + validatorName + " - does not support " + mode + " mode");
                 continue;
             }
 
             try {
-                LOG.debugf("Running validator: %s", validator.getValidatorName());
                 ValidationResult validatorResult;
 
                 // Check if validator is mode-aware
@@ -92,15 +93,33 @@ public class CompositeValidator<T extends ConfigValidatable> implements ConfigVa
                     validatorResult = validator.validate(object);
                 }
 
-                LOG.debugf("Validator %s returned: valid=%s, errors=%s, warnings=%s", 
-                    validator.getValidatorName(), validatorResult.valid(), 
-                    validatorResult.errors(), validatorResult.warnings());
-                result = result.combine(validatorResult);
+                // Add validator name prefix to each error and warning for better context
+                List<String> prefixedErrors = new ArrayList<>();
+                for (String error : validatorResult.errors()) {
+                    prefixedErrors.add("[" + validatorName + "] " + error);
+                }
+                
+                List<String> prefixedWarnings = new ArrayList<>();
+                for (String warning : validatorResult.warnings()) {
+                    prefixedWarnings.add("[" + validatorName + "] " + warning);
+                }
+                
+                // Create a new validation result with prefixed messages
+                ValidationResult prefixedResult;
+                if (validatorResult.valid()) {
+                    prefixedResult = ValidationResultFactory.successWithWarnings(prefixedWarnings);
+                } else {
+                    prefixedResult = ValidationResultFactory.failure(prefixedErrors, prefixedWarnings);
+                }
+
+                LOG.info("Validator " + validatorName + " returned: valid=" + validatorResult.valid() + 
+                         ", errors=" + prefixedErrors + ", warnings=" + prefixedWarnings);
+                result = result.combine(prefixedResult);
             } catch (Exception e) {
                 // Log the error and add it to the validation result
                 String errorMessage = String.format(
-                    "Validator '%s' threw an exception: %s",
-                    validator.getValidatorName(),
+                    "[%s] Threw an exception: %s",
+                    validatorName,
                     e.getMessage()
                 );
                 LOG.error("Validator exception", e);
@@ -108,43 +127,7 @@ public class CompositeValidator<T extends ConfigValidatable> implements ConfigVa
             }
         }
 
-        LOG.infof("Before applying mode-specific behavior: mode=%s, valid=%s, errors=%s, warnings=%s", 
-            mode, result.valid(), result.errors(), result.warnings());
-            
-        // Apply mode-specific behavior to the final result
-        if (mode.isProduction()) {
-            // In PRODUCTION mode, warnings become errors
-            if (!result.warnings().isEmpty()) {
-                LOG.infof("Converting %d warnings to errors in PRODUCTION mode", result.warnings().size());
-                List<String> allErrors = new ArrayList<>(result.errors());
-                allErrors.addAll(result.warnings());
-                result = ValidationResultFactory.failure(allErrors, Collections.emptyList());
-            }
-        } else if (mode.isDesign()) {
-            // In DESIGN mode, warnings remain as warnings and don't cause validation to fail
-            if (!result.errors().isEmpty()) {
-                LOG.infof("DESIGN mode has %d errors: %s", result.errors().size(), result.errors());
-            }
-            if (!result.warnings().isEmpty()) {
-                LOG.infof("DESIGN mode has %d warnings: %s", result.warnings().size(), result.warnings());
-            }
-            
-            // If there are only warnings and no errors, the validation should pass
-            if (result.errors().isEmpty() && !result.warnings().isEmpty()) {
-                LOG.infof("DESIGN mode: Converting result with only warnings to valid result");
-                result = ValidationResultFactory.successWithWarnings(result.warnings());
-            }
-        } else if (mode.isTesting()) {
-            // In TESTING mode, warnings are ignored and many errors are downgraded to warnings
-            LOG.infof("TESTING mode has %d errors and %d warnings", 
-                result.errors().size(), result.warnings().size());
-        }
-        
-        LOG.infof("After applying mode-specific behavior: mode=%s, valid=%s, errors=%s, warnings=%s", 
-            mode, result.valid(), result.errors(), result.warnings());
-
-        LOG.debugf("CompositeValidator final result: valid=%s, errors=%s, warnings=%s", 
-            result.valid(), result.errors(), result.warnings());
+        LOG.info("CompositeValidator final result: valid=" + result.valid() + ", errors=" + result.errors() + ", warnings=" + result.warnings());
         return result;
     }
 

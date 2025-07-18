@@ -27,7 +27,7 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
         List<String> warnings = new ArrayList<>();
 
         if (config == null || config.pipelineSteps() == null) {
-            errors.add("Pipeline configuration or steps cannot be null");
+            errors.add("[" + getValidatorName() + "] Pipeline configuration or steps cannot be null");
             return ValidationResultFactory.failure(errors, warnings);
         }
 
@@ -54,12 +54,12 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
 
         // Check if step has outputs defined
         if (step.outputs().isEmpty() && step.stepType() != StepType.SINK) {
-            warnings.add(String.format("%s: No outputs defined for non-SINK step", prefix));
+            warnings.add(String.format("[%s] %s: No outputs defined for non-SINK step", getValidatorName(), prefix));
         }
 
         // SINK steps should not have outputs
         if (step.stepType() == StepType.SINK && !step.outputs().isEmpty()) {
-            errors.add(String.format("%s: SINK steps should not have outputs", prefix));
+            errors.add(String.format("[%s] %s: SINK steps should not have outputs", getValidatorName(), prefix));
         }
 
         // Validate each output
@@ -75,7 +75,7 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
 
         // Warn if only one output but it's not named "default"
         if (step.outputs().size() == 1 && !step.outputs().containsKey("default")) {
-            warnings.add(String.format("%s: Single output should be named 'default' for clarity", prefix));
+            warnings.add(String.format("[%s] %s: Single output should be named 'default' for clarity", getValidatorName(), prefix));
         }
     }
 
@@ -83,7 +83,7 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
                                PipelineStepConfig.OutputTarget output,
                                Set<String> allStepIds, List<String> errors, List<String> warnings) {
         if (output == null) {
-            errors.add(String.format("%s output '%s': Output target cannot be null", stepPrefix, outputName));
+            errors.add(String.format("[%s] %s output '%s': Output target cannot be null", getValidatorName(), stepPrefix, outputName));
             return;
         }
 
@@ -92,14 +92,14 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
         // Validate target step exists (if specified)
         if (!output.targetStepName().isEmpty()) {
             if (!allStepIds.contains(output.targetStepName())) {
-                errors.add(String.format("%s: Target step '%s' does not exist in pipeline", 
-                          outputPrefix, output.targetStepName()));
+                errors.add(String.format("[%s] %s: Target step '%s' does not exist in pipeline", 
+                          getValidatorName(), outputPrefix, output.targetStepName()));
             }
         }
 
         // Validate transport type
         if (output.transportType() == null) {
-            errors.add(String.format("%s: Transport type must be specified", outputPrefix));
+            errors.add(String.format("[%s] %s: Transport type must be specified", getValidatorName(), outputPrefix));
             return;
         }
 
@@ -107,27 +107,27 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
         switch (output.transportType()) {
             case KAFKA:
                 if (output.kafkaTransport() == null) {
-                    errors.add(String.format("%s: Kafka transport config required for KAFKA transport type", 
-                              outputPrefix));
+                    errors.add(String.format("[%s] %s: Kafka transport config required for KAFKA transport type", 
+                              getValidatorName(), outputPrefix));
                 } else {
                     validateKafkaTransport(outputPrefix, output.kafkaTransport(), errors, warnings);
                 }
                 if (output.grpcTransport() != null) {
-                    warnings.add(String.format("%s: gRPC config specified but transport type is KAFKA", 
-                                outputPrefix));
+                    warnings.add(String.format("[%s] %s: gRPC config specified but transport type is KAFKA", 
+                                getValidatorName(), outputPrefix));
                 }
                 break;
                 
             case GRPC:
                 if (output.grpcTransport() == null) {
-                    errors.add(String.format("%s: gRPC transport config required for GRPC transport type", 
-                              outputPrefix));
+                    errors.add(String.format("[%s] %s: gRPC transport config required for GRPC transport type", 
+                              getValidatorName(), outputPrefix));
                 } else {
                     validateGrpcTransport(outputPrefix, output.grpcTransport(), errors, warnings);
                 }
                 if (output.kafkaTransport() != null) {
-                    warnings.add(String.format("%s: Kafka config specified but transport type is GRPC", 
-                                outputPrefix));
+                    warnings.add(String.format("[%s] %s: Kafka config specified but transport type is GRPC", 
+                                getValidatorName(), outputPrefix));
                 }
                 break;
         }
@@ -136,23 +136,23 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
     private void validateKafkaTransport(String prefix, KafkaTransportConfig config,
                                       List<String> errors, List<String> warnings) {
         if (config.topic() == null || config.topic().isEmpty()) {
-            errors.add(String.format("%s: Kafka topic must be specified", prefix));
+            errors.add(String.format("[%s] %s: Kafka topic must be specified", getValidatorName(), prefix));
         }
 
         // Validate batch settings
         if (config.batchSize() <= 0) {
-            errors.add(String.format("%s: Batch size must be positive (was %d)", prefix, config.batchSize()));
+            errors.add(String.format("[%s] %s: Batch size must be positive (was %d)", getValidatorName(), prefix, config.batchSize()));
         }
 
         if (config.lingerMs() < 0) {
-            errors.add(String.format("%s: Linger ms cannot be negative (was %d)", prefix, config.lingerMs()));
+            errors.add(String.format("[%s] %s: Linger ms cannot be negative (was %d)", getValidatorName(), prefix, config.lingerMs()));
         }
     }
 
     private void validateGrpcTransport(String prefix, GrpcTransportConfig config,
                                      List<String> errors, List<String> warnings) {
         if (config.serviceName() == null || config.serviceName().isEmpty()) {
-            errors.add(String.format("%s: gRPC service name must be specified", prefix));
+            errors.add(String.format("[%s] %s: gRPC service name must be specified", getValidatorName(), prefix));
         }
 
         // GrpcTransportConfig only has serviceName and grpcClientProperties
@@ -162,10 +162,10 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
             try {
                 long timeout = Long.parseLong(timeoutStr);
                 if (timeout <= 0) {
-                    errors.add(String.format("%s: Timeout must be positive (was %s ms)", prefix, timeoutStr));
+                    errors.add(String.format("[%s] %s: Timeout must be positive (was %s ms)", getValidatorName(), prefix, timeoutStr));
                 }
             } catch (NumberFormatException e) {
-                errors.add(String.format("%s: Timeout must be a valid number (was '%s')", prefix, timeoutStr));
+                errors.add(String.format("[%s] %s: Timeout must be a valid number (was '%s')", getValidatorName(), prefix, timeoutStr));
             }
         }
     }
@@ -175,8 +175,8 @@ public class OutputRoutingValidator implements PipelineConfigValidator {
         Set<String> lowerCaseNames = new HashSet<>();
         for (String outputName : step.outputs().keySet()) {
             if (!lowerCaseNames.add(outputName.toLowerCase())) {
-                errors.add(String.format("%s: Duplicate output name '%s' (case-insensitive)", 
-                          prefix, outputName));
+                errors.add(String.format("[%s] %s: Duplicate output name '%s' (case-insensitive)", 
+                          getValidatorName(), prefix, outputName));
             }
         }
     }

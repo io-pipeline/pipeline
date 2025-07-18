@@ -142,6 +142,89 @@ public class MockPipelineGenerator {
                 Map.of("processor-step", step)
         );
     }
+
+    /**
+     * Creates a pipeline with a single, unconnected step.
+     * This should produce warnings but not fail validation, even in PRODUCTION mode.
+     * <p>
+     * Use Case: Testing validation for a minimal, but valid, pipeline step.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should PASS {@code PRODUCTION} validation (with warnings).
+     * - Should PASS {@code DESIGN} validation (with warnings).
+     * - Should PASS {@code TESTING} validation (with fewer or no warnings).
+     *
+     * @return A {@link PipelineConfig} instance.
+     */
+    public static PipelineConfig createPipelineWithSingleStepNoRouting() {
+        ProcessorInfo processorInfo = new ProcessorInfo("echo-module", null);
+
+        PipelineStepConfig step = createStep(
+                "echo-step",
+                StepType.PIPELINE,
+                processorInfo,
+                Collections.emptyList(), // No inputs
+                Collections.emptyMap()   // No outputs
+        );
+
+        return new PipelineConfig(
+                "single-step-pipeline",
+                Map.of("echo-step", step)
+        );
+    }
+
+    /**
+     * Creates a pipeline with a single, valid CONNECTOR step.
+     * This represents the first step in a minimal end-to-end pipeline.
+     * <p>
+     * Use Case: Testing validation for a pipeline with a valid entry point.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should PASS all validation modes, but will generate a warning about a missing SINK.
+     *
+     * @return A {@link PipelineConfig} instance.
+     */
+    public static PipelineConfig createPipelineWithConnectorStep() {
+        // ProcessorInfo must have either grpcServiceName or internalProcessorBeanName, not both
+        // For CONNECTOR steps, use grpcServiceName (external service)
+        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector", null);
+        // For SINK steps, use internalProcessorBeanName (internal bean)
+        ProcessorInfo sinkProcessor = new ProcessorInfo(null, "opensearchSinkBean");
+
+        // Fix topic naming to follow convention: '{pipeline-name}.{step-name}.input'
+        String pipelineName = "pipeline-with-connector-and-sink";
+        String topicName = pipelineName + ".gutenberg-pg-connector.input";
+        
+        KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(topicName, "pipedocId", "snappy", 16384, 10, Map.of());
+        OutputTarget output = new OutputTarget("opensearch-sink-step", TransportType.KAFKA, null, kafkaTransport);
+
+        PipelineStepConfig connectorStep = createStep(
+                "gutenberg-pg-connector",
+                StepType.CONNECTOR,
+                connectorProcessor,
+                Collections.emptyList(),
+                Map.of("default", output)
+        );
+
+        // Fix consumer group name to follow pattern: '{pipeline-name}.consumer-group'
+        String consumerGroupName = pipelineName + ".consumer-group";
+        
+        PipelineStepConfig sinkStep = createStep(
+                "opensearch-sink-step",
+                StepType.SINK,
+                sinkProcessor,
+                List.of(new KafkaInputDefinition(List.of(topicName), consumerGroupName, Map.of())),
+                Collections.emptyMap()
+        );
+
+        return new PipelineConfig(
+                pipelineName,
+                Map.of(
+                        "gutenberg-pg-connector", connectorStep,
+                        "opensearch-sink-step", sinkStep
+                )
+        );
+    }
     
     /**
      * Creates a pipeline with configuration that generates warnings but not errors.
@@ -194,7 +277,7 @@ public class MockPipelineGenerator {
                 new JsonConfigOptions(JsonNodeFactory.instance.objectNode(), Collections.emptyMap()),
                 kafkaInputs != null ? kafkaInputs : Collections.emptyList(),
                 outputs != null ? outputs : Collections.emptyMap(),
-                0, 1000L, 30000L, 2.0, null,
+                3, 1000L, 30000L, 2.0, null, // Set maxRetries to 3 to enable retries
                 processorInfo
         );
     }

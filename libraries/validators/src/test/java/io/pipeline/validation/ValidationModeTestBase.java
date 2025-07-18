@@ -55,7 +55,7 @@ public abstract class ValidationModeTestBase {
         ValidationResult productionResult = getValidator().validate(config, ValidationMode.PRODUCTION);
         assertFalse(productionResult.valid());
         assertTrue(productionResult.hasErrors());
-        assertTrue(productionResult.errors().contains("Production-only check failed"));
+        assertTrue(productionResult.errors().contains("[ProductionOnlyValidator] Production-only check failed"));
     }
     
     @Test

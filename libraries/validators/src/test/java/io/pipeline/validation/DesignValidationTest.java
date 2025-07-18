@@ -60,4 +60,20 @@ public class DesignValidationTest {
                 true // Should fail
         );
     }
+
+    @Test
+    void testPipelineWithSingleStepNoRoutingPassesInDesign() {
+        ValidationTestHelper.testPipelineWithSingleStepNoRouting(
+                designPipelineValidator,
+                "DESIGN"
+        );
+    }
+
+    @Test
+    void testPipelineWithConnectorStepPassesInDesign() {
+        ValidationTestHelper.testPipelineWithConnectorStep(
+                designPipelineValidator,
+                "DESIGN"
+        );
+    }
 }

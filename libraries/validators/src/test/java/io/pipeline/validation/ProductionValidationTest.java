@@ -60,4 +60,20 @@ public class ProductionValidationTest {
                 true // Should fail
         );
     }
+
+    @Test
+    void testPipelineWithSingleStepNoRoutingFailsInProduction() {
+        ValidationTestHelper.testPipelineWithSingleStepNoRouting(
+                productionPipelineValidator,
+                "PRODUCTION"
+        );
+    }
+
+    @Test
+    void testPipelineWithConnectorStepPassesInProduction() {
+        ValidationTestHelper.testPipelineWithConnectorStep(
+                productionPipelineValidator,
+                "PRODUCTION"
+        );
+    }
 }

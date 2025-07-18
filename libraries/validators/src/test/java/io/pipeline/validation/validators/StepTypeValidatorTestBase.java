@@ -178,7 +178,7 @@ public abstract class StepTypeValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertThat(result.valid(), is(true));  // Now it's valid, just with warnings
         // We get warnings about missing CONNECTOR step plus warnings about steps without proper inputs/outputs
-        assertThat(result.warnings(), hasItem("Pipeline has no CONNECTOR step - data must come from external sources"));
+        assertThat(result.warnings(), hasItem("[StepTypeValidator] Pipeline has no CONNECTOR step - data must come from external sources"));
     }
     
     @Test
@@ -220,7 +220,7 @@ public abstract class StepTypeValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertThat(result.valid(), is(true));  // Now it's valid, just with warnings
         // We get warnings about missing SINK step plus warnings about steps without proper inputs/outputs
-        assertThat(result.warnings(), hasItem("Pipeline has no SINK step - ensure data has a destination"));
+        assertThat(result.warnings(), hasItem("[StepTypeValidator] Pipeline has no SINK step - ensure data has a destination"));
     }
     
     @Test
@@ -287,7 +287,7 @@ public abstract class StepTypeValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertThat(result.valid(), is(true));  // Now it's valid, just with warnings
         // We get warnings about multiple CONNECTOR steps
-        assertThat(result.warnings(), hasItem("Pipeline has multiple CONNECTOR steps (2) - consider if this is intended"));
+        assertThat(result.warnings(), hasItem("[StepTypeValidator] Pipeline has multiple CONNECTOR steps (2) - consider if this is intended"));
     }
     
     @Test
@@ -345,7 +345,7 @@ public abstract class StepTypeValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertThat(result.valid(), is(false));
         assertThat(result.errors(), hasSize(1));
-        assertThat(result.errors().getFirst(), containsString("Step 'reader': CONNECTOR steps should not have Kafka inputs"));
+        assertThat(result.errors().getFirst(), containsString("[StepTypeValidator] Step 'reader': CONNECTOR steps should not have Kafka inputs"));
     }
     
     @Test
@@ -385,7 +385,7 @@ public abstract class StepTypeValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertThat(result.valid(), is(false));
         assertThat(result.errors(), hasSize(1));
-        assertThat(result.errors().getFirst(), containsString("Step 'reader': CONNECTOR steps must have at least one output"));
+        assertThat(result.errors().getFirst(), containsString("[StepTypeValidator] Step 'reader': CONNECTOR steps must have at least one output"));
     }
     
     @Test
@@ -443,7 +443,7 @@ public abstract class StepTypeValidatorTestBase {
         ValidationResult result = getValidator().validate(config);
         assertThat(result.valid(), is(false));
         assertThat(result.errors(), hasSize(1));
-        assertThat(result.errors().getFirst(), containsString("Step 'writer': SINK steps should not have outputs"));
+        assertThat(result.errors().getFirst(), containsString("[StepTypeValidator] Step 'writer': SINK steps should not have outputs"));
     }
     
     @Test
@@ -496,7 +496,7 @@ public abstract class StepTypeValidatorTestBase {
         assertThat(result.valid(), is(true));
         assertThat(result.errors(), is(empty()));
         assertThat(result.warnings(), hasSize(1));
-        assertThat(result.warnings().getFirst(), containsString("Step 'writer': SINK steps typically have inputs to process"));
+        assertThat(result.warnings().getFirst(), containsString("[StepTypeValidator] Step 'writer': SINK steps typically have inputs to process"));
     }
     
     @Test
@@ -585,8 +585,8 @@ public abstract class StepTypeValidatorTestBase {
         assertThat(result.errors(), is(empty()));
         assertThat(result.warnings(), hasSize(2));
         assertThat(result.warnings(), containsInAnyOrder(
-            "Step 'processor1': PIPELINE steps typically have inputs",
-            "Step 'processor2': PIPELINE steps typically have outputs"
+            "[StepTypeValidator] Step 'processor1': PIPELINE steps typically have inputs",
+            "[StepTypeValidator] Step 'processor2': PIPELINE steps typically have outputs"
         ));
     }
 }

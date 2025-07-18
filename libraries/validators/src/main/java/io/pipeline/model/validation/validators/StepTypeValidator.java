@@ -58,15 +58,15 @@ public class StepTypeValidator implements PipelineConfigValidator {
         // Only warn about potentially incomplete pipelines
         if (pipelineConfig.pipelineSteps() != null && !pipelineConfig.pipelineSteps().isEmpty()) {
             if (initialPipelineCount == 0) {
-                warnings.add("Pipeline has no CONNECTOR step - data must come from external sources");
+                warnings.add("[" + getValidatorName() + "] Pipeline has no CONNECTOR step - data must come from external sources");
             }
             
             if (initialPipelineCount > 1) {
-                warnings.add("Pipeline has multiple CONNECTOR steps (" + initialPipelineCount + ") - consider if this is intended");
+                warnings.add("[" + getValidatorName() + "] Pipeline has multiple CONNECTOR steps (" + initialPipelineCount + ") - consider if this is intended");
             }
             
             if (sinkCount == 0) {
-                warnings.add("Pipeline has no SINK step - ensure data has a destination");
+                warnings.add("[" + getValidatorName() + "] Pipeline has no SINK step - ensure data has a destination");
             }
         }
         
@@ -88,35 +88,35 @@ public class StepTypeValidator implements PipelineConfigValidator {
             case CONNECTOR:
                 // Initial pipeline steps should not have Kafka inputs (they start the pipeline)
                 if (step.kafkaInputs() != null && !step.kafkaInputs().isEmpty()) {
-                    errors.add(stepPrefix + "CONNECTOR steps should not have Kafka inputs");
+                    errors.add("[" + getValidatorName() + "] " + stepPrefix + "CONNECTOR steps should not have Kafka inputs");
                 }
                 
                 // Initial pipeline steps must have outputs
                 if (step.outputs() == null || step.outputs().isEmpty()) {
-                    errors.add(stepPrefix + "CONNECTOR steps must have at least one output");
+                    errors.add("[" + getValidatorName() + "] " + stepPrefix + "CONNECTOR steps must have at least one output");
                 }
                 break;
                 
             case SINK:
                 // Sink steps should not have outputs (they end the pipeline)
                 if (step.outputs() != null && !step.outputs().isEmpty()) {
-                    errors.add(stepPrefix + "SINK steps should not have outputs");
+                    errors.add("[" + getValidatorName() + "] " + stepPrefix + "SINK steps should not have outputs");
                 }
                 
                 // Sink steps should have inputs
                 if (step.kafkaInputs() == null || step.kafkaInputs().isEmpty()) {
-                    warnings.add(stepPrefix + "SINK steps typically have inputs to process");
+                    warnings.add("[" + getValidatorName() + "] " + stepPrefix + "SINK steps typically have inputs to process");
                 }
                 break;
                 
             case PIPELINE:
                 // Regular pipeline steps should have both inputs and outputs
                 if (step.kafkaInputs() == null || step.kafkaInputs().isEmpty()) {
-                    warnings.add(stepPrefix + "PIPELINE steps typically have inputs");
+                    warnings.add("[" + getValidatorName() + "] " + stepPrefix + "PIPELINE steps typically have inputs");
                 }
                 
                 if (step.outputs() == null || step.outputs().isEmpty()) {
-                    warnings.add(stepPrefix + "PIPELINE steps typically have outputs");
+                    warnings.add("[" + getValidatorName() + "] " + stepPrefix + "PIPELINE steps typically have outputs");
                 }
                 break;
         }

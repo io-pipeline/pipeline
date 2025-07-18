@@ -11,6 +11,8 @@ import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 
+import org.jboss.logging.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +25,8 @@ import java.util.List;
  */
 @ApplicationScoped
 public class PipelineValidatorProducer {
+    
+    private static final Logger LOG = Logger.getLogger(PipelineValidatorProducer.class);
     
     @Inject
     RequiredFieldsValidator requiredFieldsValidator;
@@ -66,18 +70,29 @@ public class PipelineValidatorProducer {
     @Named("productionPipelineValidator")
     @ApplicationScoped
     public ProductionPipelineConfigValidator produceProductionPipelineConfigValidator() {
+        LOG.info("Producing PRODUCTION pipeline config validator");
         List<ConfigValidator<PipelineConfigValidatable>> validatorList = new ArrayList<>();
         
         // Add all validators - CompositeValidator will filter based on supportedModes()
+        LOG.info("Adding RequiredFieldsValidator");
         validatorList.add(requiredFieldsValidator);
+        LOG.info("Adding NamingConventionValidator");
         validatorList.add(namingConventionValidator);
+        LOG.info("Adding StepReferenceValidator");
         validatorList.add(stepReferenceValidator);
+        LOG.info("Adding ProcessorInfoValidator");
         validatorList.add(processorInfoValidator);
+        LOG.info("Adding RetryConfigValidator");
         validatorList.add(retryConfigValidator);
+        LOG.info("Adding TransportConfigValidator");
         validatorList.add(transportConfigValidator);
+        LOG.info("Adding OutputRoutingValidator");
         validatorList.add(outputRoutingValidator);
+        LOG.info("Adding KafkaTopicNamingValidator");
         validatorList.add(kafkaTopicNamingValidator);
+        LOG.info("Adding IntraPipelineLoopValidator");
         validatorList.add(intraPipelineLoopValidator);
+        LOG.info("Adding StepTypeValidator");
         validatorList.add(stepTypeValidator);
         
         // Create and return a concrete implementation for PRODUCTION mode
