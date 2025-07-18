@@ -121,4 +121,14 @@ public class DesignValidationTest {
                 false // Should pass now that we've added the service to the allowed list
         );
     }
+
+    @Test
+    void testPipelineWithUnregisteredServiceFailsInDesign() {
+        ValidationTestHelper.testPipelineWithUnregisteredService(
+                designPipelineValidator,
+                interPipelineLoopValidator,
+                "DESIGN",
+                true // Should fail
+        );
+    }
 }

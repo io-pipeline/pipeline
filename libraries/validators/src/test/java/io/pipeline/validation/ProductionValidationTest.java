@@ -113,12 +113,12 @@ public class ProductionValidationTest {
     }
 
     @Test
-    void testPipelineWithUnregisteredServicePassesInProduction() {
+    void testPipelineWithUnregisteredServiceFailsInProduction() {
         ValidationTestHelper.testPipelineWithUnregisteredService(
                 productionPipelineValidator,
                 interPipelineLoopValidator,
                 "PRODUCTION",
-                false // Should pass now that we've added the service to the allowed list
+                true // Should fail
         );
     }
 }
