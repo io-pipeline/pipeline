@@ -1,0 +1,27 @@
+quarkus:
+  generate-code:
+    grpc:
+      scan-for-proto: none
+  
+  # Test configuration
+  test:
+    native-image-profile: test
+  
+  # Ensure beans are discovered
+  arc:
+    unremovable-types:
+      - com.rokkon.pipeline.engine.grpc.**
+  
+  # Disable Consul config source
+  consul-config:
+    enabled: false
+
+# Disable real Consul for tests
+consul:
+  enabled: false
+
+# Test logging
+logging:
+  level:
+    com.rokkon.pipeline: DEBUG
+    io.quarkus.arc: DEBUG

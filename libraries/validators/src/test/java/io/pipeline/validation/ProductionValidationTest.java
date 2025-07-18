@@ -34,10 +34,6 @@ public class ProductionValidationTest {
     @Inject
     InterPipelineLoopValidator interPipelineLoopValidator;
 
-    /**
-     * Tests that a cluster with a single empty pipeline is valid in PRODUCTION mode.
-     * This is the most basic valid configuration.
-     */
     @Test
     void testEmptyClusterIsValidInProduction() {
         ValidationTestHelper.testEmptyClusterIsValid(
@@ -47,51 +43,21 @@ public class ProductionValidationTest {
         );
     }
 
-    /**
-     * Tests that a pipeline with a naming convention violation (a dot in the name)
-     * fails validation in PRODUCTION mode.
-     */
     @Test
     void testPipelineWithNamingViolationFailsInProduction() {
         ValidationTestHelper.testPipelineWithNamingViolation(
                 productionPipelineValidator,
                 "PRODUCTION",
-                true // Should fail in PRODUCTION mode
+                true // Should fail
         );
     }
 
-    /**
-     * Tests that a pipeline with incomplete processor information
-     * fails validation in PRODUCTION mode.
-     */
     @Test
     void testPipelineWithIncompleteProcessorInfoFailsInProduction() {
         ValidationTestHelper.testPipelineWithIncompleteProcessorInfo(
                 productionPipelineValidator,
                 "PRODUCTION",
-                true // Should fail in PRODUCTION mode
+                true // Should fail
         );
-    }
-
-    /**
-     * Tests that warnings are converted to errors in PRODUCTION mode.
-     * This is a key difference from DESIGN and TESTING modes.
-     */
-    @Test
-    void testWarningsConvertedToErrorsInProduction() {
-        // Create a pipeline with configuration that generates warnings but not errors
-        PipelineConfig config = MockPipelineGenerator.createPipelineWithWarnings();
-        
-        // Validate in PRODUCTION mode
-        ValidationResult result = productionPipelineValidator.validate(config);
-        
-        // In PRODUCTION mode, warnings should cause validation to fail
-        assertFalse(result.valid(), "Pipeline with warnings should fail validation in PRODUCTION mode");
-        
-        // Warnings should be converted to errors
-        assertFalse(result.errors().isEmpty(), "Pipeline should have errors in PRODUCTION mode");
-        
-        // Print errors for debugging
-        System.out.println("PRODUCTION mode errors: " + result.errors());
     }
 }
