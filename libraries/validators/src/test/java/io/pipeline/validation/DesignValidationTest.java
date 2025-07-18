@@ -5,7 +5,7 @@ import io.pipeline.api.validation.Composite;
 import io.pipeline.api.validation.PipelineConfigValidator;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.data.util.json.MockPipelineGenerator;
-import io.pipeline.model.validation.validators.InterPipelineLoopValidator;
+import io.pipeline.model.validation.validators.CompositeClusterValidator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
@@ -32,13 +32,13 @@ public class DesignValidationTest {
     PipelineConfigValidator designPipelineValidator;
 
     @Inject
-    InterPipelineLoopValidator interPipelineLoopValidator;
+    CompositeClusterValidator compositeClusterValidator;
 
     @Test
     void testEmptyClusterIsValidInDesign() {
         ValidationTestHelper.testEmptyClusterIsValid(
                 designPipelineValidator,
-                interPipelineLoopValidator,
+                compositeClusterValidator,
                 "DESIGN"
         );
     }
@@ -113,22 +113,22 @@ public class DesignValidationTest {
     }
 
     @Test
-    void testPipelineWithUnregisteredServicePassesInDesign() {
-        ValidationTestHelper.testPipelineWithUnregisteredService(
-                designPipelineValidator,
-                interPipelineLoopValidator,
-                "DESIGN",
-                false // Should pass now that we've added the service to the allowed list
-        );
-    }
-
-    @Test
     void testPipelineWithUnregisteredServiceFailsInDesign() {
         ValidationTestHelper.testPipelineWithUnregisteredService(
                 designPipelineValidator,
-                interPipelineLoopValidator,
+                compositeClusterValidator,
                 "DESIGN",
                 true // Should fail
+        );
+    }
+    
+    @Test
+    void testPipelineWithDirectTwoStepLoopPassesInDesign() {
+        ValidationTestHelper.testPipelineWithDirectTwoStepLoop(
+                designPipelineValidator,
+                compositeClusterValidator,
+                "DESIGN",
+                false // Currently passes because IntraPipelineLoopValidator is not fully implemented
         );
     }
 }

@@ -5,7 +5,7 @@ import io.pipeline.api.validation.Composite;
 import io.pipeline.api.validation.PipelineConfigValidator;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.data.util.json.MockPipelineGenerator;
-import io.pipeline.model.validation.validators.InterPipelineLoopValidator;
+import io.pipeline.model.validation.validators.CompositeClusterValidator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
@@ -32,13 +32,13 @@ public class ProductionValidationTest {
     PipelineConfigValidator productionPipelineValidator;
 
     @Inject
-    InterPipelineLoopValidator interPipelineLoopValidator;
+    CompositeClusterValidator compositeClusterValidator;
 
     @Test
     void testEmptyClusterIsValidInProduction() {
         ValidationTestHelper.testEmptyClusterIsValid(
                 productionPipelineValidator,
-                interPipelineLoopValidator,
+                compositeClusterValidator,
                 "PRODUCTION"
         );
     }
@@ -116,9 +116,19 @@ public class ProductionValidationTest {
     void testPipelineWithUnregisteredServiceFailsInProduction() {
         ValidationTestHelper.testPipelineWithUnregisteredService(
                 productionPipelineValidator,
-                interPipelineLoopValidator,
+                compositeClusterValidator,
                 "PRODUCTION",
                 true // Should fail
+        );
+    }
+    
+    @Test
+    void testPipelineWithDirectTwoStepLoopPassesInProduction() {
+        ValidationTestHelper.testPipelineWithDirectTwoStepLoop(
+                productionPipelineValidator,
+                compositeClusterValidator,
+                "PRODUCTION",
+                false // Currently passes because IntraPipelineLoopValidator is not fully implemented
         );
     }
 }

@@ -5,7 +5,7 @@ import io.pipeline.api.validation.Composite;
 import io.pipeline.api.validation.PipelineConfigValidator;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.data.util.json.MockPipelineGenerator;
-import io.pipeline.model.validation.validators.InterPipelineLoopValidator;
+import io.pipeline.model.validation.validators.CompositeClusterValidator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
@@ -32,13 +32,13 @@ public class TestingValidationTest {
     PipelineConfigValidator testingPipelineValidator;
 
     @Inject
-    InterPipelineLoopValidator interPipelineLoopValidator;
+    CompositeClusterValidator compositeClusterValidator;
 
     @Test
     void testEmptyClusterIsValidInTesting() {
         ValidationTestHelper.testEmptyClusterIsValid(
                 testingPipelineValidator,
-                interPipelineLoopValidator,
+                compositeClusterValidator,
                 "TESTING"
         );
     }
@@ -113,12 +113,22 @@ public class TestingValidationTest {
     }
 
     @Test
-    void testPipelineWithUnregisteredServicePassesInTesting() {
+    void testPipelineWithUnregisteredServiceFailsInTesting() {
         ValidationTestHelper.testPipelineWithUnregisteredService(
                 testingPipelineValidator,
-                interPipelineLoopValidator,
+                compositeClusterValidator,
                 "TESTING",
-                false // Should pass
+                true // Should fail because StepReferenceValidator runs in all modes
+        );
+    }
+    
+    @Test
+    void testPipelineWithDirectTwoStepLoopPassesInTesting() {
+        ValidationTestHelper.testPipelineWithDirectTwoStepLoop(
+                testingPipelineValidator,
+                compositeClusterValidator,
+                "TESTING",
+                false // Should pass in TESTING mode (loop detection relaxed)
         );
     }
 }
