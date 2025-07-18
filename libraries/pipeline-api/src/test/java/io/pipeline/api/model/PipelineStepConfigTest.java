@@ -66,7 +66,7 @@ public class PipelineStepConfigTest {
 
         // Create processor info
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "chunker-service", null);
+            "chunker-service");
 
         // Create the complete step config
         PipelineStepConfig stepConfig = new PipelineStepConfig(
@@ -158,7 +158,6 @@ public class PipelineStepConfigTest {
         
         // Check processor info
         assertEquals("opensearch-sink-service", stepConfig.processorInfo().grpcServiceName());
-        assertNull(stepConfig.processorInfo().internalProcessorBeanName());
         
         // Check retry settings
         assertEquals(5, stepConfig.maxRetries());
@@ -171,7 +170,7 @@ public class PipelineStepConfigTest {
     @Test
     public void testMinimalConfiguration() throws Exception {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "simple-service", null);
+            "simple-service");
 
         PipelineStepConfig stepConfig = new PipelineStepConfig(
             "simple-step", StepType.PIPELINE, processorInfo);
@@ -215,23 +214,12 @@ public class PipelineStepConfigTest {
 
     @Test
     public void testProcessorInfoValidation() {
-        // Valid: only gRPC service name
-        assertDoesNotThrow(() -> new PipelineStepConfig.ProcessorInfo("grpc-service", null));
-        assertDoesNotThrow(() -> new PipelineStepConfig.ProcessorInfo("grpc-service", ""));
+        // Valid: gRPC service name provided
+        assertDoesNotThrow(() -> new PipelineStepConfig.ProcessorInfo("grpc-service"));
 
-        // Valid: only internal bean name
-        assertDoesNotThrow(() -> new PipelineStepConfig.ProcessorInfo(null, "internal-bean"));
-        assertDoesNotThrow(() -> new PipelineStepConfig.ProcessorInfo("", "internal-bean"));
-
-        // Invalid: both set
-        assertThrows(IllegalArgumentException.class, () -> new PipelineStepConfig.ProcessorInfo(
-            "grpc-service", "internal-bean"));
-
-        // Invalid: neither set
-        assertThrows(IllegalArgumentException.class, () -> new PipelineStepConfig.ProcessorInfo(
-            null, null));
-        assertThrows(IllegalArgumentException.class, () -> new PipelineStepConfig.ProcessorInfo(
-            "", ""));
+        // Invalid: null or empty service name
+        assertThrows(IllegalArgumentException.class, () -> new PipelineStepConfig.ProcessorInfo(null));
+        assertThrows(IllegalArgumentException.class, () -> new PipelineStepConfig.ProcessorInfo(""));
     }
 
     @Test
@@ -252,7 +240,7 @@ public class PipelineStepConfigTest {
             "next-step", TransportType.GRPC, grpcTransport, null);
 
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null);
+            "test-service");
 
         PipelineStepConfig original = new PipelineStepConfig(
             "test-step",

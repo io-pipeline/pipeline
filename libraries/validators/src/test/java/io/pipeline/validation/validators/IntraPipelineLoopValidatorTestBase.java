@@ -45,8 +45,7 @@ public abstract class IntraPipelineLoopValidatorTestBase {
     @Test
     void testSingleStep() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -74,8 +73,7 @@ public abstract class IntraPipelineLoopValidatorTestBase {
     @Test
     void testLinearPipeline() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create a linear pipeline: step1 -> step2 -> step3

@@ -70,7 +70,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -114,7 +114,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -162,7 +162,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -210,7 +210,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -254,7 +254,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -294,7 +294,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -334,7 +334,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -374,7 +374,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -414,7 +414,7 @@ public class TransportConfigValidatorExtendedTest extends TransportConfigValidat
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(

@@ -19,7 +19,7 @@ import java.util.Set;
 /**
  * Schema-based validator for pipeline configurations.
  * This validator enforces different rules based on the validation mode:
- * 
+ * <p>
  * - DESIGN mode: Very lenient, only checks basic structure
  * - TESTING mode: Moderate validation, allows some missing fields
  * - PRODUCTION mode: Strict validation, all required fields must be present
@@ -108,16 +108,13 @@ public class SchemaValidator implements ModeAwareValidator<PipelineConfig> {
             }
         } else {
             // Validate processor info has either gRPC service or bean name
-            boolean hasGrpc = step.processorInfo().grpcServiceName() != null && 
-                            !step.processorInfo().grpcServiceName().isBlank();
-            boolean hasBean = step.processorInfo().internalProcessorBeanName() != null && 
-                            !step.processorInfo().internalProcessorBeanName().isBlank();
+            boolean hasGrpc = !step.processorInfo().grpcServiceName().isBlank();
             
-            if (!hasGrpc && !hasBean) {
+            if (!hasGrpc) {
                 if (mode == ValidationMode.DESIGN) {
-                    warnings.add(prefix + "Processor type not selected (gRPC service or internal processor)");
+                    warnings.add(prefix + "Processor type not selected (gRPC service)");
                 } else {
-                    errors.add(prefix + "Processor must specify either gRPC service or internal processor");
+                    errors.add(prefix + "Processor must specify either gRPC service");
                 }
             }
         }

@@ -88,8 +88,7 @@ public abstract class NamingConventionValidatorTestBase {
     void testValidStepNameConvention() {
         // Create a minimal ProcessorInfo for testing
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", 
-            null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -121,8 +120,7 @@ public abstract class NamingConventionValidatorTestBase {
     @Test
     void testInvalidStepNameWithDots() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service",
-            null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -172,8 +170,7 @@ public abstract class NamingConventionValidatorTestBase {
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service",
-            null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -222,8 +219,7 @@ public abstract class NamingConventionValidatorTestBase {
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service",
-            null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -263,8 +259,7 @@ public abstract class NamingConventionValidatorTestBase {
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service",
-            null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -303,8 +298,7 @@ public abstract class NamingConventionValidatorTestBase {
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service",
-            null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(

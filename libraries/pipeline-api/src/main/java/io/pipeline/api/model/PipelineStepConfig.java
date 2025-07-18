@@ -67,13 +67,8 @@ public record PipelineStepConfig(
         this.processorInfo = Objects.requireNonNull(processorInfo, "processorInfo cannot be null");
 
         // ProcessorInfo validation
-        if (this.processorInfo.grpcServiceName() != null && !this.processorInfo.grpcServiceName().isBlank() &&
-                this.processorInfo.internalProcessorBeanName() != null && !this.processorInfo.internalProcessorBeanName().isBlank()) {
-            throw new IllegalArgumentException("ProcessorInfo cannot have both grpcServiceName and internalProcessorBeanName set.");
-        }
-        if ((this.processorInfo.grpcServiceName() == null || this.processorInfo.grpcServiceName().isBlank()) &&
-                (this.processorInfo.internalProcessorBeanName() == null || this.processorInfo.internalProcessorBeanName().isBlank())) {
-            throw new IllegalArgumentException("ProcessorInfo must have either grpcServiceName or internalProcessorBeanName set.");
+        if (this.processorInfo.grpcServiceName() == null || this.processorInfo.grpcServiceName().isBlank()) {
+            throw new IllegalArgumentException("ProcessorInfo must have grpcServiceName set.");
         }
     }
 
@@ -222,25 +217,16 @@ public record PipelineStepConfig(
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Schema(description = "Processor information")
     public record ProcessorInfo(
-            @JsonProperty("grpcServiceName") String grpcServiceName,
-            @JsonProperty("internalProcessorBeanName") String internalProcessorBeanName
+            @JsonProperty("grpcServiceName") String grpcServiceName
     ) {
         @JsonCreator
         public ProcessorInfo(
-                @JsonProperty("grpcServiceName") String grpcServiceName,
-                @JsonProperty("internalProcessorBeanName") String internalProcessorBeanName
+                @JsonProperty("grpcServiceName") String grpcServiceName
         ) {
-            boolean grpcSet = grpcServiceName != null && !grpcServiceName.isBlank();
-            boolean beanSet = internalProcessorBeanName != null && !internalProcessorBeanName.isBlank();
-
-            if (grpcSet && beanSet) {
-                throw new IllegalArgumentException("ProcessorInfo cannot have both grpcServiceName and internalProcessorBeanName set.");
-            }
-            if (!grpcSet && !beanSet) {
-                throw new IllegalArgumentException("ProcessorInfo must have either grpcServiceName or internalProcessorBeanName set.");
+            if (grpcServiceName == null || grpcServiceName.isBlank()) {
+                throw new IllegalArgumentException("ProcessorInfo must have grpcServiceName set.");
             }
             this.grpcServiceName = grpcServiceName;
-            this.internalProcessorBeanName = internalProcessorBeanName;
         }
     }
 }

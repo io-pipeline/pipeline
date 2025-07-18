@@ -76,4 +76,49 @@ public class ProductionValidationTest {
                 "PRODUCTION"
         );
     }
+
+    @Test
+    void testPipelineWithInvalidTopicNameFailsInProduction() {
+        ValidationTestHelper.testPipelineWithInvalidTopicName(
+                productionPipelineValidator,
+                "PRODUCTION",
+                true // Should fail
+        );
+    }
+
+    @Test
+    void testPipelineWithInvalidConsumerGroupFailsInProduction() {
+        ValidationTestHelper.testPipelineWithInvalidConsumerGroup(
+                productionPipelineValidator,
+                "PRODUCTION",
+                true // Should fail
+        );
+    }
+
+    @Test
+    void testPipelineWithMismatchedProcessorPassesInProduction() {
+        ValidationTestHelper.testPipelineWithMismatchedProcessor(
+                productionPipelineValidator,
+                "PRODUCTION",
+                false // Should pass now that we've fixed the test data
+        );
+    }
+
+    @Test
+    void testPipelineWithDisabledRetriesPassesInProduction() {
+        ValidationTestHelper.testPipelineWithDisabledRetries(
+                productionPipelineValidator,
+                "PRODUCTION"
+        );
+    }
+
+    @Test
+    void testPipelineWithUnregisteredServicePassesInProduction() {
+        ValidationTestHelper.testPipelineWithUnregisteredService(
+                productionPipelineValidator,
+                interPipelineLoopValidator,
+                "PRODUCTION",
+                false // Should pass now that we've added the service to the allowed list
+        );
+    }
 }

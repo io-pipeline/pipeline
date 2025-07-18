@@ -39,7 +39,7 @@ public abstract class PipelineDefinitionServiceTestBase {
 
         // Create test pipeline definition
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         // Create a Kafka transport config for the output
@@ -69,7 +69,7 @@ public abstract class PipelineDefinitionServiceTestBase {
 
         // Create sink step
         PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-                "sink-service", null
+            "sink-service"
         );
         PipelineStepConfig sinkStep = new PipelineStepConfig(
                 "sink-step",
@@ -173,7 +173,7 @@ public abstract class PipelineDefinitionServiceTestBase {
         
         // Create a pipeline with potential warnings but no errors
         PipelineStepConfig.ProcessorInfo processor = new PipelineStepConfig.ProcessorInfo(
-                "design-service", null
+            "design-service"
         );
         PipelineStepConfig designStep = new PipelineStepConfig(
                 "design-step",
@@ -207,7 +207,7 @@ public abstract class PipelineDefinitionServiceTestBase {
 
         // Update it
         PipelineStepConfig.ProcessorInfo processor = new PipelineStepConfig.ProcessorInfo(
-                "updated-service", null
+            "updated-service"
         );
         PipelineStepConfig updatedStep = new PipelineStepConfig(
                 "updated-step",

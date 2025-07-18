@@ -40,7 +40,7 @@ public abstract class PipelineConfigServiceTestBase {
 
         // Create test pipeline config
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         // Create a Kafka transport config for the output
@@ -333,7 +333,7 @@ public abstract class PipelineConfigServiceTestBase {
 
         // Update it
         PipelineStepConfig.ProcessorInfo processor = new PipelineStepConfig.ProcessorInfo(
-                "updated-service", null
+            "updated-service"
         );
         PipelineStepConfig updatedStep = new PipelineStepConfig(
                 "updated-step",
@@ -343,7 +343,7 @@ public abstract class PipelineConfigServiceTestBase {
 
         // Need INITIAL_PIPELINE and SINK for valid config
         PipelineStepConfig.ProcessorInfo sourceProcessor = new PipelineStepConfig.ProcessorInfo(
-                "source-service", null
+            "source-service"
         );
 
         // Create a Kafka transport config for the source step output
@@ -381,7 +381,7 @@ public abstract class PipelineConfigServiceTestBase {
         );
 
         PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-                "sink-service", null
+            "sink-service"
         );
         PipelineStepConfig sinkStep = new PipelineStepConfig(
                 "document-sink",
@@ -510,7 +510,7 @@ public abstract class PipelineConfigServiceTestBase {
 
         // Create valid config
         PipelineStepConfig.ProcessorInfo sourceProcessor = new PipelineStepConfig.ProcessorInfo(
-                "source-service", null
+            "source-service"
         );
 
         // Create a Kafka transport config for the source step output
@@ -548,7 +548,7 @@ public abstract class PipelineConfigServiceTestBase {
         );
 
         PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-                "sink-service", null
+            "sink-service"
         );
         PipelineStepConfig sinkStep = new PipelineStepConfig(
                 "sink-step",
@@ -604,7 +604,7 @@ public abstract class PipelineConfigServiceTestBase {
     void testConcurrentPipelineUpdates() {
         // First create a pipeline
         PipelineStepConfig.ProcessorInfo sourceProcessor = new PipelineStepConfig.ProcessorInfo(
-                "source-service", null
+            "source-service"
         );
 
         // Create a Kafka transport config for the source step output
@@ -642,7 +642,7 @@ public abstract class PipelineConfigServiceTestBase {
         );
 
         PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-                "sink-service", null
+            "sink-service"
         );
         PipelineStepConfig sinkStep = new PipelineStepConfig(
                 "sink-step",

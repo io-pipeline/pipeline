@@ -76,4 +76,49 @@ public class TestingValidationTest {
                 "TESTING"
         );
     }
+
+    @Test
+    void testPipelineWithInvalidTopicNamePassesInTesting() {
+        ValidationTestHelper.testPipelineWithInvalidTopicName(
+                testingPipelineValidator,
+                "TESTING",
+                false // Should pass
+        );
+    }
+
+    @Test
+    void testPipelineWithInvalidConsumerGroupPassesInTesting() {
+        ValidationTestHelper.testPipelineWithInvalidConsumerGroup(
+                testingPipelineValidator,
+                "TESTING",
+                false // Should pass
+        );
+    }
+
+    @Test
+    void testPipelineWithMismatchedProcessorPassesInTesting() {
+        ValidationTestHelper.testPipelineWithMismatchedProcessor(
+                testingPipelineValidator,
+                "TESTING",
+                false // Should pass
+        );
+    }
+
+    @Test
+    void testPipelineWithDisabledRetriesPassesInTesting() {
+        ValidationTestHelper.testPipelineWithDisabledRetries(
+                testingPipelineValidator,
+                "TESTING"
+        );
+    }
+
+    @Test
+    void testPipelineWithUnregisteredServicePassesInTesting() {
+        ValidationTestHelper.testPipelineWithUnregisteredService(
+                testingPipelineValidator,
+                interPipelineLoopValidator,
+                "TESTING",
+                false // Should pass
+        );
+    }
 }

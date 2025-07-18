@@ -32,7 +32,7 @@ public abstract class PipelineGraphConfigTestBase {
     @Test
     public void testSinglePipelineSerialization() throws Exception {
         // Create a simple pipeline
-        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo("test-service", null);
+        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo("test-service");
         PipelineStepConfig step = new PipelineStepConfig("test-step", StepType.SINK, processorInfo);
         
         PipelineConfig pipeline = new PipelineConfig("test-pipeline", Map.of("test-step", step));
@@ -56,11 +56,11 @@ public abstract class PipelineGraphConfigTestBase {
     @Test
     public void testMultiplePipelinesSerialization() throws Exception {
         // Create multiple pipelines
-        PipelineStepConfig.ProcessorInfo processor1 = new PipelineStepConfig.ProcessorInfo("service1", null);
+        PipelineStepConfig.ProcessorInfo processor1 = new PipelineStepConfig.ProcessorInfo("service1");
         PipelineStepConfig step1 = new PipelineStepConfig("step1", StepType.PIPELINE, processor1);
         PipelineConfig pipeline1 = new PipelineConfig("pipeline1", Map.of("step1", step1));
         
-        PipelineStepConfig.ProcessorInfo processor2 = new PipelineStepConfig.ProcessorInfo("service2", null);
+        PipelineStepConfig.ProcessorInfo processor2 = new PipelineStepConfig.ProcessorInfo("service2");
         PipelineStepConfig step2 = new PipelineStepConfig("step2", StepType.SINK, processor2);
         PipelineConfig pipeline2 = new PipelineConfig("pipeline2", Map.of("step2", step2));
         
@@ -109,7 +109,7 @@ public abstract class PipelineGraphConfigTestBase {
                                 "stepName": "analyzer",
                                 "stepType": "SINK",
                                 "processorInfo": {
-                                    "internalProcessorBeanName": "analyzerBean"
+                                    "grpcServiceName": "analyzerBean"
                                 }
                             }
                         }
@@ -134,13 +134,13 @@ public abstract class PipelineGraphConfigTestBase {
         PipelineConfig realTimeAnalysis = graph.getPipelineConfig("real-time-analysis");
         assertNotNull(realTimeAnalysis);
         assertEquals(1, realTimeAnalysis.pipelineSteps().size());
-        assertEquals("analyzerBean", realTimeAnalysis.pipelineSteps().get("analyzer").processorInfo().internalProcessorBeanName());
+        assertEquals("analyzerBean", realTimeAnalysis.pipelineSteps().get("analyzer").processorInfo().grpcServiceName());
     }
 
     @Test
     public void testImmutability() {
         Map<String, PipelineConfig> mutableMap = new java.util.HashMap<>();
-        PipelineStepConfig.ProcessorInfo processor = new PipelineStepConfig.ProcessorInfo("service", null);
+        PipelineStepConfig.ProcessorInfo processor = new PipelineStepConfig.ProcessorInfo("service");
         PipelineStepConfig step = new PipelineStepConfig("step", StepType.SINK, processor);
         PipelineConfig pipeline = new PipelineConfig("pipeline", Map.of("step", step));
         mutableMap.put("pipeline", pipeline);
@@ -194,8 +194,8 @@ public abstract class PipelineGraphConfigTestBase {
     
     private PipelineGraphConfig createComplexGraph() {
         // Pipeline 1: Document processing with chunking and embedding
-        PipelineStepConfig.ProcessorInfo chunkerProcessor = new PipelineStepConfig.ProcessorInfo("chunker-service", null);
-        PipelineStepConfig.ProcessorInfo embedderProcessor = new PipelineStepConfig.ProcessorInfo("embedder-service", null);
+        PipelineStepConfig.ProcessorInfo chunkerProcessor = new PipelineStepConfig.ProcessorInfo("chunker-service");
+        PipelineStepConfig.ProcessorInfo embedderProcessor = new PipelineStepConfig.ProcessorInfo("embedder-service");
         
         GrpcTransportConfig grpcTransport = new GrpcTransportConfig("embedder-service", Map.of("timeout", "30s"));
         PipelineStepConfig.OutputTarget chunkerOutput = new PipelineStepConfig.OutputTarget(
@@ -217,7 +217,7 @@ public abstract class PipelineGraphConfigTestBase {
         ));
         
         // Pipeline 2: Real-time analysis
-        PipelineStepConfig.ProcessorInfo analyzerProcessor = new PipelineStepConfig.ProcessorInfo(null, "analyzerBean");
+        PipelineStepConfig.ProcessorInfo analyzerProcessor = new PipelineStepConfig.ProcessorInfo("analyzerBean");
         PipelineStepConfig analyzerStep = new PipelineStepConfig(
             "analyzer", StepType.SINK, analyzerProcessor);
         PipelineConfig realTimeAnalysis = new PipelineConfig("real-time-analysis", Map.of(

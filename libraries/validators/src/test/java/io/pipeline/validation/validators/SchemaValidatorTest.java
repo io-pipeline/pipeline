@@ -70,7 +70,7 @@ class SchemaValidatorTest {
             30000L,// maxRetryBackoffMs
             2.0,   // retryBackoffMultiplier
             null,  // stepTimeoutMs
-            new PipelineStepConfig.ProcessorInfo("echo", null)
+            new PipelineStepConfig.ProcessorInfo("echo")
         );
         
         Map<String, PipelineStepConfig> steps = new HashMap<>();
@@ -132,7 +132,7 @@ class SchemaValidatorTest {
             2000L,  // maxRetryBackoffMs - less than initial!
             2.0,
             null,
-            new PipelineStepConfig.ProcessorInfo("test-service", null)
+            new PipelineStepConfig.ProcessorInfo("test-service")
         );
         
         Map<String, PipelineStepConfig> steps = new HashMap<>();
@@ -156,12 +156,12 @@ class SchemaValidatorTest {
         steps.put("step1", new PipelineStepConfig(
             "step1",
             StepType.PIPELINE,  // Not CONNECTOR
-            new PipelineStepConfig.ProcessorInfo("service1", null)
+            new PipelineStepConfig.ProcessorInfo("service1")
         ));
         steps.put("step2", new PipelineStepConfig(
             "step2",
             StepType.SINK,
-            new PipelineStepConfig.ProcessorInfo("service2", null)
+            new PipelineStepConfig.ProcessorInfo("service2")
         ));
         
         PipelineConfig config = new PipelineConfig("test-pipeline", steps);
@@ -191,7 +191,7 @@ class SchemaValidatorTest {
             30000L,
             2.0,
             null,
-            new PipelineStepConfig.ProcessorInfo("entry-service", null)
+            new PipelineStepConfig.ProcessorInfo("entry-service")
         ));
         
         PipelineConfig config = new PipelineConfig("test-pipeline", steps);

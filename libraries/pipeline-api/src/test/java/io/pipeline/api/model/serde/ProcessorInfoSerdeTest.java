@@ -18,7 +18,7 @@ class ProcessorInfoSerdeTest {
     @Test
     void testProcessorInfoSerde() throws Exception {
         // 1. Create the Java object
-        var original = new PipelineStepConfig.ProcessorInfo(null, "my-internal-bean");
+        var original = new PipelineStepConfig.ProcessorInfo("my-internal-bean");
 
         // 2. Serialize it to JSON
         String json = objectMapper.writeValueAsString(original);

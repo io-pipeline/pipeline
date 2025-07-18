@@ -76,4 +76,49 @@ public class DesignValidationTest {
                 "DESIGN"
         );
     }
+
+    @Test
+    void testPipelineWithInvalidTopicNameFailsInDesign() {
+        ValidationTestHelper.testPipelineWithInvalidTopicName(
+                designPipelineValidator,
+                "DESIGN",
+                true // Should fail
+        );
+    }
+
+    @Test
+    void testPipelineWithInvalidConsumerGroupFailsInDesign() {
+        ValidationTestHelper.testPipelineWithInvalidConsumerGroup(
+                designPipelineValidator,
+                "DESIGN",
+                true // Should fail
+        );
+    }
+
+    @Test
+    void testPipelineWithMismatchedProcessorPassesInDesign() {
+        ValidationTestHelper.testPipelineWithMismatchedProcessor(
+                designPipelineValidator,
+                "DESIGN",
+                false // Should pass now that we've fixed the test data
+        );
+    }
+
+    @Test
+    void testPipelineWithDisabledRetriesPassesInDesign() {
+        ValidationTestHelper.testPipelineWithDisabledRetries(
+                designPipelineValidator,
+                "DESIGN"
+        );
+    }
+
+    @Test
+    void testPipelineWithUnregisteredServicePassesInDesign() {
+        ValidationTestHelper.testPipelineWithUnregisteredService(
+                designPipelineValidator,
+                interPipelineLoopValidator,
+                "DESIGN",
+                false // Should pass now that we've added the service to the allowed list
+        );
+    }
 }

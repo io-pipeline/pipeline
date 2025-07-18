@@ -49,7 +49,9 @@ public class StepNameValidatorTest {
         // Create a pipeline with valid step names
         Map<String, PipelineStepConfig> steps = new HashMap<>();
         PipelineStepConfig.ProcessorInfo processorInfo = 
-                new PipelineStepConfig.ProcessorInfo("test-service", null);
+                new PipelineStepConfig.ProcessorInfo(
+            "test-service"
+        );
         
         PipelineStepConfig step1 = new PipelineStepConfig(
                 "step1", StepType.CONNECTOR, processorInfo);
@@ -73,7 +75,9 @@ public class StepNameValidatorTest {
         // Create a pipeline with step ID not matching stepName
         Map<String, PipelineStepConfig> steps = new HashMap<>();
         PipelineStepConfig.ProcessorInfo processorInfo = 
-                new PipelineStepConfig.ProcessorInfo("test-service", null);
+                new PipelineStepConfig.ProcessorInfo(
+            "test-service"
+        );
         
         PipelineStepConfig step = new PipelineStepConfig(
                 "different-name", StepType.CONNECTOR, processorInfo);
@@ -95,7 +99,9 @@ public class StepNameValidatorTest {
         // Create a pipeline with invalid step name
         Map<String, PipelineStepConfig> steps = new HashMap<>();
         PipelineStepConfig.ProcessorInfo processorInfo = 
-                new PipelineStepConfig.ProcessorInfo("test-service", null);
+                new PipelineStepConfig.ProcessorInfo(
+            "test-service"
+        );
         
         // Invalid step name with special characters
         PipelineStepConfig step = new PipelineStepConfig(

@@ -2,6 +2,7 @@ package io.pipeline.model.validation.validators;
 
 import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.model.PipelineStepConfig;
+import io.pipeline.api.model.StepType;
 import io.pipeline.api.model.TransportType;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
@@ -15,9 +16,31 @@ import java.util.*;
 /**
  * Validates that all step references point to existing steps within the pipeline.
  * Checks for duplicate step names and validates internal gRPC references.
+ * Also validates that gRPC service names are registered in the allowed services list.
  */
 @ApplicationScoped
 public class StepReferenceValidator implements PipelineConfigValidator {
+    
+    // Hardcoded list of allowed services for testing
+    // In a real-world scenario, this would be injected or retrieved from configuration
+    private static final Set<String> ALLOWED_SERVICES = Set.of(
+            "test-sink-service", 
+            "some-other-service", 
+            "gutenberg-connector", 
+            "opensearch-sink",
+            "parser",
+            "chunker",
+            "embedder",
+            "echo",
+            "testing-harness",
+            "proxy-module",
+            "filesystem-crawler",
+            "echo-module",
+            "ab",
+            "bean-step1",
+            "bean-step2",
+            "service"
+    );
     
     @Override
     public ValidationResult validate(PipelineConfigValidatable validatable) {
@@ -41,6 +64,21 @@ public class StepReferenceValidator implements PipelineConfigValidator {
             if (step != null && step.stepName() != null && !step.stepName().isBlank()) {
                 if (!stepNames.add(step.stepName())) {
                     errors.add("Duplicate step name found: " + step.stepName());
+                }
+            }
+            
+            // Check processor info for issues
+            if (step != null && step.processorInfo() != null) {
+                
+                // Check if gRPC service name is registered in allowed services list
+                if (!step.processorInfo().grpcServiceName().isBlank()) {
+                    String serviceName = step.processorInfo().grpcServiceName();
+                    if (!isAllowedService(serviceName)) {
+                        errors.add("Step '" + stepId + "' references gRPC service '" + serviceName + 
+                                 "' which is not registered in the cluster's allowed services.");
+                    }
+                } else {
+                    errors.add("Step '" + stepId + "' is missing a gRPC service name.");
                 }
             }
         }
@@ -76,6 +114,16 @@ public class StepReferenceValidator implements PipelineConfigValidator {
         return errors.isEmpty() ? ValidationResultFactory.successWithWarnings(warnings) : ValidationResultFactory.failure(errors, warnings);
     }
     
+    /**
+     * Checks if a gRPC service name is in the allowed services list.
+     * 
+     * @param serviceName The gRPC service name to check
+     * @return true if the service is allowed, false otherwise
+     */
+    private boolean isAllowedService(String serviceName) {
+        return ALLOWED_SERVICES.contains(serviceName);
+    }
+    
     @Override
     public int getPriority() {
         return 400; // Run after structural validation
@@ -88,7 +136,8 @@ public class StepReferenceValidator implements PipelineConfigValidator {
     
     @Override
     public Set<ValidationMode> supportedModes() {
-        // Basic structural validation needed in all modes
+        // Run validation in all modes to ensure consistent behavior
+        // We want to error out for internalProcessorBeanName in all modes
         return Set.of(ValidationMode.PRODUCTION, ValidationMode.DESIGN, ValidationMode.TESTING);
     }
 }

@@ -53,20 +53,20 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 60000L,
-                new PipelineStepConfig.ProcessorInfo("parser-service", null)
+                new PipelineStepConfig.ProcessorInfo("parser-service")
         ));
         
         // Add downstream steps
         steps.put("chunker", new PipelineStepConfig(
                 "text-chunker",
                 StepType.PIPELINE,
-                new PipelineStepConfig.ProcessorInfo("chunker-service", null)
+                new PipelineStepConfig.ProcessorInfo("chunker-service")
         ));
         
         steps.put("metadata-extractor", new PipelineStepConfig(
                 "metadata-processor",
                 StepType.PIPELINE,
-                new PipelineStepConfig.ProcessorInfo(null, "metadataBean")
+                new PipelineStepConfig.ProcessorInfo("metadataBean")
         ));
         
         PipelineConfig config = new PipelineConfig("fan-out-pipeline", steps);
@@ -120,7 +120,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("text-service", null)
+                new PipelineStepConfig.ProcessorInfo("text-service")
         ));
         
         // Metadata extractor also outputs to enricher
@@ -144,7 +144,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("metadata-service", null)
+                new PipelineStepConfig.ProcessorInfo("metadata-service")
         ));
         
         // Enricher receives from multiple sources (fan-in)
@@ -165,7 +165,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 60000L,
                 2.5,
                 120000L,
-                new PipelineStepConfig.ProcessorInfo("enricher-service", null)
+                new PipelineStepConfig.ProcessorInfo("enricher-service")
         ));
         
         PipelineConfig config = new PipelineConfig("fan-in-pipeline", steps);
@@ -214,7 +214,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo(null, "loaderBean")
+                new PipelineStepConfig.ProcessorInfo("loaderBean")
         ));
         
         // Step with multiple Kafka inputs
@@ -244,7 +244,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("aggregator-service", null)
+                new PipelineStepConfig.ProcessorInfo("aggregator-service")
         ));
         
         PipelineConfig config = new PipelineConfig("mixed-transport-pipeline", steps);
@@ -256,7 +256,7 @@ public abstract class PipelineConfigAdvancedTestBase {
         // Verify internal transport
         PipelineStepConfig loaderStep = deserialized.pipelineSteps().get("loader");
         assertEquals(TransportType.INTERNAL, loaderStep.outputs().get("default").transportType());
-        assertEquals("loaderBean", loaderStep.processorInfo().internalProcessorBeanName());
+        assertEquals("loaderBean", loaderStep.processorInfo().grpcServiceName());
         
         // Verify multiple Kafka inputs
         PipelineStepConfig aggregatorStep = deserialized.pipelineSteps().get("aggregator");
@@ -304,7 +304,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("service-a", null)
+                new PipelineStepConfig.ProcessorInfo("service-a")
         ));
         
         // B outputs to D
@@ -328,7 +328,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("service-b", null)
+                new PipelineStepConfig.ProcessorInfo("service-b")
         ));
         
         // C outputs to D
@@ -352,7 +352,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("service-c", null)
+                new PipelineStepConfig.ProcessorInfo("service-c")
         ));
         
         // D receives from both B and C
@@ -373,7 +373,7 @@ public abstract class PipelineConfigAdvancedTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("service-d", null)
+                new PipelineStepConfig.ProcessorInfo("service-d")
         ));
         
         PipelineConfig config = new PipelineConfig("diamond-pattern-pipeline", steps);

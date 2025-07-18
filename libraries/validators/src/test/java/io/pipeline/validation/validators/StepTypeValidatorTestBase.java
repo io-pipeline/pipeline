@@ -48,8 +48,7 @@ public abstract class StepTypeValidatorTestBase {
     void testValidPipelineStructure() {
         // Create CONNECTOR step
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service",
-            null
+            "parser-service"
         );
         
         KafkaTransportConfig kafkaOutput = new KafkaTransportConfig(
@@ -143,8 +142,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testMissingInitialPipelineStep() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Only PIPELINE and SINK steps
@@ -184,8 +182,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testMissingSinkStep() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         KafkaTransportConfig kafkaOutput = new KafkaTransportConfig(
@@ -226,8 +223,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testMultipleInitialPipelineSteps() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         KafkaTransportConfig kafkaOutput = new KafkaTransportConfig(
@@ -293,8 +289,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testInitialPipelineWithKafkaInputs() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         KafkaInputDefinition kafkaInput = new KafkaInputDefinition(
@@ -351,8 +346,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testInitialPipelineWithoutOutputs() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         PipelineStepConfig initialStep = new PipelineStepConfig(
@@ -391,8 +385,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testSinkStepWithOutputs() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         KafkaTransportConfig kafkaOutput = new KafkaTransportConfig(
@@ -449,8 +442,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testSinkStepWithoutInputsWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         KafkaTransportConfig kafkaOutput = new KafkaTransportConfig(
@@ -502,8 +494,7 @@ public abstract class StepTypeValidatorTestBase {
     @Test
     void testPipelineStepWarnings() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         KafkaTransportConfig kafkaOutput = new KafkaTransportConfig(

@@ -26,7 +26,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testValidRetryConfiguration() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -65,7 +65,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testExcessiveMaxRetries() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -106,7 +106,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testHighMaxRetriesWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -147,7 +147,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testExcessiveRetryBackoff() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -189,7 +189,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testHighBackoffWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -230,7 +230,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testExcessiveTimeout() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -272,7 +272,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testHighTimeoutWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -314,7 +314,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testZeroRetriesWithBackoffWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -355,7 +355,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testRetryTimeExceedsTimeout() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -397,7 +397,7 @@ public abstract class RetryConfigValidatorTestBase {
     @Test
     void testMaxRetryBackoffValidation() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                "test-service", null
+            "test-service"
         );
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(

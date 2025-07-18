@@ -2,6 +2,7 @@ package io.pipeline.model.validation.validators;
 
 import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.model.PipelineStepConfig;
+import io.pipeline.api.model.StepType;
 import io.pipeline.api.validation.PipelineConfigValidatable;
 import io.pipeline.api.validation.PipelineConfigValidator;
 import io.pipeline.api.validation.ValidationMode;
@@ -67,28 +68,6 @@ public class ProcessorInfoValidator implements PipelineConfigValidator {
                     // Warn about localhost references in production
                     if (serviceName.contains("localhost") || serviceName.contains("127.0.0.1")) {
                         warnings.add(stepPrefix + "gRPC service name contains localhost reference - ensure this is intentional");
-                    }
-                }
-                
-                // Check internal processor bean name format
-                if (processorInfo.internalProcessorBeanName() != null && !processorInfo.internalProcessorBeanName().isBlank()) {
-                    String beanName = processorInfo.internalProcessorBeanName();
-                    
-                    // Validate bean name format (Java identifier conventions)
-                    if (!beanName.matches("^[a-zA-Z_$][a-zA-Z0-9_$]*$")) {
-                        errors.add(stepPrefix + "Internal processor bean name '" + beanName + 
-                                 "' must be a valid Java identifier");
-                    }
-                    
-                    if (beanName.length() > 50) {
-                        warnings.add(stepPrefix + "Internal processor bean name '" + beanName + 
-                                   "' is very long (over 50 characters)");
-                    }
-                    
-                    // Warn about common bean name issues
-                    if (beanName.equals("processor") || beanName.equals("service") || beanName.equals("bean")) {
-                        warnings.add(stepPrefix + "Internal processor bean name '" + beanName + 
-                                   "' is too generic - consider a more descriptive name");
                     }
                 }
             }

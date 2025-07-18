@@ -25,7 +25,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     void testValidPipelineConfiguration() {
         // Create a valid pipeline configuration
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -76,7 +76,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     @Test
     void testStepWithoutDescription() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -109,7 +109,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     @Test
     void testStepWithBlankDescription() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -145,7 +145,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     @Test
     void testHighRetryValues() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -179,7 +179,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     @Test
     void testInvalidRetryBackoffLogic() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -211,7 +211,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     @Test
     void testValidGrpcConfiguration() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "grpc-service", null
+            "grpc-service"
         );
         
         GrpcTransportConfig grpcTransport = new GrpcTransportConfig(
@@ -242,7 +242,7 @@ public abstract class RequiredFieldsValidatorTestBase {
     @Test
     void testValidInternalProcessorConfiguration() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            null, "internal-bean"
+            "internal-bean"
         );
         
         GrpcTransportConfig grpcTransport = new GrpcTransportConfig(

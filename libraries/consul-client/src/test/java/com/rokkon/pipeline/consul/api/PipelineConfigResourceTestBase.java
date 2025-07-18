@@ -64,7 +64,7 @@ public abstract class PipelineConfigResourceTestBase {
     protected PipelineConfig createTestPipelineConfig() {
         // Create INITIAL_PIPELINE step
         PipelineStepConfig.ProcessorInfo sourceProcessor = new PipelineStepConfig.ProcessorInfo(
-            "source-service", null
+            "source-service"
         );
 
         PipelineStepConfig sourceStep = new PipelineStepConfig(
@@ -75,7 +75,7 @@ public abstract class PipelineConfigResourceTestBase {
 
         // Create SINK step
         PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-            "sink-service", null
+            "sink-service"
         );
 
         PipelineStepConfig sinkStep = new PipelineStepConfig(
@@ -137,7 +137,7 @@ public abstract class PipelineConfigResourceTestBase {
 
         // Add a middle step
         PipelineStepConfig.ProcessorInfo middleProcessor = new PipelineStepConfig.ProcessorInfo(
-            "middle-service", null
+            "middle-service"
         );
 
         PipelineStepConfig middleStep = new PipelineStepConfig(

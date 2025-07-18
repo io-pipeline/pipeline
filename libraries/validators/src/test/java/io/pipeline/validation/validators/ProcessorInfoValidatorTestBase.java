@@ -47,8 +47,7 @@ public abstract class ProcessorInfoValidatorTestBase {
     @Test
     void testValidGrpcServiceName() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service",
-            null
+            "parser-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -76,7 +75,6 @@ public abstract class ProcessorInfoValidatorTestBase {
     @Test
     void testValidInternalBeanName() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            null,
             "documentParserBean"
         );
         
@@ -105,8 +103,7 @@ public abstract class ProcessorInfoValidatorTestBase {
     @Test
     void testShortGrpcServiceName() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "ab", // Too short
-            null
+            "ab" // Too short
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -135,8 +132,7 @@ public abstract class ProcessorInfoValidatorTestBase {
     void testLongGrpcServiceName() {
         String longName = "a".repeat(101);
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            longName,
-            null
+            longName
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -165,8 +161,7 @@ public abstract class ProcessorInfoValidatorTestBase {
     @Test
     void testInvalidGrpcServiceNameFormat() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "123-invalid-start", // Starts with number
-            null
+            "123-invalid-start"// Starts with number
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -194,8 +189,7 @@ public abstract class ProcessorInfoValidatorTestBase {
     @Test
     void testLocalhostWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "localhost:8080",
-            null
+            "localhost:8080"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -221,83 +215,22 @@ public abstract class ProcessorInfoValidatorTestBase {
         assertTrue(result.warnings().getFirst().contains("localhost reference"));
     }
     
-    @Test
-    void testInvalidBeanName() {
-        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            null,
-            "invalid-bean-name" // Contains hyphens
-        );
-        
-        PipelineStepConfig step = new PipelineStepConfig(
-            "parser",
-            StepType.PIPELINE,
-            "Parser step",
-            null, null,
-            Collections.emptyList(),
-            Collections.emptyMap(),
-            null, null, null, null, null,
-            processorInfo
-        );
-        
-        PipelineConfig config = new PipelineConfig(
-            "test-pipeline",
-            Map.of("step1", step)
-        );
-        
-        ValidationResult result = getValidator().validate(config);
-        assertFalse(result.valid());
-        assertEquals(1, result.errors().size());
-        assertTrue(result.errors().getFirst().contains("must be a valid Java identifier"));
-    }
-    
-    @Test
-    void testGenericBeanNameWarning() {
-        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            null,
-            "processor" // Too generic
-        );
-        
-        PipelineStepConfig step = new PipelineStepConfig(
-            "parser",
-            StepType.PIPELINE,
-            "Parser step",
-            null, null,
-            Collections.emptyList(),
-            Collections.emptyMap(),
-            null, null, null, null, null,
-            processorInfo
-        );
-        
-        PipelineConfig config = new PipelineConfig(
-            "test-pipeline",
-            Map.of("step1", step)
-        );
-        
-        ValidationResult result = getValidator().validate(config);
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
-        assertEquals(1, result.warnings().size());
-        assertTrue(result.warnings().getFirst().contains("too generic"));
-    }
     
     @Test
     void testMultipleStepsWithMixedIssues() {
         // Valid processor
         PipelineStepConfig.ProcessorInfo validProcessor = new PipelineStepConfig.ProcessorInfo(
-            "document-parser.service.com",
-            null
+            "document-parser.service.com"
         );
         
         // Invalid gRPC name
         PipelineStepConfig.ProcessorInfo invalidGrpc = new PipelineStepConfig.ProcessorInfo(
-            "@invalid",
-            null
+            "@invalid"
         );
         
-        // Invalid bean name
-        PipelineStepConfig.ProcessorInfo invalidBean = new PipelineStepConfig.ProcessorInfo(
-            null,
-            "123bean"
+        // Valid bean name (bean name validation has been removed)
+        PipelineStepConfig.ProcessorInfo validBean = new PipelineStepConfig.ProcessorInfo(
+            "processorBean"
         );
         
         PipelineStepConfig step1 = new PipelineStepConfig(
@@ -330,7 +263,7 @@ public abstract class ProcessorInfoValidatorTestBase {
             Collections.emptyList(),
             Collections.emptyMap(),
             null, null, null, null, null,
-            invalidBean
+            validBean
         );
         
         PipelineConfig config = new PipelineConfig(
@@ -340,7 +273,7 @@ public abstract class ProcessorInfoValidatorTestBase {
         
         ValidationResult result = getValidator().validate(config);
         assertFalse(result.valid());
-        assertEquals(2, result.errors().size()); // Two invalid names
+        assertEquals(1, result.errors().size()); // Only one invalid name (gRPC)
         assertTrue(result.warnings().isEmpty());
     }
 }

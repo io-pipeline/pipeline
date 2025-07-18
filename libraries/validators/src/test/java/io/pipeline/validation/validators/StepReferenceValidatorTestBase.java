@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Collections;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
 
 public abstract class StepReferenceValidatorTestBase {
     
@@ -17,16 +18,21 @@ public abstract class StepReferenceValidatorTestBase {
     @Test
     void testValidatorPriorityAndName() {
         StepReferenceValidator validator = getValidator();
-        assertEquals(400, validator.getPriority());
-        assertEquals("StepReferenceValidator", validator.getValidatorName());
+        assertThat("Validator priority should be 400, but was: " + validator.getPriority(), 
+                  validator.getPriority(), is(400));
+        assertThat("Validator name should be 'StepReferenceValidator', but was: '" + validator.getValidatorName() + "'", 
+                  validator.getValidatorName(), is("StepReferenceValidator"));
     }
     
     @Test
     void testNullPipelineConfiguration() {
         ValidationResult result = getValidator().validate(null);
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
-        assertTrue(result.warnings().isEmpty());
+        assertThat("Validation result should be valid for null configuration, but was: " + result.valid(), 
+                  result.valid(), is(true));
+        assertThat("Validation errors should be empty for null configuration, but found: " + result.errors(), 
+                  result.errors(), is(empty()));
+        assertThat("Validation warnings should be empty for null configuration, but found: " + result.warnings(), 
+                  result.warnings(), is(empty()));
     }
     
     @Test
@@ -37,16 +43,18 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
-        assertTrue(result.warnings().isEmpty());
+        assertThat("Validation result should be valid for empty pipeline steps, but was: " + result.valid(), 
+                  result.valid(), is(true));
+        assertThat("Validation errors should be empty for empty pipeline steps, but found: " + result.errors(), 
+                  result.errors(), is(empty()));
+        assertThat("Validation warnings should be empty for empty pipeline steps, but found: " + result.warnings(), 
+                  result.warnings(), is(empty()));
     }
     
     @Test
     void testValidInternalGrpcReferences() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create steps with internal gRPC references
@@ -90,15 +98,17 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
+        assertThat("Validation result should be valid for valid internal gRPC references, but was: " + result.valid() + 
+                  "\nFull validation result: " + result, 
+                  result.valid(), is(true));
+        assertThat("Validation errors should be empty for valid internal gRPC references, but found: " + result.errors(), 
+                  result.errors(), is(empty()));
     }
     
     @Test
     void testInvalidInternalGrpcReference() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create step with reference to non-existent step
@@ -131,16 +141,20 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertFalse(result.valid());
-        assertEquals(1, result.errors().size());
-        assertTrue(result.errors().get(0).contains("Step 'step1' output 'default' references non-existent target step 'nonexistent'"));
+        assertThat("Validation result should be invalid for non-existent target step, but was: " + result.valid() + 
+                  "\nFull validation result: " + result, 
+                  result.valid(), is(false));
+        assertThat("Validation should have exactly 1 error for non-existent target step, but found: " + result.errors().size() + " errors" + 
+                  "\nActual errors: " + result.errors(), 
+                  result.errors(), hasSize(1));
+        assertThat("Error message should mention the non-existent target step. Actual errors: " + result.errors(), 
+                  result.errors().getFirst(), containsString("Step 'step1' output 'default' references non-existent target step 'nonexistent'"));
     }
     
     @Test
     void testExternalGrpcReferenceIgnored() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create step with external gRPC reference (contains dots, so it's a FQDN)
@@ -173,15 +187,17 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
+        assertThat("Validation result should be valid for external gRPC references, but was: " + result.valid() + 
+                  "\nFull validation result: " + result, 
+                  result.valid(), is(true));
+        assertThat("Validation errors should be empty for external gRPC references, but found: " + result.errors(), 
+                  result.errors(), is(empty()));
     }
     
     @Test
     void testDuplicateStepNames() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create two steps with the same stepName
@@ -213,16 +229,20 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertFalse(result.valid());
-        assertEquals(1, result.errors().size());
-        assertTrue(result.errors().get(0).contains("Duplicate step name found: duplicate-name"));
+        assertThat("Validation result should be invalid for duplicate step names, but was: " + result.valid() + 
+                  "\nFull validation result: " + result, 
+                  result.valid(), is(false));
+        assertThat("Validation should have exactly 1 error for duplicate step names, but found: " + result.errors().size() + " errors" + 
+                  "\nActual errors: " + result.errors(), 
+                  result.errors(), hasSize(1));
+        assertThat("Error message should mention the duplicate step name. Actual errors: " + result.errors(), 
+                  result.errors().get(0), containsString("Duplicate step name found: duplicate-name"));
     }
     
     @Test
     void testKafkaTransportIgnored() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create step with Kafka transport (should be ignored by this validator)
@@ -255,15 +275,17 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertTrue(result.valid());
-        assertTrue(result.errors().isEmpty());
+        assertThat("Validation result should be valid for Kafka transport (ignored), but was: " + result.valid() + 
+                  "\nFull validation result: " + result, 
+                  result.valid(), is(true));
+        assertThat("Validation errors should be empty for Kafka transport (ignored), but found: " + result.errors(), 
+                  result.errors(), is(empty()));
     }
     
     @Test
     void testMultipleOutputsWithMixedReferences() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service",
-            null
+            "service"
         );
         
         // Create valid target step
@@ -306,8 +328,13 @@ public abstract class StepReferenceValidatorTestBase {
         );
         
         ValidationResult result = getValidator().validate(config);
-        assertFalse(result.valid());
-        assertEquals(1, result.errors().size());
-        assertTrue(result.errors().get(0).contains("Step 'step1' output 'invalid' references non-existent target step 'invalid'"));
+        assertThat("Validation result should be invalid for mixed references with invalid reference, but was: " + result.valid() + 
+                  "\nFull validation result: " + result, 
+                  result.valid(), is(false));
+        assertThat("Validation should have exactly 1 error for invalid reference, but found: " + result.errors().size() + " errors" + 
+                  "\nActual errors: " + result.errors(), 
+                  result.errors(), hasSize(1));
+        assertThat("Error message should mention the non-existent target step. Actual errors: " + result.errors(), 
+                  result.errors().get(0), containsString("Step 'step1' output 'invalid' references non-existent target step 'invalid'"));
     }
 }

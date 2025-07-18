@@ -29,11 +29,11 @@ public abstract class OutputRoutingValidatorTestBase {
     @Test
     void testValidOutputRouting() {
         PipelineStepConfig.ProcessorInfo processorInfo1 = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         PipelineStepConfig.ProcessorInfo processorInfo2 = new PipelineStepConfig.ProcessorInfo(
-            "another-service", null
+            "another-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -79,7 +79,7 @@ public abstract class OutputRoutingValidatorTestBase {
     @Test
     void testTargetStepDoesNotExist() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -117,7 +117,7 @@ public abstract class OutputRoutingValidatorTestBase {
     @Test
     void testSinkStepWithOutputs() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -156,7 +156,7 @@ public abstract class OutputRoutingValidatorTestBase {
     @Test
     void testNonSinkStepWithoutOutputs() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -234,7 +234,7 @@ public abstract class OutputRoutingValidatorTestBase {
     @Test
     void testSingleOutputNotNamedDefault() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -283,7 +283,7 @@ public abstract class OutputRoutingValidatorTestBase {
     @Test
     void testDuplicateOutputNames() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "test-service", null
+            "test-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(

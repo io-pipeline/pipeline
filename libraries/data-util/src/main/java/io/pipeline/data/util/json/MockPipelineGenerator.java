@@ -9,6 +9,7 @@ import io.pipeline.api.model.PipelineStepConfig.ProcessorInfo;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class MockPipelineGenerator {
@@ -57,10 +58,10 @@ public class MockPipelineGenerator {
     }
 
     public static PipelineConfig createSimpleLinearPipeline() {
-        ProcessorInfo processorInfo1 = new ProcessorInfo(null, "bean-step1");
-        ProcessorInfo processorInfo2 = new ProcessorInfo(null, "bean-step2");
+        ProcessorInfo processorInfo1 = new ProcessorInfo("grpc-step1");
+        ProcessorInfo processorInfo2 = new ProcessorInfo("grpc-step2");
 
-        OutputTarget output1 = new OutputTarget("step2", TransportType.INTERNAL, null, null);
+        OutputTarget output1 = new OutputTarget("step2", TransportType.GRPC, new GrpcTransportConfig("step2", Map.of()), null);
         PipelineStepConfig step1 = createStep("step1", StepType.CONNECTOR, processorInfo1, null, Map.of("out", output1));
         PipelineStepConfig step2 = createStep("step2", StepType.SINK, processorInfo2, null, null);
 
@@ -83,7 +84,7 @@ public class MockPipelineGenerator {
                 Collections.emptyMap(), // Empty outputs is valid for SINK steps
                 -1, // Negative maxRetries is a schema violation
                 1000L, 30000L, 2.0, null,
-                new ProcessorInfo(null, "bean-invalid")
+                new ProcessorInfo("grpc-invalid")
         );
         
         return new PipelineConfig("invalid-pipeline-with-schema-violation", Map.of(
@@ -127,7 +128,7 @@ public class MockPipelineGenerator {
     public static PipelineConfig createPipelineWithIncompleteProcessorInfo() {
         // Create a processor with a very short gRPC service name (less than 3 chars)
         // This violates the ProcessorInfoValidator rules
-        ProcessorInfo invalidProcessorInfo = new ProcessorInfo("ab", null);
+        ProcessorInfo invalidProcessorInfo = new ProcessorInfo("ab");
         
         PipelineStepConfig step = createStep(
                 "processor-step", 
@@ -157,7 +158,7 @@ public class MockPipelineGenerator {
      * @return A {@link PipelineConfig} instance.
      */
     public static PipelineConfig createPipelineWithSingleStepNoRouting() {
-        ProcessorInfo processorInfo = new ProcessorInfo("echo-module", null);
+        ProcessorInfo processorInfo = new ProcessorInfo("echo-module");
 
         PipelineStepConfig step = createStep(
                 "echo-step",
@@ -185,11 +186,11 @@ public class MockPipelineGenerator {
      * @return A {@link PipelineConfig} instance.
      */
     public static PipelineConfig createPipelineWithConnectorStep() {
-        // ProcessorInfo must have either grpcServiceName or internalProcessorBeanName, not both
+        // ProcessorInfo must have either grpcServiceName or internalProcessorgrpcName, not both
         // For CONNECTOR steps, use grpcServiceName (external service)
-        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector", null);
-        // For SINK steps, use internalProcessorBeanName (internal bean)
-        ProcessorInfo sinkProcessor = new ProcessorInfo(null, "opensearchSinkBean");
+        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector");
+        // For SINK steps, use grpcServiceName (external service) instead of internalProcessorgrpcName
+        ProcessorInfo sinkProcessor = new ProcessorInfo("opensearch-sink");
 
         // Fix topic naming to follow convention: '{pipeline-name}.{step-name}.input'
         String pipelineName = "pipeline-with-connector-and-sink";
@@ -241,8 +242,8 @@ public class MockPipelineGenerator {
      */
     public static PipelineConfig createPipelineWithWarnings() {
         // Create a step with a very high retry count (generates warnings)
-        // Use a valid Java identifier for the bean name to avoid errors
-        ProcessorInfo processorInfo = new ProcessorInfo(null, "beanStep");
+        // Use a valid Java identifier for the grpc name to avoid errors
+        ProcessorInfo processorInfo = new ProcessorInfo("grpcStep");
         
         // Create a SINK step with a high retry count and long timeout
         // Using SINK type avoids the need for outputs, which can cause errors
@@ -266,6 +267,255 @@ public class MockPipelineGenerator {
         return new PipelineConfig(
                 "pipeline-with-warnings",
                 Map.of("warning-step", step)
+        );
+    }
+
+    /**
+     * Creates a pipeline where the Kafka topic name in the output does not follow the
+     * required naming convention.
+     * <p>
+     * Use Case: Testing the NamingConventionValidator for Kafka topic names.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation.
+     *
+     * @return A {@link PipelineConfig} instance with an invalid Kafka topic name.
+     */
+    public static PipelineConfig createPipelineWithInvalidTopicName() {
+        String pipelineName = "pipeline-with-invalid-topic";
+        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector");
+        ProcessorInfo sinkProcessor = new ProcessorInfo("opensearch-sink");
+
+        // Invalid topic name - does not follow the {pipeline-name}.{step-name}.input pattern
+        KafkaTransportConfig kafkaTransport = new KafkaTransportConfig("my-custom-topic", "pipedocId", "snappy", 16384, 10, Map.of());
+        OutputTarget output = new OutputTarget("opensearch-sink-step", TransportType.KAFKA, null, kafkaTransport);
+
+        PipelineStepConfig connectorStep = createStep(
+                "gutenberg-pg-connector",
+                StepType.CONNECTOR,
+                connectorProcessor,
+                Collections.emptyList(),
+                Map.of("default", output)
+        );
+
+        PipelineStepConfig sinkStep = createStep(
+                "opensearch-sink-step",
+                StepType.SINK,
+                sinkProcessor,
+                List.of(new KafkaInputDefinition(List.of("my-custom-topic"), pipelineName + ".consumer-group", Map.of())),
+                Collections.emptyMap()
+        );
+
+        return new PipelineConfig(
+                pipelineName,
+                Map.of(
+                        "gutenberg-pg-connector", connectorStep,
+                        "opensearch-sink-step", sinkStep
+                )
+        );
+    }
+
+    /**
+     * Creates a pipeline where the Kafka consumer group ID does not follow the
+     * required naming convention.
+     * <p>
+     * Use Case: Testing the NamingConventionValidator for Kafka consumer groups.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation.
+     *
+     * @return A {@link PipelineConfig} instance with an invalid consumer group.
+     */
+    public static PipelineConfig createPipelineWithInvalidConsumerGroup() {
+        String pipelineName = "pipeline-with-invalid-consumer-group";
+        String topicName = pipelineName + ".gutenberg-pg-connector.input";
+        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector");
+        ProcessorInfo sinkProcessor = new ProcessorInfo("opensearch-sink");
+
+        KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(topicName, "pipedocId", "snappy", 16384, 10, Map.of());
+        OutputTarget output = new OutputTarget("opensearch-sink-step", TransportType.KAFKA, null, kafkaTransport);
+
+        PipelineStepConfig connectorStep = createStep(
+                "gutenberg-pg-connector",
+                StepType.CONNECTOR,
+                connectorProcessor,
+                Collections.emptyList(),
+                Map.of("default", output)
+        );
+
+        // Invalid consumer group - does not follow the {pipeline-name}.consumer-group pattern
+        PipelineStepConfig sinkStep = createStep(
+                "opensearch-sink-step",
+                StepType.SINK,
+                sinkProcessor,
+                List.of(new KafkaInputDefinition(List.of(topicName), "my-custom-consumer-group", Map.of())),
+                Collections.emptyMap()
+        );
+
+        return new PipelineConfig(
+                pipelineName,
+                Map.of(
+                        "gutenberg-pg-connector", connectorStep,
+                        "opensearch-sink-step", sinkStep
+                )
+        );
+    }
+
+    /**
+     * Creates a pipeline where a CONNECTOR step incorrectly uses an internal grpc
+     * instead of an external gRPC service.
+     * <p>
+     * Use Case: Testing the ProcessorInfoValidator for mismatched processor types.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation.
+     *
+     * @return A {@link PipelineConfig} instance with a mismatched processor.
+     */
+    public static PipelineConfig createPipelineWithMismatchedProcessor() {
+        String pipelineName = "pipeline-with-mismatched-processor";
+        String topicName = pipelineName + ".gutenberg-pg-connector.input";
+        // Use a valid service name for the CONNECTOR
+        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector");
+        ProcessorInfo sinkProcessor = new ProcessorInfo("opensearch-sink");
+
+        KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(topicName, "pipedocId", "snappy", 16384, 10, Map.of());
+        OutputTarget output = new OutputTarget("opensearch-sink-step", TransportType.KAFKA, null, kafkaTransport);
+
+        PipelineStepConfig connectorStep = createStep(
+                "gutenberg-pg-connector",
+                StepType.CONNECTOR,
+                connectorProcessor,
+                Collections.emptyList(),
+                Map.of("default", output)
+        );
+
+        PipelineStepConfig sinkStep = createStep(
+                "opensearch-sink-step",
+                StepType.SINK,
+                sinkProcessor,
+                List.of(new KafkaInputDefinition(List.of(topicName), pipelineName + ".consumer-group", Map.of())),
+                Collections.emptyMap()
+        );
+
+        return new PipelineConfig(
+                pipelineName,
+                Map.of(
+                        "gutenberg-pg-connector", connectorStep,
+                        "opensearch-sink-step", sinkStep
+                )
+        );
+    }
+
+    /**
+     * Creates a valid pipeline where retries are explicitly disabled.
+     * <p>
+     * Use Case: Testing that disabling retries is a valid configuration.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should PASS all validation modes.
+     *
+     * @return A {@link PipelineConfig} instance with retries disabled.
+     */
+    public static PipelineConfig createPipelineWithDisabledRetries() {
+        String pipelineName = "pipeline-with-disabled-retries";
+        String topicName = pipelineName + ".gutenberg-pg-connector.input";
+        ProcessorInfo connectorProcessor = new ProcessorInfo("gutenberg-connector");
+        ProcessorInfo sinkProcessor = new ProcessorInfo("opensearch-sink");
+
+        KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(topicName, "pipedocId", "snappy", 16384, 10, Map.of());
+        OutputTarget output = new OutputTarget("opensearch-sink-step", TransportType.KAFKA, null, kafkaTransport);
+
+        PipelineStepConfig connectorStep = new PipelineStepConfig(
+                "gutenberg-pg-connector",
+                StepType.CONNECTOR,
+                "A step with retries disabled",
+                null,
+                new JsonConfigOptions(JsonNodeFactory.instance.objectNode(), Collections.emptyMap()),
+                Collections.emptyList(),
+                Map.of("default", output),
+                0, // maxRetries = 0 disables retries
+                0L, // retryBackoffMs = 0 since retries are disabled
+                30000L, 2.0, null,
+                connectorProcessor
+        );
+
+        PipelineStepConfig sinkStep = createStep(
+                "opensearch-sink-step",
+                StepType.SINK,
+                sinkProcessor,
+                List.of(new KafkaInputDefinition(List.of(topicName), pipelineName + ".consumer-group", Map.of())),
+                Collections.emptyMap()
+        );
+
+        return new PipelineConfig(
+                pipelineName,
+                Map.of(
+                        "gutenberg-pg-connector", connectorStep,
+                        "opensearch-sink-step", sinkStep
+                )
+        );
+    }
+
+    /**
+     * Creates a pipeline that references a gRPC service not listed in the cluster's
+     * allowed services.
+     * <p>
+     * Use Case: Testing the StepReferenceValidator for unregistered service checks.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation.
+     *
+     * @return A {@link PipelineClusterConfig} instance with an unregistered service.
+     */
+    public static PipelineClusterConfig createPipelineWithUnregisteredService() {
+        String pipelineName = "pipeline-with-unregistered-service";
+        String topicName = pipelineName + ".echo-connector.input";
+        ProcessorInfo connectorProcessor = new ProcessorInfo("echo");
+        ProcessorInfo sinkProcessor = new ProcessorInfo("test-sink-service");
+
+        KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(topicName, "pipedocId", "snappy", 16384, 10, Map.of());
+        OutputTarget output = new OutputTarget("test-sink", TransportType.KAFKA, null, kafkaTransport);
+
+        PipelineStepConfig connectorStep = createStep(
+                "echo-connector",
+                StepType.CONNECTOR,
+                connectorProcessor,
+                Collections.emptyList(),
+                Map.of("default", output)
+        );
+
+        PipelineStepConfig sinkStep = createStep(
+                "test-sink",
+                StepType.SINK,
+                sinkProcessor,
+                List.of(new KafkaInputDefinition(List.of(topicName), pipelineName + ".consumer-group", Map.of())),
+                Collections.emptyMap()
+        );
+
+        PipelineConfig pipeline = new PipelineConfig(
+                pipelineName,
+                Map.of(
+                        "echo-connector", connectorStep,
+                        "test-sink", sinkStep
+                )
+        );
+
+        return new PipelineClusterConfig(
+                "default-cluster",
+                new PipelineGraphConfig(Map.of(pipelineName, pipeline)),
+                null,
+                pipelineName,
+                Collections.emptySet(), // allowedKafkaTopics
+                Set.of("test-sink-service", "some-other-service") // allowedGrpcServices - includes "test-sink-service" but not "echo"
         );
     }
 

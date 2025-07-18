@@ -25,8 +25,8 @@ public abstract class PipelineConfigTestBase {
         // Create pipeline steps
         Map<String, PipelineStepConfig> steps = new HashMap<>();
         
-        PipelineStepConfig.ProcessorInfo processorInfo1 = new PipelineStepConfig.ProcessorInfo("parser-service", null);
-        PipelineStepConfig.ProcessorInfo processorInfo2 = new PipelineStepConfig.ProcessorInfo(null, "chunkerBean");
+        PipelineStepConfig.ProcessorInfo processorInfo1 = new PipelineStepConfig.ProcessorInfo("parser-service");
+        PipelineStepConfig.ProcessorInfo processorInfo2 = new PipelineStepConfig.ProcessorInfo("chunkerBean");
         
         PipelineStepConfig step1 = new PipelineStepConfig(
                 "parser-step",
@@ -56,7 +56,7 @@ public abstract class PipelineConfigTestBase {
         // Create a pipeline config
         Map<String, PipelineStepConfig> steps = new HashMap<>();
         
-        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo("test-service", null);
+        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo("test-service");
         PipelineStepConfig.JsonConfigOptions configOptions = new PipelineStepConfig.JsonConfigOptions(Map.of("config", "value"));
         
         PipelineStepConfig step = new PipelineStepConfig(
@@ -111,7 +111,7 @@ public abstract class PipelineConfigTestBase {
     @Test
     public void testImmutability() {
         Map<String, PipelineStepConfig> mutableSteps = new HashMap<>();
-        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo("module1-service", null);
+        PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo("module1-service");
         PipelineStepConfig step = new PipelineStepConfig(
                 "step1",
                 StepType.PIPELINE,
@@ -157,7 +157,7 @@ public abstract class PipelineConfigTestBase {
                 30000L,
                 2.0,
                 60000L,
-                new PipelineStepConfig.ProcessorInfo("parser-service", null)
+                new PipelineStepConfig.ProcessorInfo("parser-service")
         ));
         
         // Chunker step with gRPC output
@@ -181,7 +181,7 @@ public abstract class PipelineConfigTestBase {
                 30000L,
                 2.0,
                 60000L,
-                new PipelineStepConfig.ProcessorInfo("chunker-service", null)
+                new PipelineStepConfig.ProcessorInfo("chunker-service")
         ));
         
         // Vectorizer step with internal processor
@@ -205,7 +205,7 @@ public abstract class PipelineConfigTestBase {
                 30000L,
                 2.0,
                 120000L,
-                new PipelineStepConfig.ProcessorInfo(null, "vectorizerBean")
+                new PipelineStepConfig.ProcessorInfo("vectorizerBean")
         ));
         
         // Sink step
@@ -222,7 +222,7 @@ public abstract class PipelineConfigTestBase {
                 30000L,
                 2.0,
                 null,
-                new PipelineStepConfig.ProcessorInfo("sink-service", null)
+                new PipelineStepConfig.ProcessorInfo("sink-service")
         ));
         
         PipelineConfig pipeline = new PipelineConfig("document-indexing-pipeline", steps);

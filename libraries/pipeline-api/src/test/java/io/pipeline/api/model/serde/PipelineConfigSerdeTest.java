@@ -24,7 +24,7 @@ class PipelineConfigSerdeTest {
         var kafkaInput = new KafkaInputDefinition(List.of("topic-a"), "my-consumer-group", null);
         var kafkaTransport = new KafkaTransportConfig("my-output-topic", "pipedocId", null, null, null, null);
         var outputTarget = new PipelineStepConfig.OutputTarget("next-step", TransportType.KAFKA, null, kafkaTransport);
-        var processorInfo = new PipelineStepConfig.ProcessorInfo(null, "my-processor");
+        var processorInfo = new PipelineStepConfig.ProcessorInfo("my-processor");
         var step = new PipelineStepConfig(
                 "my-step",
                 StepType.PIPELINE,

@@ -23,8 +23,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     void testValidTopicNames() {
         // Create processor info
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service",
-            null
+            "parser-service"
         );
         
         // Create Kafka transport config
@@ -76,7 +75,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testInvalidTopicCharacters() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service", null
+            "parser-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -110,7 +109,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
         String longTopicName = "a".repeat(250); // Exceeds 249 character limit
         
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service", null
+            "parser-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -141,7 +140,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testInvalidDotAndDotDotTopicNames() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "service", null
+            "service"
         );
         
         // Create step with "." topic
@@ -183,7 +182,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testEmptyTopicName() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service", null
+            "parser-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -214,7 +213,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testNamingConventionWarnings() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service", null
+            "parser-service"
         );
         
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(
@@ -247,7 +246,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testDlqTopicPatternWarning() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "parser-service", null
+            "parser-service"
         );
         
         // KafkaTransportConfig automatically generates DLQ topic as topic + ".dlq"
@@ -281,7 +280,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testKafkaInputValidation() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "aggregator-service", null
+            "aggregator-service"
         );
         
         KafkaInputDefinition kafkaInput = new KafkaInputDefinition(
@@ -314,7 +313,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testMultipleOutputsValidation() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "router-service", null
+            "router-service"
         );
         
         // Create multiple outputs
@@ -365,7 +364,7 @@ public abstract class KafkaTopicNamingValidatorTestBase {
     @Test
     void testNonKafkaTransportIgnored() {
         PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-            "grpc-service", null
+            "grpc-service"
         );
         
         // Create gRPC transport
