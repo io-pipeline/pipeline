@@ -35,3 +35,5 @@ temp_archive
 .quarkus
 
 CLAUDE.md
+## the testing suite output doc
+out
