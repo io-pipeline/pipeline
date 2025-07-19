@@ -1,640 +1,273 @@
-# Pipeline Module Registration Process
+# Registration Process Documentation
 
-## Table of Contents
-1. [Quick Start - Adding Registration to Your gRPC Service](#quick-start---adding-registration-to-your-grpc-service)
-2. [Architecture Overview](#architecture-overview)
-3. [Registration Flow](#registration-flow)
-4. [Naming Conventions](#naming-conventions)
-5. [State Management](#state-management)
-6. [Version Tracking](#version-tracking)
-7. [Service Discovery](#service-discovery)
-8. [Health Monitoring](#health-monitoring)
-9. [Configuration](#configuration)
-10. [Troubleshooting](#troubleshooting)
+## Overview
 
-## Quick Start - Adding Registration to Your gRPC Service
+This document explains how services register themselves with Consul in the Pipeline Engine system, covering both the registration service's self-registration and module registration via annotations.
 
-### Step 1: Add Dependencies
+## Architecture
 
-Add these dependencies to your module's `build.gradle.kts`:
+### Two Registration Mechanisms
 
-```kotlin
-dependencies {
-    implementation(project(":libraries:pipeline-api"))
-    implementation(project(":grpc-stubs"))
-    
-    // For service discovery
-    implementation("io.quarkus:quarkus-smallrye-stork")
-    implementation("io.smallrye.stork:stork-service-discovery-consul")
-    implementation("io.smallrye.reactive:smallrye-mutiny-vertx-consul-client")
-}
-```
+1. **Registration Service Self-Registration**: `RegistrationServiceSelfRegistration`
+   - The registration service registers itself directly with Consul
+   - Uses direct Consul client API calls
+   - Required for bootstrap - other services discover the registration service through Consul
 
-### Step 2: Implement PipeStepProcessor Interface
+2. **Module Auto-Registration**: `PipelineAutoRegistrationBean` + `@PipelineAutoRegister`
+   - Modules annotated with `@PipelineAutoRegister` auto-register via gRPC calls
+   - Uses Stork service discovery to find the registration service
+   - Consul-only approach - no direct host/port fallbacks
 
+## Registration Service Self-Registration
+
+### Class: `RegistrationServiceSelfRegistration`
+
+**Purpose**: Bootstrap registration - registers the registration service with Consul so other services can discover it.
+
+**Key Configuration**:
 ```java
-import com.rokkon.search.sdk.PipeStepProcessor;
-import com.rokkon.pipeline.api.annotation.PipelineAutoRegister;
-import io.quarkus.grpc.GrpcService;
-import jakarta.inject.Singleton;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+@ConfigProperty(name = "quarkus.profile")
+String profile;
 
-@GrpcService
-@Singleton
-@PipelineAutoRegister(
-    moduleType = "processor",           // Type of module
-    useHttpPort = true,                 // Use unified HTTP/gRPC port
-    metadata = {                        // Additional metadata
-        "category=data-processing",
-        "complexity=simple"
-    }
-)
-public class MyProcessorService implements PipeStepProcessor {
-    
-    @ConfigProperty(name = "quarkus.application.name")
-    String applicationName;
-    
-    @Override
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
-        // Your processing logic here
-    }
-    
-    @Override
-    public Uni<ServiceRegistrationResponse> getServiceRegistration(
-            RegistrationRequest request) {
-        return Uni.createFrom().item(
-            ServiceRegistrationResponse.newBuilder()
-                .setModuleName(applicationName)
-                .setVersion("1.0.0")
-                .setDisplayName("My Processor Service")
-                .setDescription("Processes data in the pipeline")
-                .addTags("pipeline-module")
-                .addTags("processor")
-                .putMetadata("author", "Your Team")
-                .build()
-        );
-    }
-}
+@ConfigProperty(name = "quarkus.application.name", defaultValue = "registration-service") 
+String applicationName;
+
+@ConfigProperty(name = "quarkus.http.port", defaultValue = "39100")
+int httpPort;
 ```
 
-### Step 3: Configure Service Discovery
+**Service Registration Details**:
+- **Service ID**: `{applicationName}-{hostname}-{httpPort}` (e.g., `registration-service-localhost-38001`)
+- **Service Name**: `{applicationName}` (e.g., `registration-service`)
+- **Address**: Hostname determined by profile:
+  - `dev` profile → `localhost`
+  - Production → Environment variables or container hostname
+- **Port**: HTTP port (unified server mode)
+- **Tags**: `["grpc", "registration", "core-service", "version:{version}"]`
 
-Add to your `application.properties`:
+**Health Check Configuration**:
+```java
+CheckOptions checkOptions = new CheckOptions()
+    .setName("Registration Service Health Check")
+    .setGrpc(hostname + ":" + httpPort)     // gRPC health check
+    .setInterval("10s")
+    .setDeregisterAfter("1m");              // Consul minimum requirement
+```
 
+**Critical Settings**:
+- `module.auto-register.enabled=false` - Disables annotation-based registration for the registration service
+- Profile detection uses `@ConfigProperty(name = "quarkus.profile")` - the Quarkus way
+- gRPC health checks for gRPC services (not HTTP)
+
+## Module Auto-Registration
+
+### Class: `PipelineAutoRegistrationBean`
+
+**Purpose**: Automatically registers modules annotated with `@PipelineAutoRegister` by making gRPC calls to the registration service.
+
+**Discovery Mechanism**: 
+- Uses Stork service discovery to find `registration-service`
+- Pure Consul approach - no direct host/port fallbacks
+- Fails fast if Consul is not available
+
+**Required Configuration**:
 ```properties
-# Service name (clean, no -module suffix)
-quarkus.application.name=my-processor
-
-# Unified HTTP/gRPC server
-quarkus.http.port=39100
-quarkus.grpc.server.use-separate-server=false
-
-# gRPC client for registration service
+# gRPC Client Configuration with Stork
 quarkus.grpc.clients.registration-service.host=registration-service
-quarkus.grpc.clients.registration-service.port=39100
+quarkus.grpc.clients.registration-service.name-resolver=stork
 
-# Stork service discovery
+# Stork Service Discovery Configuration  
 quarkus.stork.registration-service.service-discovery.type=consul
-quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:consul}
+quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}
 quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}
 ```
 
-### Step 4: Docker Environment Variables
+**Critical Configuration**: The `host=registration-service` property tells the gRPC client what service name to resolve via Stork.
 
-In your `docker-compose.yml`:
+### Annotation: `@PipelineAutoRegister`
 
-```yaml
-services:
-  my-processor:
-    environment:
-      - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      - MODULE_HOST=my-processor  # Used for registration
-      - QUARKUS_GRPC_SERVER_USE_SEPARATE_SERVER=false
-```
-
-That's it! Your service will automatically register on startup.
-
-## Architecture Overview
-
-The registration system follows a centralized architecture where:
-
-1. **Modules** are gRPC services that process data in the pipeline
-2. **Registration Service** is the central authority managing all registrations
-3. **Consul** provides service discovery and health monitoring
-4. **No direct Consul dependency** for modules - they only know about the registration service
-
-```mermaid
-graph TB
-    subgraph "Pipeline Modules"
-        M1[Echo Module]
-        M2[Parser Module]
-        M3[Embedder Module]
-    end
-    
-    subgraph "Registration Service"
-        RS[Registration Service]
-        RDB[(Module Registry)]
-    end
-    
-    subgraph "Service Discovery"
-        C[Consul]
-        S[Stork]
-    end
-    
-    M1 -->|1. Discover via Stork| S
-    M2 -->|1. Discover via Stork| S
-    M3 -->|1. Discover via Stork| S
-    
-    S -->|2. Query| C
-    S -->|3. Return endpoint| M1
-    S -->|3. Return endpoint| M2
-    S -->|3. Return endpoint| M3
-    
-    M1 -->|4. Register via gRPC| RS
-    M2 -->|4. Register via gRPC| RS
-    M3 -->|4. Register via gRPC| RS
-    
-    RS -->|5. Store metadata| RDB
-    RS -->|6. Register with Consul| C
-    C -->|7. Health checks| M1
-    C -->|7. Health checks| M2
-    C -->|7. Health checks| M3
-```
-
-## Registration Flow
-
-### State Diagram
-
-```mermaid
-stateDiagram-v2
-    [*] --> ModuleStartup: Service starts
-    
-    ModuleStartup --> DiscoverRegistration: @PipelineAutoRegister triggered
-    
-    DiscoverRegistration --> QueryStork: Use Stork to find registration-service
-    QueryStork --> RegistrationFound: Service discovered
-    QueryStork --> RetryDiscovery: Service not found
-    RetryDiscovery --> QueryStork: Retry with backoff
-    
-    RegistrationFound --> SendRegistration: Send module info via gRPC
-    
-    SendRegistration --> RegistrationReceived: Registration service receives
-    
-    state RegistrationService {
-        RegistrationReceived --> ValidateModule: Validate module info
-        ValidateModule --> GenerateHash: Create unique hash ID
-        GenerateHash --> CheckExisting: Check if already registered
-        
-        CheckExisting --> UpdateExisting: Same hash exists
-        CheckExisting --> CreateNew: New hash
-        
-        UpdateExisting --> UpdateHeartbeat: Update last seen
-        CreateNew --> StoreInKV: Save to KV store
-        
-        StoreInKV --> RegisterConsul: Register with Consul
-        RegisterConsul --> SetupHealthCheck: Configure gRPC health check
-    }
-    
-    SetupHealthCheck --> WaitForHealth: Wait for first health check
-    WaitForHealth --> Healthy: Health check passes
-    WaitForHealth --> Unhealthy: Health check fails
-    
-    Healthy --> Active: Module active
-    Unhealthy --> RetryHealth: Retry health checks
-    RetryHealth --> Healthy: Recovered
-    RetryHealth --> Failed: Max retries exceeded
-    
-    Active --> Heartbeat: Periodic heartbeat
-    Heartbeat --> Active: Still healthy
-    
-    Active --> Shutdown: Module shutdown
-    Failed --> Shutdown: Give up
-    Shutdown --> Deregister: Remove from Consul
-    Deregister --> [*]: Cleanup complete
-```
-
-### Detailed Flow Steps
-
-1. **Module Startup**
-   - Module starts with `@PipelineAutoRegister` annotation
-   - `PipelineAutoRegistrationBean` observes startup event
-   - Collects module metadata (host, port, type)
-
-2. **Service Discovery**
-   - Uses Stork to discover registration service
-   - Stork queries Consul for "registration-service"
-   - Returns healthy instance endpoint
-
-3. **Registration Request**
-   - Module calls registration service via gRPC
-   - Sends `ModuleInfo` with metadata
-   - Registration service calls back to get detailed info
-
-4. **Validation & Storage**
-   - Registration service validates module data
-   - Generates unique hash from host+port+schema+metadata
-   - Stores in Consul KV with status REGISTERING
-
-5. **Consul Registration**
-   - Creates Consul service entry
-   - Sets up gRPC health check
-   - Tags service appropriately
-
-6. **Health Monitoring**
-   - Consul performs periodic gRPC health checks
-   - Updates service status
-   - Registration service updates KV status to HEALTHY
-
-## Naming Conventions
-
-### Service Names
-- **Clean names**: `echo`, `parser`, `embedder`
-- **No suffixes**: Avoid `-module`, `-service`, `-processor`
-- **Lowercase**: Always use lowercase
-- **Hyphens for multi-word**: `document-parser`, `text-embedder`
-
-### Service IDs
-- **Format**: `{service-name}-{host}-{port}`
-- **Example**: `echo-echo-container-39100`
-- **Unique per instance**: Each container gets unique ID
-
-### Consul Tags
-- `pipeline-module` - Identifies pipeline components
-- `grpc` - Indicates gRPC support
-- `type:{moduleType}` - From @PipelineAutoRegister
-- `version:{version}` - Module version
-
-### Metadata Keys
-- Standard keys: `version`, `author`, `description`
-- Module-specific: `schema-version`, `capabilities`
-- Performance: `max-throughput`, `resource-requirements`
-
-## State Management
-
-### Module States
-
-| State | Description | Next States |
-|-------|-------------|-------------|
-| `RECEIVED` | Registration request received | `REGISTERING`, `FAILED` |
-| `REGISTERING` | Being registered with Consul | `REGISTERED`, `FAILED` |
-| `REGISTERED` | Successfully registered, awaiting health | `HEALTHY`, `UNHEALTHY` |
-| `HEALTHY` | Passing health checks | `UNHEALTHY`, `DEREGISTERING` |
-| `UNHEALTHY` | Failing health checks | `HEALTHY`, `FAILED` |
-| `FAILED` | Registration failed | `DEREGISTERING` |
-| `DEREGISTERING` | Being removed | `DEREGISTERED` |
-| `DEREGISTERED` | Fully removed | - |
-
-### State Transitions
-
+**Usage**:
 ```java
-public enum ModuleStatus {
-    RECEIVED,      // Initial state when registration received
-    REGISTERING,   // In process of registering with Consul
-    REGISTERED,    // Registered but health unknown
-    HEALTHY,       // Registered and passing health checks
-    UNHEALTHY,     // Registered but failing health checks
-    FAILED,        // Registration or health checks failed
-    DEREGISTERING, // Being removed from system
-    DEREGISTERED   // Fully removed
+@GrpcService
+@PipelineAutoRegister(
+    moduleType = "processor",
+    useHttpPort = true,
+    metadata = {"category=data-processing"}
+)
+public class EchoServiceImpl implements PipeStepProcessor {
+    // Implementation
 }
 ```
 
-## Version Tracking
+**Registration Flow**:
+1. `PipelineAutoRegistrationBean` scans for `@PipelineAutoRegister` annotated beans
+2. Uses Stork to discover the registration service in Consul
+3. Makes gRPC call to registration service with module details
+4. Registration service registers the module in Consul
 
-### Version Philosophy
+## Configuration Patterns
 
-The module itself is the source of truth for its version. The registration service tracks and audits changes but respects the module's reported version.
+### Registration Service (`application.properties`)
+```properties
+quarkus.application.name=registration-service
 
-### Version vs Instance Detection
+# Port allocation - bind to all interfaces for 2-way connectivity
+quarkus.http.port=38501
+quarkus.http.host=0.0.0.0
+%dev.quarkus.http.port=38001
+%dev.quarkus.http.host=0.0.0.0
 
-```java
-// Instance identifier (unique per container)
-String instanceId = String.format("%s-%s-%d", moduleName, host, port);
+# Disable auto-registration (uses self-registration instead)
+module.auto-register.enabled=false
 
-// Version comes from the module itself
-String version = serviceRegistrationResponse.getVersion();
+# Consul service registration
+quarkus.stork.registration-service.service-registrar.type=consul
+quarkus.stork.registration-service.service-registrar.consul-host=${CONSUL_HOST:consul}
+%dev.quarkus.stork.registration-service.service-registrar.consul-host=localhost
 ```
 
-**Key Distinctions**:
-- **Port/Host changes** = Different instance, same version
-- **Version changes** = Module explicitly changed its version
-- **Metadata changes** = Audit for history, auto-revision only for significant changes
-- **Schema changes** = Delegate to schema registry (future)
+### Module Configuration (e.g., `echo/application.properties`)
+```properties
+# Module identification
+module.name=echo
+quarkus.application.name=echo
 
-### Metadata Change Detection
+# Port allocation - bind to all interfaces for 2-way connectivity
+quarkus.http.port=39000
+quarkus.http.host=0.0.0.0
+%dev.quarkus.http.port=39100
+%dev.quarkus.http.host=0.0.0.0
 
-```java
-public class MetadataChangeHandler {
-    // Fields that trigger auto-revision
-    private static final Set<String> SIGNIFICANT_FIELDS = Set.of(
-        "capabilities",
-        "max-throughput", 
-        "resource-requirements",
-        "supported-formats"
-    );
-    
-    // Fields that are audit-only
-    private static final Set<String> AUDIT_ONLY_FIELDS = Set.of(
-        "author",
-        "lastModified",
-        "buildNumber",
-        "gitCommit",
-        "description"
-    );
-    
-    public VersionDecision handleMetadataChange(
-            String reportedVersion, 
-            Map<String, String> oldMeta, 
-            Map<String, String> newMeta) {
-        
-        Set<String> changed = getChangedFields(oldMeta, newMeta);
-        
-        // Always audit
-        auditChange(changed, oldMeta, newMeta);
-        
-        // Only increment revision for significant changes
-        if (hasSignificantChange(changed)) {
-            return VersionDecision.incrementRevision(reportedVersion);
-        }
-        
-        return VersionDecision.keepVersion(reportedVersion);
-    }
-}
-```
-
-### Multi-Version Support
-
-When multiple versions are running simultaneously:
-
-```
-Service: echo
-├── v1.2.3 (2 instances)
-│   ├── echo-host-a-39100
-│   └── echo-host-c-39100
-└── v1.2.4 (1 instance)
-    └── echo-host-b-39100
-```
-
-**Client Behavior**:
-- Request `echo` → Routes to latest (v1.2.4)
-- Request `echo:1.2.3` → Load balances between host-a and host-c
-- Dynamic-grpc handles version selection logic
-
-### Version Storage Structure
-
-```
-/pipeline/modules/echo/
-  ├── instances/
-  │   ├── echo-host-a-39100/
-  │   │   ├── version → "1.2.3"
-  │   │   ├── metadata → {...}
-  │   │   └── health → "HEALTHY"
-  │   ├── echo-host-b-39100/
-  │   │   ├── version → "1.2.4"
-  │   │   ├── metadata → {...}
-  │   │   └── health → "HEALTHY"
-  │   └── echo-host-c-39100/
-  │       ├── version → "1.2.3"
-  │       ├── metadata → {...}
-  │       └── health → "HEALTHY"
-  ├── versions/
-  │   ├── latest → "1.2.4"
-  │   ├── active → ["1.2.3", "1.2.4"]
-  │   └── history → [...]
-  └── audit/
-      ├── 2024-01-15T10:30:00Z → {field: "author", old: "alice", new: "bob", version: "1.2.3"}
-      └── 2024-01-15T11:00:00Z → {field: "capabilities", old: [...], new: [...], version: "1.2.3→1.2.4"}
-```
-
-### Schema Version Management (Future)
-
-Schema versioning will be delegated to a dedicated schema registry:
-
-```java
-// Future integration with Apicurio/AWS Glue
-public class SchemaVersioning {
-    @Inject
-    SchemaRegistryClient schemaRegistry;
-    
-    public CompletionStage<SchemaValidation> validateSchema(
-            String moduleName, 
-            String schemaJson) {
-        
-        // Let schema registry handle versioning
-        return schemaRegistry
-            .getLatestSchema(moduleName)
-            .thenCompose(latest -> 
-                schemaRegistry.checkCompatibility(latest, schemaJson)
-            );
-    }
-}
-```
-
-### Error States
-
-**Schema Version Mismatch**:
-```java
-// ERROR STATE: Module reports v1.2.3 but has v2.0.0 schema
-// This indicates misconfiguration and should fail registration
-if (schemaVersion != null && !isCompatibleVersion(reportedVersion, schemaVersion)) {
-    return RegistrationStatus.newBuilder()
-        .setSuccess(false)
-        .setMessage("Schema version mismatch: module reports " + reportedVersion + 
-                   " but schema indicates " + schemaVersion)
-        .setErrorCode("SCHEMA_VERSION_MISMATCH")
-        .build();
-}
-```
-
-**Future Handling**:
-- Log error state for investigation
-- Could allow override with `force-register` flag
-- Schema registry will provide better compatibility checking
-
-## Service Discovery
-
-### For Modules
-
-Modules use Stork for service discovery:
-
-```yaml
-# Stork configuration
+# Registration Service Discovery via Consul
+quarkus.grpc.clients.registration-service.host=registration-service
+quarkus.grpc.clients.registration-service.name-resolver=stork
 quarkus.stork.registration-service.service-discovery.type=consul
-quarkus.stork.registration-service.service-discovery.consul-host=consul
-quarkus.stork.registration-service.service-discovery.consul-port=8500
+quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:consul}
+%dev.quarkus.stork.registration-service.service-discovery.consul-host=localhost
+
+# Module registration configuration - control advertisement address
+module.registration.host=localhost
 ```
 
-### For Clients
+## Startup Sequence
 
-Clients can discover modules via:
+### Correct Order
+1. **Start Consul**: `consul agent -dev -log-level=warn`
+2. **Start Registration Service**: Registers itself with Consul
+3. **Start Modules**: Discover registration service via Consul, then register themselves
 
-1. **Direct Consul query**:
-   ```bash
-   curl http://consul:8500/v1/catalog/service/echo
-   ```
-
-2. **Registration service API**:
-   ```bash
-   curl http://registration-service:39100/api/v1/modules
-   ```
-
-3. **Stork in code**:
-   ```java
-   @GrpcClient("stork://echo")
-   MutinyPipeStepProcessorStub echoClient;
-   ```
-
-## Health Monitoring
-
-### gRPC Health Checks
-
-Consul performs health checks using gRPC Health protocol:
-
-```protobuf
-service Health {
-  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
-  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
-}
-```
-
-### Health Check Configuration
-
-```java
-CheckOptions checkOptions = new CheckOptions()
-    .setName("Module Health Check")
-    .setGrpc(registration.host() + ":" + registration.port() + "/grpc.health.v1.Health")
-    .setInterval("10s")
-    .setDeregisterAfter("30s");
-```
-
-### Health Status Propagation
-
-1. Consul checks module health every 10s
-2. After 3 failed checks → marks UNHEALTHY
-3. After 30s of failures → deregisters service
-4. Registration service updates module status in KV
-
-## Configuration
-
-### Module Configuration
-
-```properties
-# Required
-quarkus.application.name=my-module
-quarkus.http.port=39100
-
-# Optional
-module.version=1.0.0
-module.metadata=key1=value1,key2=value2
-module.auto-register.enabled=true
-```
-
-### Registration Service Configuration
-
-```properties
-# Consul connection
-consul.host=consul
-consul.port=8500
-
-# Module management
-module.cleanup.interval=PT30M
-module.zombie.threshold=PT2M
-module.health.check.interval=10s
-module.health.check.timeout=30s
-```
-
-### Docker Environment
-
-```yaml
-environment:
-  # Required
-  - CONSUL_HOST=consul
-  - CONSUL_PORT=8500
-  - MODULE_HOST=${HOSTNAME}
-  
-  # Optional
-  - MODULE_VERSION=1.0.0
-  - MODULE_METADATA="env=prod,region=us-east"
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"UNAVAILABLE: io exception"**
-   - Check network connectivity
-   - Verify registration service is running
-   - Check Stork configuration
-
-2. **Module not appearing in Consul**
-   - Check registration service logs
-   - Verify module metadata is valid
-   - Ensure health endpoint is implemented
-
-3. **Stuck in REGISTERING state**
-   - Check Consul connectivity
-   - Verify no duplicate registrations
-   - Check for validation errors
-
-### Debug Commands
-
+### Verification Commands
 ```bash
-# Check if module is registered
-curl http://consul:8500/v1/catalog/service/my-module
+# 1. Check Consul is running
+curl http://localhost:8500/v1/catalog/services
 
-# Check module health
-curl http://consul:8500/v1/health/service/my-module
+# 2. Verify registration service is healthy
+curl -s http://localhost:8500/v1/health/service/registration-service
 
-# Check registration service logs
-docker logs registration-service | grep my-module
-
-# Test gRPC health endpoint
-grpcurl -plaintext my-module:39100 grpc.health.v1.Health/Check
-
-# Check Stork discovery
-curl http://my-module:39100/q/stork/services
+# 3. Check module registration
+curl -s http://localhost:8500/v1/health/service/echo
 ```
 
-### Logging Configuration
+## Debugging Common Issues
 
-Enable debug logging:
+### Registration Service Health Failing
+**Symptoms**: Service registers but health checks fail, gets deregistered
+**Causes**:
+1. Wrong health check type (HTTP vs gRPC)
+2. Incorrect hostname resolution 
+3. Profile detection not working
 
+**Debug Steps**:
+1. Check service ID pattern in Consul logs
+2. Verify profile detection: `registration-service-localhost-38001` (good) vs `registration-service-registration-service-38001` (bad)
+3. Ensure gRPC health check, not HTTP
+
+### Module Cannot Find Registration Service  
+**Symptoms**: `"UNAVAILABLE: io exception"` or `"No service defined for name localhost"`
+**Causes**:
+1. Missing `quarkus.grpc.clients.registration-service.host=registration-service`
+2. Registration service not registered in Consul
+3. Stork configuration incorrect
+
+**Debug Steps**:
+1. Verify registration service is in Consul and healthy
+2. Check gRPC client target in logs: should be `stork://registration-service` not `stork://localhost`
+3. Verify all three Stork configuration properties are present
+
+### Hostname Resolution Issues
+**Symptoms**: Services register but can't connect to each other; "Connection refused" errors
+**Root Cause**: Services binding to specific interfaces (localhost) but advertising different hostnames
+
+**Example Problem**:
+- Service binds to `localhost:39100` (127.0.0.1)
+- Service advertises as `krick:39100` (127.0.1.1) 
+- Other services can't connect because they try to reach the advertised address
+
+**Solution - Bind to All Interfaces**:
 ```properties
-quarkus.log.category."com.rokkon.pipeline".level=DEBUG
-quarkus.log.category."io.smallrye.stork".level=DEBUG
-quarkus.log.category."io.grpc".level=DEBUG
+# Bind to all interfaces so service is reachable on any hostname
+quarkus.http.host=0.0.0.0
+%dev.quarkus.http.host=0.0.0.0
 ```
 
-## Why This Architecture?
+**Solution - Control Advertisement Address**:
+```properties
+# Override what address to advertise for registration
+module.registration.host=localhost
+```
 
-### Benefits
+**Hostname Resolution Priority**:
+1. `module.registration.host` (explicit override)
+2. `quarkus.http.host` (if not 0.0.0.0)
+3. Environment variables (MODULE_HOST, etc.)
+4. System hostname detection
 
-1. **Centralized Management**: Single source of truth for all registrations
-2. **No Consul Dependency**: Modules don't need Consul libraries
-3. **Automatic Discovery**: Stork handles service discovery transparently
-4. **Version Tracking**: Automatic detection of configuration changes
-5. **Health Monitoring**: Built-in health checks and status tracking
-6. **Scalability**: Multiple instances register under same service name
-7. **Simplicity**: Just add an annotation to enable registration
+**Debug Commands**:
+```bash
+# Test if hostname resolves and service is reachable
+curl -v http://krick:39100/health
+curl -v http://localhost:39100/health
 
-### Design Decisions
+# Test gRPC connectivity  
+grpcurl -plaintext krick:39100 grpc.health.v1.Health/Check
+grpcurl -plaintext localhost:39100 grpc.health.v1.Health/Check
 
-1. **gRPC-First**: All communication uses gRPC for consistency
-2. **Pull-Based Registration**: Registration service pulls module info
-3. **Hash-Based Versioning**: Deterministic version detection
-4. **Consul for Discovery**: Industry-standard service mesh
-5. **Unified Ports**: Single port for both HTTP and gRPC (39100)
+# Check what addresses services registered with
+curl -s http://localhost:8500/v1/health/service/echo | jq '.[] | {ServiceID: .Service.ID, Address: .Service.Address, Port: .Service.Port}'
+```
 
-### Trade-offs
+## Best Practices
 
-1. **Additional Hop**: Modules must go through registration service
-   - *Mitigation*: Registration is one-time at startup
-   
-2. **Central Point of Failure**: Registration service is critical
-   - *Mitigation*: Can run multiple instances
-   
-3. **Eventual Consistency**: Health status has slight delay
-   - *Mitigation*: Acceptable for this use case
+1. **Follow the Quarkus Way**: Use `@ConfigProperty` injection instead of system properties
+2. **Match Health Check to Service Type**: gRPC services need gRPC health checks
+3. **Consul-Only Approach**: No fallback mechanisms - fail fast if Consul unavailable  
+4. **Profile-Based Configuration**: Use `%dev.` prefixes for development overrides
+5. **Systematic Debugging**: Trace configuration → code → logs → behavior
+6. **Clear Consul Between Tests**: Use `./scripts/clear-consul.sh` for clean starts
+7. **Bind to All Interfaces**: Use `quarkus.http.host=0.0.0.0` to ensure 2-way connectivity
+8. **Control Advertisement**: Use `module.registration.host` to specify exact hostname for service registration
+9. **Test Both Directions**: Verify services can reach each other using `curl` and `grpcurl`
+10. **Hostname Resolution Logic**: Follow the priority order: explicit config > Quarkus config > environment > detection
 
-This architecture provides a clean, scalable solution for managing pipeline modules while keeping the modules themselves simple and focused on their core functionality.
+## Error Messages and Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `"target=stork://localhost:9000"` | Missing `host=registration-service` | Add gRPC client host property |
+| `"Check is now critical"` | Wrong health check type | Use `.setGrpc()` not `.setHttp()` |
+| `"service-registration-service-38001"` | Profile detection failing | Use `@ConfigProperty(name = "quarkus.profile")` |
+| `"UNAVAILABLE: io exception"` | Registration service not found | Verify registration service is healthy in Consul |
+| `"deregister interval below minimum"` | Timeout too low | Use minimum `"1m"` for deregister timeout |
+| `"Connection refused: krick:38001"` | Hostname binding mismatch | Use `quarkus.http.host=0.0.0.0` |
+| `"Cannot connect to advertised address"` | Service binds to localhost only | Bind to all interfaces with `0.0.0.0` |
+
+## Summary
+
+The registration process requires careful attention to:
+- **Profile detection** using proper Quarkus configuration injection
+- **Health check types** matching service types (gRPC for gRPC services)
+- **Hostname resolution** ensuring 2-way connectivity between services
+- **Configuration priority** following logical fallback patterns
+- **Consul requirements** like minimum timeout values
+
+When properly configured, the system provides automatic service discovery with health monitoring, enabling dynamic scaling and resilient inter-service communication.
