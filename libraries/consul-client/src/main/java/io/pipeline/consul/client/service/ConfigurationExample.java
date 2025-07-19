@@ -1,5 +1,6 @@
 package io.pipeline.consul.client.service;
 
+import io.pipeline.api.service.ModuleRegistryService;
 import io.pipeline.api.service.PipelineConfigService;
 import io.pipeline.consul.client.config.ConsulConfigSource;
 import io.quarkus.scheduler.Scheduled;
@@ -22,7 +23,7 @@ public class ConfigurationExample {
     ConsulConfigSource config;
 
     @Inject
-    ModuleRegistryServiceImpl registryService;
+    ModuleRegistryService registryService;
 
 
     @Inject

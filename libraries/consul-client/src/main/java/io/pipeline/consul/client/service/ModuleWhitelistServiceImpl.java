@@ -2,6 +2,7 @@ package io.pipeline.consul.client.service;
 
 import io.pipeline.api.model.*;
 import io.pipeline.api.service.ClusterService;
+import io.pipeline.api.service.ModuleRegistryService;
 import io.pipeline.api.service.ModuleWhitelistService;
 import io.pipeline.api.service.PipelineConfigService;
 import io.pipeline.api.model.ModuleWhitelistRequest;
@@ -35,6 +36,9 @@ public class ModuleWhitelistServiceImpl extends ConsulServiceBase implements Mod
     @Inject
     PipelineConfigService pipelineConfigService;
 
+    @Inject
+    ModuleRegistryService moduleRegistryService;
+
     /**
      * Default constructor for CDI.
      */
@@ -52,15 +56,15 @@ public class ModuleWhitelistServiceImpl extends ConsulServiceBase implements Mod
     public Uni<ModuleWhitelistResponse> whitelistModule(String clusterName, ModuleWhitelistRequest request) {
         LOG.infof("Whitelisting module '%s' for cluster '%s'", request.grpcServiceName(), clusterName);
 
-        // Step 1: Verify the module exists in Consul
-        return verifyModuleExistsInConsul(request.grpcServiceName())
+        // Step 1: Verify the module exists in the registry
+        return verifyModuleExists(request.grpcServiceName())
             .flatMap(exists -> {
                 if (!exists) {
-                    LOG.warnf("Module '%s' not found in Consul - it must be registered at least once", 
+                    LOG.warnf("Module '%s' not found in registry - it must be registered at least once", 
                              request.grpcServiceName());
                     return Uni.createFrom().item(ModuleWhitelistResponse.failure(
                         "Module '" + request.grpcServiceName() + 
-                        "' not found in Consul. Module must be registered at least once before whitelisting."
+                        "' not found in registry. Module must be registered at least once before whitelisting."
                     ));
                 }
 
@@ -267,53 +271,14 @@ public class ModuleWhitelistServiceImpl extends ConsulServiceBase implements Mod
     }
 
     /**
-     * Verifies that a module exists in Consul (has been registered at least once).
-     * Uses a retry mechanism to handle cases where the module might be in the process of registering.
-     * 
-     * Special handling for test-module to support testing without requiring actual registration.
+     * Verifies that a module exists in the registry.
+     * Delegates to the pluggable ModuleRegistryService implementation.
      */
-    private Uni<Boolean> verifyModuleExistsInConsul(String grpcServiceName) {
-        // Special case for test-module to support testing
-        if ("test-module".equals(grpcServiceName)) {
-            LOG.infof("Special case: Allowing test-module without Consul verification");
-            return Uni.createFrom().item(true);
-        }
-
-        // Number of retries and delay between retries
-        final int maxRetries = 5;
-        final long retryDelayMs = 500;
-
-        return checkModuleExistsInConsul(grpcServiceName, 0, maxRetries, retryDelayMs);
+    private Uni<Boolean> verifyModuleExists(String grpcServiceName) {
+        LOG.debugf("Verifying module exists: %s", grpcServiceName);
+        return moduleRegistryService.moduleExists(grpcServiceName);
     }
 
-    /**
-     * Helper method that implements the retry logic for verifyModuleExistsInConsul.
-     */
-    private Uni<Boolean> checkModuleExistsInConsul(String grpcServiceName, int currentRetry, int maxRetries, long retryDelayMs) {
-        return consulClient.healthServiceNodes(grpcServiceName, true)
-            .map(serviceList -> {
-                // Check if any healthy service instances exist
-                return serviceList != null && !serviceList.getList().isEmpty();
-            })
-            .onFailure().recoverWithItem(error -> {
-                LOG.warnf(error, "Failed to verify module in Consul: %s", grpcServiceName);
-                return false;
-            })
-        .onItem().transformToUni(exists -> {
-            if (exists || currentRetry >= maxRetries) {
-                return Uni.createFrom().item(exists);
-            } else {
-                // Module not found yet, retry after delay
-                LOG.infof("Module '%s' not found in Consul, retrying (%d/%d)", 
-                         grpcServiceName, currentRetry + 1, maxRetries);
-                return Uni.createFrom().item(exists)
-                    .onItem().delayIt().by(Duration.ofMillis(retryDelayMs))
-                    .onItem().transformToUni(__ -> 
-                        checkModuleExistsInConsul(grpcServiceName, currentRetry + 1, maxRetries, retryDelayMs)
-                    );
-            }
-        });
-    }
 
     /**
      * Validates all pipelines in the cluster with the updated module map.

@@ -1,6 +1,8 @@
 package io.pipeline.consul.client.registry.validation;
 
+import io.quarkus.arc.lookup.LookupIfProperty;
 import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
 import java.util.HashSet;
@@ -9,8 +11,10 @@ import java.util.Set;
 /**
  * Test implementation of ModuleConnectionValidator for integration testing.
  * Can be configured to accept all connections or only specific endpoints.
- * This is not a CDI bean - it's created manually in tests.
+ * This is a CDI bean that gets selected when pipeline.module.connection.validator=test.
  */
+@ApplicationScoped
+@LookupIfProperty(name = "pipeline.module.connection.validator", stringValue = "test")
 public class TestModuleConnectionValidator implements ModuleConnectionValidator {
     
     private static final Logger LOG = Logger.getLogger(TestModuleConnectionValidator.class);

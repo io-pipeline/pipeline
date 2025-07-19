@@ -1,7 +1,10 @@
-package io.pipeline.consul.client.service;
+package io.pipeline.consul.client.service.registry.consul;
 
 import io.pipeline.api.service.ModuleRegistryService;
+import io.pipeline.consul.client.service.registry.AbstractModuleRegistryService;
 import io.pipeline.consul.client.registry.validation.ModuleConnectionValidator;
+import io.pipeline.consul.client.service.HealthCheckConfigProvider;
+import io.pipeline.consul.client.service.registry.config.ConsulRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
@@ -42,12 +45,14 @@ import java.time.Duration;
  * Modules are registered globally and can be referenced by clusters.
  */
 @ApplicationScoped
-public class ModuleRegistryServiceImpl extends ConsulServiceBase implements ModuleRegistryService {
+@ConsulRegistry
+public class ConsulModuleRegistryService extends ConsulServiceBase implements ModuleRegistryService {
 
-    private static final Logger LOG = Logger.getLogger(ModuleRegistryServiceImpl.class);
+    private static final Logger LOG = Logger.getLogger(ConsulModuleRegistryService.class);
 
     @Inject
     PipelineConsulConfig config;
+    
     
     @ConfigProperty(name = "pipeline.consul.cleanup.interval", defaultValue = "30m")
     String cleanupInterval;
@@ -69,8 +74,34 @@ public class ModuleRegistryServiceImpl extends ConsulServiceBase implements Modu
     /**
      * Default constructor for CDI.
      */
-    public ModuleRegistryServiceImpl() {
+    public ConsulModuleRegistryService() {
         // Default constructor for CDI
+    }
+    
+    // Helper methods from AbstractModuleRegistryService
+    protected void validateRegistrationParameters(String moduleName, String implementationId, 
+                                                String host, int port, String serviceType) {
+        if (moduleName == null || moduleName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Module name cannot be null or empty");
+        }
+        if (implementationId == null || implementationId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Implementation ID cannot be null or empty");
+        }
+        if (host == null || host.trim().isEmpty()) {
+            throw new IllegalArgumentException("Host cannot be null or empty");
+        }
+        if (port <= 0 || port > 65535) {
+            throw new IllegalArgumentException("Port must be between 1 and 65535");
+        }
+        if (serviceType == null || serviceType.trim().isEmpty()) {
+            throw new IllegalArgumentException("Service type cannot be null or empty");
+        }
+    }
+
+    protected void validateModuleId(String moduleId) {
+        if (moduleId == null || moduleId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Module ID cannot be null or empty");
+        }
     }
     
     /**
@@ -1202,5 +1233,53 @@ public class ModuleRegistryServiceImpl extends ConsulServiceBase implements Modu
                 count -> LOG.infof("Cleaned up %d stale whitelist entry(ies)", count),
                 failure -> LOG.errorf(failure, "Error during stale whitelist cleanup: %s", failure.getMessage())
             );
+    }
+
+    @Override
+    public Uni<Boolean> moduleExists(String serviceName) {
+        return verifyModuleExistsInConsul(serviceName, 3, 500);
+    }
+
+    /**
+     * Verifies that a module exists in Consul by checking its health status
+     * with retry logic for better reliability.
+     * 
+     * @param grpcServiceName The gRPC service name to check
+     * @param maxRetries Maximum number of retries if not found
+     * @param retryDelayMs Delay between retries in milliseconds
+     * @return Uni<Boolean> indicating whether the service exists and is healthy
+     */
+    private Uni<Boolean> verifyModuleExistsInConsul(String grpcServiceName, int maxRetries, long retryDelayMs) {
+        LOG.debugf("Verifying module exists in Consul: %s (max retries: %d)", grpcServiceName, maxRetries);
+        return checkModuleExistsInConsul(grpcServiceName, 0, maxRetries, retryDelayMs);
+    }
+
+    /**
+     * Helper method that implements the retry logic for verifyModuleExistsInConsul.
+     */
+    private Uni<Boolean> checkModuleExistsInConsul(String grpcServiceName, int currentRetry, int maxRetries, long retryDelayMs) {
+        return consulClient.healthServiceNodes(grpcServiceName, true)
+            .map(serviceList -> {
+                // Check if any healthy service instances exist
+                return serviceList != null && !serviceList.getList().isEmpty();
+            })
+            .onFailure().recoverWithItem(error -> {
+                LOG.warnf(error, "Failed to verify module in Consul: %s", grpcServiceName);
+                return false;
+            })
+            .onItem().transformToUni(exists -> {
+                if (exists || currentRetry >= maxRetries) {
+                    return Uni.createFrom().item(exists);
+                } else {
+                    // Module not found yet, retry after delay
+                    LOG.infof("Module '%s' not found in Consul, retrying (%d/%d)", 
+                             grpcServiceName, currentRetry + 1, maxRetries);
+                    return Uni.createFrom().item(exists)
+                        .onItem().delayIt().by(Duration.ofMillis(retryDelayMs))
+                        .onItem().transformToUni(__ -> 
+                            checkModuleExistsInConsul(grpcServiceName, currentRetry + 1, maxRetries, retryDelayMs)
+                        );
+                }
+            });
     }
 }

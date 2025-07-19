@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
     implementation 'io.quarkus:quarkus-grpc'
     // Library BOM provides gRPC code generation without server components
     implementation platform(project(':bom'))

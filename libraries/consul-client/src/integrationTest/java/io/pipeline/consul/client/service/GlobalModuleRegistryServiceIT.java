@@ -248,5 +248,27 @@ class ModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
                 return response.getStatusCode() == 200;
             });
         }
+        
+        @Override
+        public Uni<Boolean> moduleExists(String serviceName) {
+            return Uni.createFrom().item(() -> {
+                // For REST-based testing, we can check if we can get the module
+                // This implementation assumes the service name is the module ID
+                try {
+                    Response response = RestAssured
+                        .given()
+                            .contentType(ContentType.JSON)
+                        .when()
+                            .get("/api/v1/modules/" + serviceName)
+                        .then()
+                            .extract().response();
+                    
+                    return response.getStatusCode() == 200;
+                } catch (Exception e) {
+                    LOG.debugf("Module exists check failed for %s: %s", serviceName, e.getMessage());
+                    return false;
+                }
+            });
+        }
     }
 }

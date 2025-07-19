@@ -8,7 +8,11 @@ import java.util.Map;
 /**
  * Test profile that enables Consul config and maps DevServices properties correctly.
  * This profile is used for integration tests that need to connect to the actual Consul instance.
+ * 
+ * @deprecated This approach of detecting Consul containers is error-prone. 
+ *             Use a simpler profile that connects to localhost:8500 instead.
  */
+@Deprecated
 public class WithConsulConfigProfile implements QuarkusTestProfile {
     
     @Override

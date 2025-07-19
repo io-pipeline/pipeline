@@ -1,5 +1,6 @@
 package io.pipeline.consul.client.service;
 
+import io.pipeline.api.service.ModuleRegistryService;
 import io.pipeline.consul.client.registry.validation.ModuleConnectionValidator;
 import io.pipeline.api.json.ObjectMapperFactory;
 import io.quarkus.test.InjectMock;
@@ -49,7 +50,7 @@ class ModuleRegistryServiceUnitTest extends ModuleRegistryServiceTestBase {
     HealthCheckConfigProvider healthCheckConfigProvider;
     
     @Inject
-    ModuleRegistryServiceImpl serviceImpl;
+    ModuleRegistryService serviceImpl;
     
     private final Map<String, String> kvStore = new HashMap<>();
     private final Map<String, Service> services = new HashMap<>();

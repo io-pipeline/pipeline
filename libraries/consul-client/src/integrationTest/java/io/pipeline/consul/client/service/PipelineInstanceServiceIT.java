@@ -133,7 +133,7 @@ class PipelineInstanceServiceIT extends PipelineInstanceServiceTestBase {
                     .delete();
                 
                 if (response.getStatus() == 204) {
-                    return io.pipeline.api.validation.ValidationResultFactory.success();
+                    return io.pipeline.common.validation.ValidationResultFactory.success();
                 } else if (response.getStatus() == 400) {
                     return response.readEntity(ValidationResult.class);
                 } else {
@@ -207,7 +207,7 @@ class PipelineInstanceServiceIT extends PipelineInstanceServiceTestBase {
     /**
      * REST-based implementation of PipelineDefinitionService for integration testing
      */
-    private static class RestBasedPipelineDefinitionService implements com.rokkon.pipeline.config.service.PipelineDefinitionService {
+    private static class RestBasedPipelineDefinitionService implements io.pipeline.api.service.PipelineDefinitionService {
         private final Client client;
         private final String baseUrl;
         
@@ -218,19 +218,19 @@ class PipelineInstanceServiceIT extends PipelineInstanceServiceTestBase {
         
         // Implementation would go here - simplified for brevity
         @Override
-        public Uni<List<com.rokkon.pipeline.config.model.PipelineDefinitionSummary>> listDefinitions() {
+        public Uni<List<io.pipeline.api.model.PipelineDefinitionSummary>> listDefinitions() {
             return Uni.createFrom().item(List.of());
         }
         
         @Override
-        public Uni<com.rokkon.pipeline.config.model.PipelineConfig> getDefinition(String pipelineId) {
+        public Uni<io.pipeline.api.model.PipelineConfig> getDefinition(String pipelineId) {
             return Uni.createFrom().item(() -> {
                 Response response = client.target(baseUrl + "/api/v1/pipelines/" + pipelineId)
                     .request(MediaType.APPLICATION_JSON)
                     .get();
                 
                 if (response.getStatus() == 200) {
-                    return response.readEntity(com.rokkon.pipeline.config.model.PipelineConfig.class);
+                    return response.readEntity(io.pipeline.api.model.PipelineConfig.class);
                 } else if (response.getStatus() == 404) {
                     return null;
                 } else {
@@ -240,7 +240,7 @@ class PipelineInstanceServiceIT extends PipelineInstanceServiceTestBase {
         }
         
         @Override
-        public Uni<ValidationResult> createDefinition(String pipelineId, com.rokkon.pipeline.config.model.PipelineConfig definition) {
+        public Uni<ValidationResult> createDefinition(String pipelineId, io.pipeline.api.model.PipelineConfig definition) {
             return Uni.createFrom().item(() -> {
                 Response response = client.target(baseUrl + "/api/v1/pipelines/" + pipelineId)
                     .request(MediaType.APPLICATION_JSON)
@@ -255,25 +255,25 @@ class PipelineInstanceServiceIT extends PipelineInstanceServiceTestBase {
         }
         
         @Override
-        public Uni<ValidationResult> createDefinition(String pipelineId, com.rokkon.pipeline.config.model.PipelineConfig definition, 
+        public Uni<ValidationResult> createDefinition(String pipelineId, io.pipeline.api.model.PipelineConfig definition, 
                 io.pipeline.api.validation.ValidationMode validationMode) {
             return createDefinition(pipelineId, definition);
         }
         
         @Override
-        public Uni<ValidationResult> updateDefinition(String pipelineId, com.rokkon.pipeline.config.model.PipelineConfig definition) {
-            return Uni.createFrom().item(io.pipeline.api.validation.ValidationResultFactory.success());
+        public Uni<ValidationResult> updateDefinition(String pipelineId, io.pipeline.api.model.PipelineConfig definition) {
+            return Uni.createFrom().item(io.pipeline.common.validation.ValidationResultFactory.success());
         }
         
         @Override
-        public Uni<ValidationResult> updateDefinition(String pipelineId, com.rokkon.pipeline.config.model.PipelineConfig definition,
+        public Uni<ValidationResult> updateDefinition(String pipelineId, io.pipeline.api.model.PipelineConfig definition,
                 io.pipeline.api.validation.ValidationMode validationMode) {
             return updateDefinition(pipelineId, definition);
         }
         
         @Override
         public Uni<ValidationResult> deleteDefinition(String pipelineId) {
-            return Uni.createFrom().item(io.pipeline.api.validation.ValidationResultFactory.success());
+            return Uni.createFrom().item(io.pipeline.common.validation.ValidationResultFactory.success());
         }
         
         @Override

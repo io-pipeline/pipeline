@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+    implementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
     implementation platform(project(':bom'))
     
     // Quarkus dependencies

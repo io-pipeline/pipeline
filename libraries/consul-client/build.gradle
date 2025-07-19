@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
     implementation platform(project(':bom'))
 
     // Quarkus extensions
@@ -58,6 +59,7 @@ dependencies {
 
     // Integration test dependencies
     integrationTestImplementation project(':libraries:testing-commons')
+    integrationTestImplementation project(':grpc-stubs')
     integrationTestImplementation 'io.quarkus:quarkus-junit5'
     integrationTestImplementation 'io.rest-assured:rest-assured'
     integrationTestImplementation 'org.awaitility:awaitility'
@@ -75,6 +77,12 @@ dependencies {
     integrationTestImplementation 'io.quarkus:quarkus-core'
     integrationTestImplementation 'jakarta.ws.rs:jakarta.ws.rs-api'
     integrationTestImplementation 'org.jboss.resteasy:resteasy-client'
+    
+    // WireMock for mocking external services in integration tests
+    integrationTestImplementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
+    integrationTestImplementation 'org.wiremock:wiremock:3.10.0'
+    integrationTestImplementation 'org.wiremock:wiremock-grpc-extension:0.9.0'
+    integrationTestImplementation 'io.grpc:grpc-services:1.59.0' // Includes health check service
 }
 
 tasks.named('compileJava') {
