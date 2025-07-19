@@ -10,7 +10,7 @@ build
 
 # Log file
 *.log
-
+.quarkus
 # BlueJ files
 *.ctxt
 
