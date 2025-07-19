@@ -113,9 +113,7 @@ class MethodicalBuildUpUnitTest extends MethodicalBuildUpTestBase {
                 if (pipelineHasStep) {
                     // After step 5, return pipeline with a step
                     PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(
-                        TEST_MODULE,  // grpcServiceName
-                        null          // internalProcessorBeanName
-                    );
+                        TEST_MODULE);
                     
                     PipelineStepConfig step = new PipelineStepConfig(
                         "test-step-1",              // stepName

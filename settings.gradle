@@ -10,6 +10,7 @@ rootProject.name = 'pipeline'
 
 include ':bom'
 include ':applications:registration-service'
+include ':modules:echo'
 include ':grpc-stubs'
 
 // Applications
@@ -17,7 +18,7 @@ include ':grpc-stubs'
 
 // Libraries  
 include ':libraries:pipeline-api'
-include ':libraries:pipeline-common'
+include ':libraries:pipeline-commons'
 include ':libraries:testing-commons'
 include ':libraries:data-util'
 include ':libraries:validators'

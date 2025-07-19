@@ -123,12 +123,21 @@ public class ProductionValidationTest {
     }
     
     @Test
-    void testPipelineWithDirectTwoStepLoopPassesInProduction() {
+    void testPipelineWithDirectTwoStepLoopFailsInProduction() {
         ValidationTestHelper.testPipelineWithDirectTwoStepLoop(
                 productionPipelineValidator,
                 compositeClusterValidator,
                 "PRODUCTION",
-                false // Currently passes because IntraPipelineLoopValidator is not fully implemented
+                true // Should fail now that IntraPipelineLoopValidator is fully implemented
+        );
+    }
+    
+    @Test
+    void testClusterWithDirectInterPipelineLoopFailsInProduction() {
+        ValidationTestHelper.testClusterWithDirectInterPipelineLoop(
+                compositeClusterValidator,
+                "PRODUCTION",
+                true // Should fail in PRODUCTION mode
         );
     }
 }

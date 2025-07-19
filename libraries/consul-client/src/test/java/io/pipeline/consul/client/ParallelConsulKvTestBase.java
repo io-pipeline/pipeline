@@ -41,9 +41,8 @@ public abstract class ParallelConsulKvTestBase {
         try {
             Uni<Void>[] unis = new Uni[10];
             for (int i = 0; i < 10; i++) {
-                final int index = i;
-                String key = testKvPrefix + "/concurrent/thread-" + index;
-                String value = "value-from-thread-" + index;
+                String key = testKvPrefix + "/concurrent/thread-" + i;
+                String value = "value-from-thread-" + i;
                 unis[i] = getConsulClient().putValue(key, value).replaceWithVoid().runSubscriptionOn(executor);
             }
 

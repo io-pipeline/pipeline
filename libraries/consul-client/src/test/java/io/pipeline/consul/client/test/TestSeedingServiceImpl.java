@@ -284,7 +284,7 @@ public class TestSeedingServiceImpl implements TestSeedingService {
                 LOG.info("Module whitelisted successfully, now adding pipeline step");
                 
                 // Create a pipeline step configuration
-                PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(TEST_MODULE, null);
+                PipelineStepConfig.ProcessorInfo processorInfo = new PipelineStepConfig.ProcessorInfo(TEST_MODULE);
                 PipelineStepConfig stepConfig = new PipelineStepConfig(
                     "test-step-1",            // stepName
                     StepType.PIPELINE,       // stepType - standard PIPELINE type

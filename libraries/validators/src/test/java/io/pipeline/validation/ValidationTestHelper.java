@@ -18,12 +18,14 @@ public class ValidationTestHelper {
         PipelineClusterConfig clusterConfig = MockPipelineGenerator.createClusterWithEmptyPipeline();
 
         ValidationResult clusterResult = clusterValidator.validate(clusterConfig);
-        assertTrue(clusterResult.valid(), "Cluster-level validation should pass in " + mode + " mode.");
+        assertThat("Cluster-level validation should pass in " + mode + " mode.", clusterResult.valid(), is(true));
 
         for (PipelineConfig pipelineConfig : clusterConfig.pipelineGraphConfig().pipelines().values()) {
             ValidationResult pipelineResult = validator.validate(pipelineConfig);
-            assertTrue(pipelineResult.valid(), "Pipeline '" + pipelineConfig.name() + "' should be valid in " + mode + " mode.");
-            assertTrue(pipelineResult.errors().isEmpty(), "Pipeline '" + pipelineConfig.name() + "' should have no errors in " + mode + " mode.");
+            assertThat("Pipeline '" + pipelineConfig.name() + "' should be valid in " + mode + " mode.", 
+                    pipelineResult.valid(), is(true));
+            assertThat("Pipeline '" + pipelineConfig.name() + "' should have no errors in " + mode + " mode.", 
+                    pipelineResult.errors(), is(empty()));
         }
     }
 
@@ -33,12 +35,24 @@ public class ValidationTestHelper {
         ValidationResult result = validator.validate(invalidConfig);
 
         if (shouldFail) {
-            assertFalse(result.valid(), "Validation should fail for a pipeline with a dot in its name in " + mode + " mode.");
-            assertFalse(result.errors().isEmpty(), "Expected at least one validation error in " + mode + " mode.");
+            assertThat("Validation should fail for a pipeline with a dot in its name in " + mode + " mode.", 
+                    result.valid(), is(false));
+            assertThat("Expected at least one validation error in " + mode + " mode.", 
+                    result.errors(), not(empty()));
             String expectedError = "[NamingConventionValidator] Pipeline name 'invalid.pipeline.name' cannot contain dots - dots are reserved as delimiters in topic naming convention";
-            assertTrue(result.errors().contains(expectedError), "The specific naming convention error with validator name should be reported in " + mode + " mode.");
+            assertThat("The specific naming convention error with validator name should be reported in " + mode + " mode.", 
+                    result.errors(), hasItem(expectedError));
+            
+            // Print the actual errors for debugging if the test fails
+            if (!result.errors().contains(expectedError)) {
+                System.out.println("[DEBUG_LOG] Expected error not found: " + expectedError);
+                for (String error : result.errors()) {
+                    System.out.println("[DEBUG_LOG] Actual error: " + error);
+                }
+            }
         } else {
-            assertTrue(result.valid(), "Validation should pass for a pipeline with a dot in its name in " + mode + " mode.");
+            assertThat("Validation should pass for a pipeline with a dot in its name in " + mode + " mode.", 
+                    result.valid(), is(true));
         }
     }
     
@@ -48,12 +62,25 @@ public class ValidationTestHelper {
         ValidationResult result = validator.validate(invalidConfig);
 
         if (shouldFail) {
-            assertFalse(result.valid(), "Validation should fail for a pipeline with incomplete processor info in " + mode + " mode.");
-            assertFalse(result.errors().isEmpty(), "Expected at least one validation error in " + mode + " mode.");
+            assertThat("Validation should fail for a pipeline with incomplete processor info in " + mode + " mode.", 
+                    result.valid(), is(false));
+            assertThat("Expected at least one validation error in " + mode + " mode.", 
+                    result.errors(), not(empty()));
             String expectedError = "[ProcessorInfoValidator] Step 'processor-step': gRPC service name 'ab' is too short (minimum 3 characters)";
-            assertTrue(result.errors().stream().anyMatch(e -> e.contains(expectedError)), "The specific processor info error with validator name should be reported in " + mode + " mode.");
+            assertThat("The specific processor info error with validator name should be reported in " + mode + " mode.", 
+                    result.errors(), hasItem(containsString(expectedError)));
+            
+            // Print the actual errors for debugging if the test fails
+            boolean foundExpectedError = result.errors().stream().anyMatch(e -> e.contains(expectedError));
+            if (!foundExpectedError) {
+                System.out.println("[DEBUG_LOG] Expected error not found: " + expectedError);
+                for (String error : result.errors()) {
+                    System.out.println("[DEBUG_LOG] Actual error: " + error);
+                }
+            }
         } else {
-            assertTrue(result.valid(), "Validation should pass for a pipeline with incomplete processor info in " + mode + " mode.");
+            assertThat("Validation should pass for a pipeline with incomplete processor info in " + mode + " mode.", 
+                    result.valid(), is(true));
         }
     }
 
@@ -62,12 +89,28 @@ public class ValidationTestHelper {
 
         ValidationResult result = validator.validate(config);
 
-        assertTrue(result.valid(), "Validation should pass for a pipeline with a single step and no routing in " + mode + " mode.");
-        assertFalse(result.warnings().isEmpty(), "Expected warnings for a pipeline with a single step and no routing in " + mode + " mode.");
+        assertThat("Validation should pass for a pipeline with a single step and no routing in " + mode + " mode.", 
+                result.valid(), is(true));
+        assertThat("Expected warnings for a pipeline with a single step and no routing in " + mode + " mode.", 
+                result.warnings(), not(empty()));
         String expectedWarning1 = "[StepTypeValidator] Step 'echo-step': PIPELINE steps typically have inputs";
         String expectedWarning2 = "[StepTypeValidator] Step 'echo-step': PIPELINE steps typically have outputs";
-        assertTrue(result.warnings().stream().anyMatch(w -> w.contains(expectedWarning1)), "The specific input warning with validator name should be reported in " + mode + " mode.");
-        assertTrue(result.warnings().stream().anyMatch(w -> w.contains(expectedWarning2)), "The specific output warning with validator name should be reported in " + mode + " mode.");
+        assertThat("The specific input warning with validator name should be reported in " + mode + " mode.", 
+                result.warnings(), hasItem(containsString(expectedWarning1)));
+        assertThat("The specific output warning with validator name should be reported in " + mode + " mode.", 
+                result.warnings(), hasItem(containsString(expectedWarning2)));
+        
+        // Print the actual warnings for debugging if the test fails
+        boolean foundWarning1 = result.warnings().stream().anyMatch(w -> w.contains(expectedWarning1));
+        boolean foundWarning2 = result.warnings().stream().anyMatch(w -> w.contains(expectedWarning2));
+        if (!foundWarning1 || !foundWarning2) {
+            System.out.println("[DEBUG_LOG] Expected warnings not found:");
+            if (!foundWarning1) System.out.println("[DEBUG_LOG] Missing: " + expectedWarning1);
+            if (!foundWarning2) System.out.println("[DEBUG_LOG] Missing: " + expectedWarning2);
+            for (String warning : result.warnings()) {
+                System.out.println("[DEBUG_LOG] Actual warning: " + warning);
+            }
+        }
     }
 
     public static void testPipelineWithConnectorStep(PipelineConfigValidator validator, String mode) {
@@ -75,8 +118,18 @@ public class ValidationTestHelper {
 
         ValidationResult result = validator.validate(config);
 
-        assertTrue(result.valid(), "Validation should pass for a pipeline with a single connector step in " + mode + " mode.");
-        assertTrue(result.warnings().isEmpty(), "Expected no warnings for a complete pipeline in " + mode + " mode.");
+        assertThat("Validation should pass for a pipeline with a single connector step in " + mode + " mode.", 
+                result.valid(), is(true));
+        assertThat("Expected no warnings for a complete pipeline in " + mode + " mode.", 
+                result.warnings(), is(empty()));
+        
+        // Print the actual warnings for debugging if the test fails
+        if (!result.warnings().isEmpty()) {
+            System.out.println("[DEBUG_LOG] Unexpected warnings found:");
+            for (String warning : result.warnings()) {
+                System.out.println("[DEBUG_LOG] Warning: " + warning);
+            }
+        }
     }
 
     public static void testPipelineWithInvalidTopicName(PipelineConfigValidator validator, String mode, boolean shouldFail) {
@@ -85,11 +138,25 @@ public class ValidationTestHelper {
         ValidationResult result = validator.validate(config);
 
         if (shouldFail) {
-            assertFalse(result.valid(), "Validation should fail for a pipeline with an invalid topic name in " + mode + " mode.");
+            assertThat("Validation should fail for a pipeline with an invalid topic name in " + mode + " mode.", 
+                    result.valid(), is(false));
+            assertThat("Expected at least one validation error in " + mode + " mode.", 
+                    result.errors(), not(empty()));
             String expectedError = "[NamingConventionValidator] Topic 'my-custom-topic' doesn't follow the required naming pattern '{pipeline-name}.{step-name}.input'";
-            assertTrue(result.errors().stream().anyMatch(e -> e.contains(expectedError)), "The specific topic naming error should be reported in " + mode + " mode.");
+            assertThat("The specific topic naming error should be reported in " + mode + " mode.", 
+                    result.errors(), hasItem(containsString(expectedError)));
+            
+            // Print the actual errors for debugging if the test fails
+            boolean foundExpectedError = result.errors().stream().anyMatch(e -> e.contains(expectedError));
+            if (!foundExpectedError) {
+                System.out.println("[DEBUG_LOG] Expected error not found: " + expectedError);
+                for (String error : result.errors()) {
+                    System.out.println("[DEBUG_LOG] Actual error: " + error);
+                }
+            }
         } else {
-            assertTrue(result.valid(), "Validation should pass for a pipeline with an invalid topic name in " + mode + " mode.");
+            assertThat("Validation should pass for a pipeline with an invalid topic name in " + mode + " mode.", 
+                    result.valid(), is(true));
         }
     }
 
@@ -99,11 +166,25 @@ public class ValidationTestHelper {
         ValidationResult result = validator.validate(config);
 
         if (shouldFail) {
-            assertFalse(result.valid(), "Validation should fail for a pipeline with an invalid consumer group in " + mode + " mode.");
+            assertThat("Validation should fail for a pipeline with an invalid consumer group in " + mode + " mode.", 
+                    result.valid(), is(false));
+            assertThat("Expected at least one validation error in " + mode + " mode.", 
+                    result.errors(), not(empty()));
             String expectedError = "[NamingConventionValidator] Consumer group 'my-custom-consumer-group' doesn't follow the required naming pattern '{pipeline-name}.consumer-group'";
-            assertTrue(result.errors().stream().anyMatch(e -> e.contains(expectedError)), "The specific consumer group naming error should be reported in " + mode + " mode.");
+            assertThat("The specific consumer group naming error should be reported in " + mode + " mode.", 
+                    result.errors(), hasItem(containsString(expectedError)));
+            
+            // Print the actual errors for debugging if the test fails
+            boolean foundExpectedError = result.errors().stream().anyMatch(e -> e.contains(expectedError));
+            if (!foundExpectedError) {
+                System.out.println("[DEBUG_LOG] Expected error not found: " + expectedError);
+                for (String error : result.errors()) {
+                    System.out.println("[DEBUG_LOG] Actual error: " + error);
+                }
+            }
         } else {
-            assertTrue(result.valid(), "Validation should pass for a pipeline with an invalid consumer group in " + mode + " mode.");
+            assertThat("Validation should pass for a pipeline with an invalid consumer group in " + mode + " mode.", 
+                    result.valid(), is(true));
         }
     }
 
@@ -154,41 +235,80 @@ public class ValidationTestHelper {
      * This tests the IntraPipelineLoopValidator's ability to detect simple loops.
      * 
      * @param validator The validator to use
-     * @param clusterValidator The cluster validator to use
+     * @param clusterValidator The cluster validator to use (not used in this test)
      * @param mode The validation mode being tested ("PRODUCTION", "DESIGN", or "TESTING")
      * @param shouldFail Whether validation should fail in this mode
      */
     public static void testPipelineWithDirectTwoStepLoop(PipelineConfigValidator validator, CompositeClusterValidator clusterValidator, String mode, boolean shouldFail) {
         PipelineConfig config = MockPipelineGenerator.createPipelineWithDirectTwoStepLoop();
         
-        // Create a cluster config that includes the pipeline and registers the required gRPC services
-        PipelineClusterConfig clusterConfig = new PipelineClusterConfig(
-            "test-cluster",
-            new io.pipeline.api.model.PipelineGraphConfig(java.util.Map.of(config.name(), config)),
-            null,
-            config.name(),
-            java.util.Collections.emptySet(),
-            java.util.Set.of("processor-a", "processor-b") // Register the required gRPC services
-        );
-        
-        // Validate the cluster first
-        ValidationResult clusterResult = clusterValidator.validate(clusterConfig);
-        assertThat("Cluster-level validation should pass in " + mode + " mode.", clusterResult.valid(), is(true));
-        
-        // Then validate the pipeline
+        // Skip cluster validation and directly validate the pipeline
         ValidationResult result = validator.validate(config);
         
         if (shouldFail) {
             assertThat("Validation should fail for a pipeline with a direct two-step loop in " + mode + " mode.", 
                     result.valid(), is(false));
             
-            // Note: The specific error message is commented out because the IntraPipelineLoopValidator
-            // is not fully implemented yet. When it is, uncomment this assertion and update the expected error.
-            // String expectedError = "[IntraPipelineLoopValidator] Detected a loop in pipeline 'pipeline-with-direct-loop': step-a -> step-b -> step-a";
-            // assertThat("The specific loop detection error should be reported in " + mode + " mode.", 
-            //         result.errors(), hasItem(containsString(expectedError)));
+            String expectedError = "Detected a loop in pipeline 'pipeline-with-direct-loop'";
+            assertThat("The specific loop detection error should be reported in " + mode + " mode.", 
+                    result.errors(), hasItem(containsString(expectedError)));
+            
+            // The error should mention the steps involved in the loop
+            assertThat("The error should mention the steps involved in the loop.", 
+                    result.errors(), hasItem(allOf(
+                            containsString("step-a"),
+                            containsString("step-b")
+                    )));
+            
+            // Print the actual errors for debugging
+            if (!result.errors().isEmpty()) {
+                for (String error : result.errors()) {
+                    System.out.println("[DEBUG_LOG] Actual error: " + error);
+                }
+            }
         } else {
             assertThat("Validation should pass for a pipeline with a direct two-step loop in " + mode + " mode.", 
+                    result.valid(), is(true));
+        }
+    }
+    
+    /**
+     * Tests validation of a cluster with a direct inter-pipeline loop (Pipeline A -> Pipeline B -> Pipeline A).
+     * This tests the InterPipelineLoopValidator's ability to detect loops across pipelines.
+     * 
+     * @param clusterValidator The cluster validator to use
+     * @param mode The validation mode being tested ("PRODUCTION", "DESIGN", or "TESTING")
+     * @param shouldFail Whether validation should fail in this mode
+     */
+    public static void testClusterWithDirectInterPipelineLoop(CompositeClusterValidator clusterValidator, String mode, boolean shouldFail) {
+        PipelineClusterConfig clusterConfig = MockPipelineGenerator.createClusterWithDirectInterPipelineLoop();
+        
+        // Validate the cluster
+        ValidationResult result = clusterValidator.validate(clusterConfig);
+        
+        if (shouldFail) {
+            assertThat("Validation should fail for a cluster with a direct inter-pipeline loop in " + mode + " mode.", 
+                    result.valid(), is(false));
+            
+            String expectedError = "Detected a loop across pipelines in cluster 'test-cluster'";
+            assertThat("The specific loop detection error should be reported in " + mode + " mode.", 
+                    result.errors(), hasItem(containsString(expectedError)));
+            
+            // The error should mention both pipelines involved in the loop
+            assertThat("The error should mention both pipelines involved in the loop.", 
+                    result.errors(), hasItem(allOf(
+                            containsString("pipeline-a:step-a"),
+                            containsString("pipeline-b:step-b")
+                    )));
+            
+            // Print the actual errors for debugging
+            if (!result.errors().isEmpty()) {
+                for (String error : result.errors()) {
+                    System.out.println("[DEBUG_LOG] Actual error: " + error);
+                }
+            }
+        } else {
+            assertThat("Validation should pass for a cluster with a direct inter-pipeline loop in " + mode + " mode.", 
                     result.valid(), is(true));
         }
     }

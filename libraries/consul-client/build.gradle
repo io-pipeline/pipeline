@@ -29,7 +29,7 @@ dependencies {
 
     // Migrated project dependencies
     implementation project(':libraries:pipeline-api')
-    implementation project(':libraries:pipeline-common')
+    implementation project(':libraries:pipeline-commons')
     implementation project(':grpc-stubs')
     implementation project(':libraries:validators')
 

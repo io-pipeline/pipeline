@@ -610,4 +610,92 @@ public class MockPipelineGenerator {
                 processorInfo
         );
     }
+    
+    /**
+     * Creates a cluster with two pipelines that form a direct loop.
+     * <p>
+     * Pipeline A publishes to topicA and listens to topicB.
+     * Pipeline B publishes to topicB and listens to topicA.
+     * This creates a loop: A -> B -> A
+     * <p>
+     * Use Case: Testing the InterPipelineLoopValidator for direct loop detection.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation (loop detection relaxed).
+     *
+     * @return A {@link PipelineClusterConfig} instance with a direct inter-pipeline loop.
+     */
+    public static PipelineClusterConfig createClusterWithDirectInterPipelineLoop() {
+        // Create Pipeline A with a step that publishes to topicA and listens to topicB
+        ProcessorInfo processorInfoA = new ProcessorInfo("processor-a");
+        
+        KafkaInputDefinition inputA = new KafkaInputDefinition(
+            List.of("topicB"), "pipeline-a.consumer-group", Map.of()
+        );
+        
+        KafkaTransportConfig kafkaTransportA = new KafkaTransportConfig(
+            "topicA", "pipedocId", "snappy", 16384, 10, Map.of()
+        );
+        
+        OutputTarget outputA = new OutputTarget(
+            "step-b", TransportType.KAFKA, null, kafkaTransportA
+        );
+        
+        PipelineStepConfig stepA = createStep(
+            "step-a",
+            StepType.PIPELINE,
+            processorInfoA,
+            List.of(inputA),
+            Map.of("default", outputA)
+        );
+        
+        PipelineConfig pipelineA = new PipelineConfig(
+            "pipeline-a",
+            Map.of("step-a", stepA)
+        );
+        
+        // Create Pipeline B with a step that listens to topicA and publishes to topicB
+        ProcessorInfo processorInfoB = new ProcessorInfo("processor-b");
+        
+        KafkaInputDefinition inputB = new KafkaInputDefinition(
+            List.of("topicA"), "pipeline-b.consumer-group", Map.of()
+        );
+        
+        KafkaTransportConfig kafkaTransportB = new KafkaTransportConfig(
+            "topicB", "pipedocId", "snappy", 16384, 10, Map.of()
+        );
+        
+        OutputTarget outputB = new OutputTarget(
+            "step-a", TransportType.KAFKA, null, kafkaTransportB
+        );
+        
+        PipelineStepConfig stepB = createStep(
+            "step-b",
+            StepType.PIPELINE,
+            processorInfoB,
+            List.of(inputB),
+            Map.of("default", outputB)
+        );
+        
+        PipelineConfig pipelineB = new PipelineConfig(
+            "pipeline-b",
+            Map.of("step-b", stepB)
+        );
+        
+        // Create the cluster config with both pipelines
+        PipelineGraphConfig graphConfig = new PipelineGraphConfig(
+            Map.of("pipeline-a", pipelineA, "pipeline-b", pipelineB)
+        );
+        
+        return new PipelineClusterConfig(
+            "test-cluster",
+            graphConfig,
+            null,
+            null,
+            Collections.emptySet(),
+            Set.of("processor-a", "processor-b") // Register the required gRPC services
+        );
+    }
 }

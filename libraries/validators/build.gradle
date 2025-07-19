@@ -15,7 +15,7 @@ dependencies {
     implementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
     implementation platform(project(':bom'))
     implementation project(':libraries:pipeline-api')
-    implementation project(':libraries:pipeline-common')
+    implementation project(':libraries:pipeline-commons')
     implementation project(':libraries:data-util')
     implementation project(':grpc-stubs')
     implementation 'io.quarkus:quarkus-jackson'

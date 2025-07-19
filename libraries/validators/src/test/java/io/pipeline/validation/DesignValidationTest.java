@@ -123,12 +123,21 @@ public class DesignValidationTest {
     }
     
     @Test
-    void testPipelineWithDirectTwoStepLoopPassesInDesign() {
+    void testPipelineWithDirectTwoStepLoopFailsInDesign() {
         ValidationTestHelper.testPipelineWithDirectTwoStepLoop(
                 designPipelineValidator,
                 compositeClusterValidator,
                 "DESIGN",
-                false // Currently passes because IntraPipelineLoopValidator is not fully implemented
+                true // Should fail now that IntraPipelineLoopValidator is fully implemented
+        );
+    }
+    
+    @Test
+    void testClusterWithDirectInterPipelineLoopFailsInDesign() {
+        ValidationTestHelper.testClusterWithDirectInterPipelineLoop(
+                compositeClusterValidator,
+                "DESIGN",
+                true // Should fail in DESIGN mode
         );
     }
 }

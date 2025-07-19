@@ -239,8 +239,7 @@ public abstract class PipelineConfigServiceTestBase {
 
         // Create INITIAL_PIPELINE step with all required fields
         PipelineStepConfig.ProcessorInfo sourceProcessor = new PipelineStepConfig.ProcessorInfo(
-                "document-ingestion-service", // Valid service name format
-                null // Transport config
+                "document-ingestion-service" // Valid service name format
         );
 
         // Create a Kafka transport config for the source step output
@@ -279,8 +278,7 @@ public abstract class PipelineConfigServiceTestBase {
 
         // Create SINK step with all required fields
         PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-                "document-sink-service", // Valid service name format
-                null // Transport config
+                "document-sink-service"// Valid service name format
         );
 
         PipelineStepConfig sinkStep = new PipelineStepConfig(
@@ -432,8 +430,7 @@ public abstract class PipelineConfigServiceTestBase {
         // Create multiple pipelines
         for (int i = 1; i <= 3; i++) {
             PipelineStepConfig.ProcessorInfo sourceProcessor = new PipelineStepConfig.ProcessorInfo(
-                    "source-service-" + i, null
-            );
+                    "source-service-" + i);
 
             // Create a Kafka transport config for the source step output
             KafkaTransportConfig sourceKafkaTransport = new KafkaTransportConfig(
@@ -470,8 +467,7 @@ public abstract class PipelineConfigServiceTestBase {
             );
 
             PipelineStepConfig.ProcessorInfo sinkProcessor = new PipelineStepConfig.ProcessorInfo(
-                    "sink-service-" + i, null
-            );
+                    "sink-service-" + i);
             PipelineStepConfig sinkStep = new PipelineStepConfig(
                     "sink-step",
                     StepType.SINK,
@@ -670,8 +666,7 @@ public abstract class PipelineConfigServiceTestBase {
                 .mapToObj(i -> {
                     // Each update adds its own step
                     PipelineStepConfig.ProcessorInfo processor = new PipelineStepConfig.ProcessorInfo(
-                            "processor-" + i, null
-                    );
+                            "processor-" + i);
                     PipelineStepConfig newStep = new PipelineStepConfig(
                             "step-" + i,
                             StepType.PIPELINE,

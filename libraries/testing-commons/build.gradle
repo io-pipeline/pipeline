@@ -14,7 +14,7 @@ dependencies {
     
     // Internal dependencies
     implementation project(':libraries:pipeline-api')
-    implementation project(':libraries:pipeline-common')
+    implementation project(':libraries:pipeline-commons')
     
     // Testing utilities
     api libs.rest.assured

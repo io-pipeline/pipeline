@@ -1,5 +1,6 @@
 package io.pipeline.validation;
 
+import io.pipeline.api.model.PipelineClusterConfig;
 import io.pipeline.api.model.PipelineConfig;
 import io.pipeline.api.validation.Composite;
 import io.pipeline.api.validation.PipelineConfigValidator;
@@ -11,6 +12,8 @@ import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import org.junit.jupiter.api.Test;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -130,5 +133,21 @@ public class TestingValidationTest {
                 "TESTING",
                 false // Should pass in TESTING mode (loop detection relaxed)
         );
+    }
+    
+    /**
+     * In TESTING mode, the InterPipelineLoopValidator is still run by the CompositeClusterValidator,
+     * but we expect it to not report any errors.
+     */
+    @Test
+    void testClusterWithDirectInterPipelineLoopErrorsIgnoredInTesting() {
+        PipelineClusterConfig clusterConfig = MockPipelineGenerator.createClusterWithDirectInterPipelineLoop();
+        
+        // Validate the cluster
+        ValidationResult result = compositeClusterValidator.validate(clusterConfig);
+        
+        // The validation might fail, but we expect the errors to be related to other validators, not the loop detection
+        assertThat("No loop detection errors should be reported in TESTING mode", 
+                result.errors(), not(hasItem(containsString("Detected a loop across pipelines"))));
     }
 }
