@@ -2,6 +2,7 @@ package io.pipeline.grpc.service.registration;
 
 import com.google.protobuf.Empty;
 import io.grpc.ManagedChannel;
+import io.pipeline.api.annotation.PipelineAutoRegister;
 import io.pipeline.api.service.ModuleRegistryService;
 import io.pipeline.data.module.MutinyPipeStepProcessorGrpc;
 import io.pipeline.data.module.RegistrationRequest;
