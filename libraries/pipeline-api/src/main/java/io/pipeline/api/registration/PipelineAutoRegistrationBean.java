@@ -63,17 +63,19 @@ public class PipelineAutoRegistrationBean {
     @ConfigProperty(name = "module.registration.host")
     Optional<String> moduleHost;
     
+    @ConfigProperty(name = "quarkus.http.host")
+    Optional<String> quarkusHttpHost;
+    
     @ConfigProperty(name = "module.version", defaultValue = "1.0.0")
     String moduleVersion;
     
-    // The gRPC client will use Stork service discovery configured in application.properties
-    // Example config:
-    // quarkus.grpc.clients.registration-service.host=registration-service
+    // The gRPC client MUST use Stork service discovery with Consul configured in application.properties
+    // Required config:
     // quarkus.grpc.clients.registration-service.name-resolver=stork
     // quarkus.stork.registration-service.service-discovery.type=consul
-    // quarkus.stork.registration-service.service-discovery.consul-host=localhost
-    // quarkus.stork.registration-service.service-discovery.consul-port=8500
-    // Always inject the registration client, but only use it if auto-registration is enabled at runtime
+    // quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}
+    // quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}
+    // Note: With Consul sidecars, localhost:8500 is the default agent endpoint
     @GrpcClient("registration-service")
     Instance<MutinyModuleRegistrationGrpc.MutinyModuleRegistrationStub> registrationClient;
     
@@ -106,9 +108,14 @@ public class PipelineAutoRegistrationBean {
         
         // Check if the gRPC client is properly configured and available
         if (registrationClient == null || registrationClient.isUnsatisfied()) {
-            LOG.info("Registration client not available - auto-registration is disabled");
-            LOG.info("This may be due to missing gRPC client configuration for registration-service");
-            return;
+            LOG.errorf("Registration client not available - Consul service discovery is required for pipeline modules. " +
+                     "Please add this configuration to your application.properties:\n" +
+                     "quarkus.grpc.clients.registration-service.name-resolver=stork\n" +
+                     "quarkus.stork.registration-service.service-discovery.type=consul\n" +
+                     "quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}\n" +
+                     "quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}\n" +
+                     "Note: With Consul sidecars, localhost:8500 is the default agent endpoint.");
+            throw new IllegalStateException("Consul service discovery configuration required for pipeline modules");
         }
         
         try {
@@ -178,8 +185,12 @@ public class PipelineAutoRegistrationBean {
         
         // Check if client is available
         if (registrationClient == null || registrationClient.isUnsatisfied()) {
-            LOG.info("Skipping processor registration as registration client is not available");
-            LOG.info("This may be due to missing gRPC client configuration for registration-service");
+            LOG.errorf("Skipping processor registration - Consul service discovery is required for pipeline modules. " +
+                     "Please add this configuration to your application.properties:\n" +
+                     "quarkus.grpc.clients.registration-service.name-resolver=stork\n" +
+                     "quarkus.stork.registration-service.service-discovery.type=consul\n" +
+                     "quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}\n" +
+                     "quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}");
             return;
         }
         
@@ -222,6 +233,18 @@ public class PipelineAutoRegistrationBean {
                 
                 LOG.infof("Registering annotated processor %s at %s:%d", processorClass.getName(), host, port);
                 
+                // Check if registration client is available before using it
+                if (registrationClient == null || registrationClient.isUnsatisfied()) {
+                    LOG.errorf("Failed to register processor %s: Consul service discovery is required. " +
+                             "Please add this configuration to your application.properties:\n" +
+                             "quarkus.grpc.clients.registration-service.name-resolver=stork\n" +
+                             "quarkus.stork.registration-service.service-discovery.type=consul\n" +
+                             "quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}\n" +
+                             "quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}", 
+                             processorClass.getName());
+                    return;
+                }
+                
                 // Register with the service using Stork-discovered endpoint
                 registrationClient.get().registerModule(moduleInfo)
                     .subscribe().with(
@@ -256,8 +279,12 @@ public class PipelineAutoRegistrationBean {
         
         // Check if client is available
         if (registrationClient == null || registrationClient.isUnsatisfied()) {
-            LOG.info("Skipping self-registration as registration client is not available");
-            LOG.info("This may be due to missing gRPC client configuration for registration-service");
+            LOG.errorf("Skipping self-registration - Consul service discovery is required for pipeline modules. " +
+                     "Please add this configuration to your application.properties:\n" +
+                     "quarkus.grpc.clients.registration-service.name-resolver=stork\n" +
+                     "quarkus.stork.registration-service.service-discovery.type=consul\n" +
+                     "quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}\n" +
+                     "quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}");
             return;
         }
         
@@ -294,6 +321,18 @@ public class PipelineAutoRegistrationBean {
             
             LOG.infof("Self-registering module %s at %s:%d with registration service", applicationName, host, port);
             
+            // Check if registration client is available before using it
+            if (registrationClient == null || registrationClient.isUnsatisfied()) {
+                LOG.errorf("Failed to self-register module %s: Consul service discovery is required. " +
+                         "Please add this configuration to your application.properties:\n" +
+                         "quarkus.grpc.clients.registration-service.name-resolver=stork\n" +
+                         "quarkus.stork.registration-service.service-discovery.type=consul\n" +
+                         "quarkus.stork.registration-service.service-discovery.consul-host=${CONSUL_HOST:localhost}\n" +
+                         "quarkus.stork.registration-service.service-discovery.consul-port=${CONSUL_PORT:8500}", 
+                         applicationName);
+                return;
+            }
+            
             // Register with the service using Stork-discovered endpoint
             registrationClient.get().registerModule(moduleInfo)
                 .subscribe().with(
@@ -322,6 +361,12 @@ public class PipelineAutoRegistrationBean {
         if (moduleHost.isPresent()) {
             LOG.debugf("Using configured module.registration.host: %s", moduleHost.get());
             return moduleHost.get();
+        }
+        
+        // Second, use standard Quarkus HTTP host (but not if it's 0.0.0.0)
+        if (quarkusHttpHost.isPresent() && !"0.0.0.0".equals(quarkusHttpHost.get())) {
+            LOG.debugf("Using quarkus.http.host: %s", quarkusHttpHost.get());
+            return quarkusHttpHost.get();
         }
         
         // Check for MODULE_HOST env var (set by docker-compose)
