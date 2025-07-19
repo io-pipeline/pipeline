@@ -1,45 +1,62 @@
 package io.pipeline.consul.client.kv;
 
-import io.pipeline.consul.client.test.ConsulIntegrationTest;
-import io.pipeline.consul.client.test.ConsulTestSupport;
+import io.pipeline.consul.client.integration.InMemoryRegistryTestProfile;
+import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.TestProfile;
+import io.restassured.http.ContentType;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.awaitility.Awaitility;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Example of refactored integration test using new pattern.
- * 
- * This test demonstrates:
- * - Using @ConsulIntegrationTest instead of @QuarkusIntegrationTest
- * - Implementing ConsulTestSupport for test utilities
- * - Namespace isolation per test class
- * - Proper cleanup
+ * Integration test for basic Consul KV operations using in-memory registry.
+ * Tests KV functionality while using the in-memory module registry for 
+ * faster testing without full Consul service dependencies.
  */
-@ConsulIntegrationTest(namespacePrefix = "consul-kv")
-public class ConsulKVBasicRefactoredIT implements ConsulTestSupport {
+@QuarkusIntegrationTest
+@TestProfile(InMemoryRegistryTestProfile.class)
+public class ConsulKVBasicRefactoredIT {
     
-    @BeforeEach
-    void setup() {
-        // Clean namespace is handled by the annotation
-        // Any additional setup can go here
-    }
+    private static final Logger LOG = Logger.getLogger(ConsulKVBasicRefactoredIT.class);
+    
+    // Track clusters created during tests for cleanup
+    private final List<String> createdClusters = new ArrayList<>();
     
     @AfterEach
-    void cleanup() {
-        // Optional: explicit cleanup if needed
-        // The annotation handles cleanup by default
+    public void cleanup() {
+        // Clean up all clusters created during tests
+        for (String clusterName : createdClusters) {
+            LOG.infof("Cleaning up cluster: %s", clusterName);
+            try {
+                given()
+                .when()
+                    .delete("/api/v1/clusters/{clusterName}", clusterName)
+                .then()
+                    .statusCode(200);
+                LOG.infof("Successfully deleted cluster: %s", clusterName);
+            } catch (Exception e) {
+                LOG.warnf(e, "Failed to delete cluster %s during cleanup", clusterName);
+            }
+        }
+        createdClusters.clear();
     }
     
     @Test
-    void testConsulConnectivity() {
-        // Test that the application started with Consul connection
+    void testHealthEndpoint() {
+        // Test that the application started with in-memory module registry
         given()
             .when().get("/q/health")
             .then()
@@ -48,89 +65,97 @@ public class ConsulKVBasicRefactoredIT implements ConsulTestSupport {
     }
     
     @Test
-    void testKVOperations() {
-        // Test KV operations using the test support interface
-        String key = "test-key";
-        String value = "test-value";
+    void testClusterKVOperations() {
+        String clusterName = "refactored-kv-test-" + UUID.randomUUID().toString().substring(0, 8);
+        createdClusters.add(clusterName);
         
-        // Put a value using the namespaced helper
-        putValue(key, value);
+        LOG.infof("Testing cluster KV operations with: %s", clusterName);
         
-        // Verify it exists
-        assertTrue(getValue(key).isPresent());
-        assertEquals(value, getValue(key).get());
+        // Create a cluster using the REST API
+        given()
+            .contentType(ContentType.JSON)
+            .when()
+            .post("/api/v1/clusters/{clusterName}", clusterName)
+            .then()
+            .statusCode(201);
         
-        // Delete the key
-        deleteKey(key);
-        
-        // Verify it's gone
-        assertFalse(getValue(key).isPresent());
-    }
-    
-    @Test
-    void testListClusters() {
-        // Create some test data in our namespace
-        putValue("clusters/test-cluster/config", "{\"name\":\"test-cluster\"}");
-        
-        // Test that we can list clusters
+        // Verify cluster shows up in listing
         given()
             .when().get("/api/v1/clusters")
             .then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("name", hasItem(clusterName));
                 
-        // Note: The actual cluster listing might not see our namespaced data
-        // depending on how the ClusterService is implemented
+        // Verify we can retrieve the specific cluster
+        given()
+            .when().get("/api/v1/clusters/{clusterName}", clusterName)
+            .then()
+                .statusCode(200);
     }
     
     @Test
-    void testServiceRegistration() {
-        // Test waiting for services
-        if (!hasService("consul")) {
-            fail("Consul service should be available");
-        }
+    void testConsulKVStorage() throws Exception {
+        String clusterName = "consul-kv-storage-" + UUID.randomUUID().toString().substring(0, 8);
+        createdClusters.add(clusterName);
         
-        // If registration service is running, wait for it
-        if (hasService("registration-service")) {
-            // Test that echo module registered
-            Awaitility.await()
-                .atMost(Duration.ofSeconds(30))
-                .pollInterval(Duration.ofSeconds(1))
-                .until(() -> hasService("echo"));
-        }
+        LOG.infof("Testing Consul KV storage with cluster: %s", clusterName);
+        
+        // Create a cluster
+        given()
+            .contentType(ContentType.JSON)
+            .when()
+            .post("/api/v1/clusters/{clusterName}", clusterName)
+            .then()
+            .statusCode(201);
+        
+        // Verify data is actually stored in Consul KV
+        String consulHost = System.getProperty("pipeline.consul.host", "localhost");
+        String consulPort = System.getProperty("pipeline.consul.port", "8500");
+        
+        LOG.infof("Verifying cluster data exists in Consul KV at %s:%s", consulHost, consulPort);
+        
+        HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+        
+        // Check if cluster data exists in Consul
+        URI getUri = URI.create(String.format("http://%s:%s/v1/kv/test-pipeline/clusters/?keys", 
+            consulHost, consulPort));
+        HttpRequest getRequest = HttpRequest.newBuilder()
+            .uri(getUri)
+            .timeout(Duration.ofSeconds(5))
+            .GET()
+            .build();
+
+        HttpResponse<String> response = client.send(getRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode(), "Should be able to list cluster keys in Consul");
+        
+        String keys = response.body();
+        assertTrue(keys.contains("test-pipeline/clusters/"), "Consul should contain cluster data");
+        LOG.info("Successfully verified cluster data exists in Consul KV store");
     }
     
     @Test
-    void testNamespaceIsolation() {
-        // Test that each test class gets its own namespace
-        String myKey = "isolation-test";
-        putValue(myKey, "my-value");
+    void testInMemoryModuleRegistry() {
+        // Test that we're using the in-memory module registry
+        LOG.info("Testing in-memory module registry functionality");
         
-        // The key should be namespaced
-        String fullKey = namespacedKey(myKey);
-        assertTrue(fullKey.startsWith("test/consul-kv/"));
+        // The in-memory registry should have pre-loaded basic modules
+        // This is verified by the successful application startup
+        // and the fact that cluster operations work
         
-        // Other tests in different classes won't see this key
-    }
-    
-    @Test
-    void testWaitForKey() {
-        // Test the wait functionality
-        String key = "delayed-key";
+        // Create a cluster to verify the module registry is working
+        String clusterName = "module-registry-test-" + UUID.randomUUID().toString().substring(0, 8);
+        createdClusters.add(clusterName);
         
-        // Put value after a delay using REST endpoint
-        new Thread(() -> {
-            try {
-                Thread.sleep(1000);
-                putValue(key, "delayed-value");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
-        
-        // Wait for the key to appear
-        waitForKey(key, Duration.ofSeconds(5));
-        
-        // Verify it's there
-        assertEquals("delayed-value", getValue(key).get());
+        given()
+            .contentType(ContentType.JSON)
+            .when()
+            .post("/api/v1/clusters/{clusterName}", clusterName)
+            .then()
+            .statusCode(201);
+            
+        // If we get here, the in-memory module registry is working
+        LOG.info("In-memory module registry is functioning correctly");
     }
 }

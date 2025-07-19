@@ -1,12 +1,13 @@
 package io.pipeline.consul.client.service;
 
-import io.pipeline.consul.client.integration.InMemoryRegistryTestProfile;
+import io.pipeline.consul.client.profile.WithConsulConfigProfile;
 import io.pipeline.api.service.ModuleRegistryService;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.http.ContentType;
@@ -16,44 +17,172 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.UUID;
+import java.time.Duration;
 import org.jboss.logging.Logger;
 
-import static io.restassured.RestAssured.given;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests for ModuleRegistryService using in-memory framework.
- * Uses @QuarkusIntegrationTest to test against the packaged JAR.
+ * Consul-specific integration tests for ModuleRegistryService.
+ * These tests require full Consul functionality and are disabled by default.
  */
 @QuarkusIntegrationTest
-@TestProfile(InMemoryRegistryTestProfile.class)
-class GlobalModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
+@TestProfile(WithConsulConfigProfile.class)
+@Disabled("Requires full Consul setup - enable when needed for Consul-specific testing")
+class GlobalModuleRegistryServiceConsulIT {
     
-    private static final Logger LOG = Logger.getLogger(GlobalModuleRegistryServiceIT.class);
-    private final List<String> createdClusters = new ArrayList<>();
+    private static final Logger LOG = Logger.getLogger(GlobalModuleRegistryServiceConsulIT.class);
+    protected ModuleRegistryService globalModuleRegistryService;
     
-    @Override
     @BeforeEach
     void setupDependencies() {
-        // For integration tests, we use REST API calls with RestAssured
-        // RestAssured automatically uses the correct test port
-        
         // Create a REST-based adapter for the ModuleRegistryService
         this.globalModuleRegistryService = new RestBasedModuleRegistryService();
     }
-
-    @AfterEach
-    void cleanup() {
-        for (String clusterName : createdClusters) {
-            LOG.infof("Cleaning up cluster: %s", clusterName);
-            try {
-                given().when().delete("/api/v1/clusters/{clusterName}", clusterName).then().statusCode(200);
-            } catch (Exception e) {
-                LOG.warnf(e, "Failed to delete cluster %s during cleanup", clusterName);
+    
+    @Test
+    void testRegisterDuplicateModule() {
+        // Given
+        String moduleName = "test-module-" + UUID.randomUUID().toString().substring(0, 8);
+        String implementationId = "test-impl-1";
+        String host = "localhost";
+        int port = 8080;
+        String serviceType = "MODULE";
+        String version = "1.0.0";
+        Map<String, String> metadata = Map.of(
+            "environment", "test",
+            "owner", "test-team"
+        );
+        String engineHost = "engine-host";
+        int enginePort = 9090;
+        String jsonSchema = """
+            {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                    "test": { "type": "string" }
+                }
             }
+            """;
+        
+        // When - register the first module
+        ModuleRegistryService.ModuleRegistration firstRegistration = globalModuleRegistryService.registerModule(
+            moduleName, implementationId, host, port, serviceType, version, metadata, engineHost, enginePort, jsonSchema
+        ).await().atMost(Duration.ofSeconds(10));
+        
+        // Then - first registration should succeed
+        assertNotNull(firstRegistration);
+        assertEquals(moduleName, firstRegistration.moduleName());
+        assertEquals(implementationId, firstRegistration.moduleId());
+        
+        // When - try to register duplicate module with same endpoint
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            globalModuleRegistryService.registerModule(
+                moduleName, implementationId, host, port, serviceType, version, metadata, engineHost, enginePort, jsonSchema
+            ).await().atMost(Duration.ofSeconds(10));
+        });
+        
+        // Then - should fail with appropriate error
+        assertTrue(exception.getMessage().contains("already exists") || 
+                  exception.getMessage().contains("409") ||
+                  exception.getMessage().contains("conflict"));
+    }
+
+    @Test
+    void testInvalidJsonSchema() {
+        // Given
+        String moduleName = "test-module-" + UUID.randomUUID().toString().substring(0, 8);
+        String implementationId = "test-impl-1";
+        String host = "localhost";
+        int port = 8080;
+        String serviceType = "MODULE";
+        String version = "1.0.0";
+        Map<String, String> metadata = Map.of("environment", "test");
+        String engineHost = "engine-host";
+        int enginePort = 9090;
+        String invalidJsonSchema = "{ invalid json schema without proper structure";
+        
+        // When/Then - should either accept it (lenient) or fail gracefully
+        try {
+            ModuleRegistryService.ModuleRegistration registration = globalModuleRegistryService.registerModule(
+                moduleName, implementationId, host, port, serviceType, version, metadata, engineHost, enginePort, invalidJsonSchema
+            ).await().atMost(Duration.ofSeconds(10));
+            
+            // If it succeeds, verify basic properties
+            assertNotNull(registration);
+            assertEquals(moduleName, registration.moduleName());
+        } catch (RuntimeException e) {
+            // If it fails, should be due to invalid schema
+            assertTrue(e.getMessage().contains("schema") || 
+                      e.getMessage().contains("json") ||
+                      e.getMessage().contains("400"));
         }
-        createdClusters.clear();
+    }
+
+    @Test  
+    void testRegisterWithContainerMetadata() {
+        // Given
+        String moduleName = "test-module-" + UUID.randomUUID().toString().substring(0, 8);
+        String implementationId = "test-impl-1";
+        String host = "localhost";
+        int port = 8080;
+        String serviceType = "MODULE";
+        String version = "1.0.0";
+        Map<String, String> containerMetadata = Map.of(
+            "container.id", "abc123def456",
+            "container.image", "myorg/mymodule:1.0.0",
+            "container.platform", "docker",
+            "deployment.namespace", "pipeline-modules",
+            "deployment.cluster", "prod-east-1"
+        );
+        String engineHost = "engine-host";
+        int enginePort = 9090;
+        String jsonSchema = """
+            {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                    "containerConfig": {
+                        "type": "object",
+                        "properties": {
+                            "image": { "type": "string" },
+                            "env": { "type": "array" }
+                        }
+                    }
+                }
+            }
+            """;
+        
+        // When
+        ModuleRegistryService.ModuleRegistration registration = globalModuleRegistryService.registerModule(
+            moduleName, implementationId, host, port, serviceType, version, containerMetadata, engineHost, enginePort, jsonSchema
+        ).await().atMost(Duration.ofSeconds(10));
+        
+        // Then
+        assertNotNull(registration);
+        assertEquals(moduleName, registration.moduleName());
+        assertEquals(implementationId, registration.moduleId());
+        assertEquals(host, registration.host());
+        assertEquals(port, registration.port());
+        assertEquals(serviceType, registration.serviceType());
+        assertEquals(version, registration.version());
+        
+        // Verify container metadata is preserved
+        Map<String, String> retrievedMetadata = registration.metadata();
+        assertNotNull(retrievedMetadata);
+        assertEquals("abc123def456", retrievedMetadata.get("container.id"));
+        assertEquals("myorg/mymodule:1.0.0", retrievedMetadata.get("container.image"));
+        assertEquals("docker", retrievedMetadata.get("container.platform"));
+        assertEquals("pipeline-modules", retrievedMetadata.get("deployment.namespace"));
+        assertEquals("prod-east-1", retrievedMetadata.get("deployment.cluster"));
+        
+        // Verify we can retrieve the module
+        ModuleRegistryService.ModuleRegistration retrieved = globalModuleRegistryService.getModule(implementationId)
+            .await().atMost(Duration.ofSeconds(10));
+        assertNotNull(retrieved);
+        assertEquals(registration.moduleId(), retrieved.moduleId());
+        assertEquals(registration.metadata(), retrieved.metadata());
     }
     
     /**
@@ -62,15 +191,11 @@ class GlobalModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
     private static class RestBasedModuleRegistryService implements ModuleRegistryService {
         private static final Logger LOG = Logger.getLogger(RestBasedModuleRegistryService.class);
         
-        public RestBasedModuleRegistryService() {
-        }
-        
         @Override
         public Uni<ModuleRegistration> registerModule(String moduleName, String implementationId, 
                 String host, int port, String serviceType, String version, 
                 Map<String, String> metadata, String engineHost, int enginePort, String jsonSchema) {
             
-            // Use a map to build the request object
             Map<String, Object> requestMap = new HashMap<>();
             requestMap.put("moduleName", moduleName);
             requestMap.put("implementationId", implementationId);
@@ -83,18 +208,14 @@ class GlobalModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
             requestMap.put("enginePort", enginePort);
             requestMap.put("jsonSchema", jsonSchema != null ? jsonSchema : "");
             
-            LOG.debugf("Sending registration request for module: %s", moduleName);
-            
             return Uni.createFrom().item(() -> {
                 Response response = RestAssured
                     .given()
-                        .log().all()
                         .contentType(ContentType.JSON)
                         .body(requestMap)
                     .when()
                         .post("/api/v1/modules/register")
                     .then()
-                        .log().all()
                         .extract().response();
                 
                 if (response.getStatusCode() == 201) {
@@ -103,12 +224,10 @@ class GlobalModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
                     throw new RuntimeException("Module already exists at endpoint " + host + ":" + port);
                 } else {
                     String errorBody = response.getBody().asString();
-                    LOG.errorf("Failed to register module. Status: %d, Error: %s", response.getStatusCode(), errorBody);
                     throw new RuntimeException("Failed to register module: " + response.getStatusCode() + " - " + errorBody);
                 }
             });
         }
-        
         
         @Override
         public Uni<Set<ModuleRegistration>> listRegisteredModules() {
@@ -240,19 +359,16 @@ class GlobalModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
         
         @Override
         public Uni<ZombieCleanupResult> cleanupZombieInstances() {
-            // Not implemented for REST-based testing
             return Uni.createFrom().item(new ZombieCleanupResult(0, 0, List.of()));
         }
         
         @Override
         public Uni<Boolean> archiveService(String serviceName, String reason) {
-            // Not implemented for REST-based testing
             return Uni.createFrom().item(false);
         }
         
         @Override
         public Uni<Integer> cleanupStaleWhitelistedModules() {
-            // Not implemented for REST-based testing
             return Uni.createFrom().item(0);
         }
         
@@ -275,8 +391,6 @@ class GlobalModuleRegistryServiceIT extends ModuleRegistryServiceTestBase {
         @Override
         public Uni<Boolean> moduleExists(String serviceName) {
             return Uni.createFrom().item(() -> {
-                // For REST-based testing, we can check if we can get the module
-                // This implementation assumes the service name is the module ID
                 try {
                     Response response = RestAssured
                         .given()

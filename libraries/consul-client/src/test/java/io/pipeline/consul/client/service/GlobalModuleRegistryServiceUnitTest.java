@@ -220,10 +220,4 @@ class ModuleRegistryServiceUnitTest extends ModuleRegistryServiceTestBase {
         // Disabled - see class-level comment
     }
     
-    @Override
-    @Test
-    @Disabled("Caching interferes with mocking - covered by ModuleRegistryServiceIT")
-    void testRegisterDuplicateModule() {
-        // Disabled - see class-level comment
-    }
 }

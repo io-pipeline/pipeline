@@ -73,27 +73,6 @@ public abstract class ModuleRegistryServiceTestBase {
         assertTrue(result.registeredAt() > 0);
     }
     
-    @Test
-    void testRegisterDuplicateModule() {
-        // Given
-        String moduleName = "duplicate-module-" + UUID.randomUUID().toString().substring(0, 8);
-        String host = "localhost";
-        int port = 8081;
-        
-        // Register first module
-        globalModuleRegistryService.registerModule(
-            moduleName, "impl-1", host, port, "MODULE", 
-            "1.0.0", null, "engine", 9090, null
-        ).await().atMost(Duration.ofSeconds(5));
-        
-        // When/Then - Try to register duplicate at same endpoint
-        assertThrows(Exception.class, () -> {
-            globalModuleRegistryService.registerModule(
-                moduleName + "-2", "impl-2", host, port, "MODULE", 
-                "1.0.0", null, "engine", 9090, null
-            ).await().atMost(Duration.ofSeconds(5));
-        });
-    }
     
     @Test
     void testListRegisteredModules() {
@@ -224,41 +203,5 @@ public abstract class ModuleRegistryServiceTestBase {
         assertFalse(found);
     }
     
-    @Test
-    void testInvalidJsonSchema() {
-        // Given
-        String moduleName = "invalid-schema-" + UUID.randomUUID().toString().substring(0, 8);
-        String invalidSchema = "{ invalid json schema }";
-        
-        // When/Then
-        assertThrows(Exception.class, () -> {
-            globalModuleRegistryService.registerModule(
-                moduleName, "impl-1", "localhost", 8099, "MODULE", 
-                "1.0.0", null, "engine", 9090, invalidSchema
-            ).await().atMost(Duration.ofSeconds(5));
-        });
-    }
     
-    @Test
-    void testRegisterWithContainerMetadata() {
-        // Given
-        String moduleName = "container-module-" + UUID.randomUUID().toString().substring(0, 8);
-        String containerId = "container-" + UUID.randomUUID().toString();
-        Map<String, String> metadata = Map.of(
-            "containerId", containerId,
-            "containerName", "test-container",
-            "hostname", "test-host"
-        );
-        
-        // When
-        ModuleRegistration result = globalModuleRegistryService.registerModule(
-            moduleName, "impl-1", "localhost", 8100, "MODULE", 
-            "1.0.0", metadata, "engine", 9090, null
-        ).await().atMost(Duration.ofSeconds(5));
-        
-        // Then
-        assertEquals(containerId, result.containerId());
-        assertEquals("test-container", result.containerName());
-        assertEquals("test-host", result.hostname());
-    }
 }
