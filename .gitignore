@@ -10,7 +10,6 @@ build
 
 # Log file
 *.log
-.quarkus
 # BlueJ files
 *.ctxt
 
@@ -32,3 +31,7 @@ replay_pid*
 
 
 temp_archive
+
+.quarkus
+
+CLAUDE.md
