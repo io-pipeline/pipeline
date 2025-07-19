@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.hamcrest.core.Is.is;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 /**
@@ -71,7 +71,7 @@ class EchoServiceRealDataIT extends EchoServiceTestBase {
     void testWithRealData() {
         // Now we can use the gRPC client to test with real data
         Collection<PipeDoc> docs = getTestDataHelper().getSamplePipeDocuments();
-        assertThat("Sample documents collection should not be empty", docs, is(not(empty())));
+        assertThat("Should have test documents", docs, not(empty()));
 
         // Process the first document as a test
         if (!docs.isEmpty()) {

@@ -40,7 +40,17 @@ java {
 
 test {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    // Increase memory for large message testing
+    jvmArgs '-Xmx4g', '-Xms1g'
 }
+
+// Integration test configuration for large messages
+tasks.withType(Test) {
+    if (name.contains('IntTest')) {
+        jvmArgs '-Xmx6g', '-Xms2g', '-XX:MaxDirectMemorySize=2g'
+    }
+}
+
 compileJava {
     options.encoding = 'UTF-8'
     options.compilerArgs << '-parameters'
