@@ -1,12 +1,12 @@
 package com.rokkon.testmodule;
 
 import com.google.protobuf.Empty;
-import com.rokkon.pipeline.testing.harness.grpc.*;
-import com.rokkon.search.model.PipeDoc;
-import com.rokkon.search.sdk.ProcessRequest;
-import com.rokkon.search.sdk.ServiceMetadata;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.pipeline.data.model.PipeDoc;
+import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ServiceMetadata;
+import io.pipeline.testing.harness.grpc.*;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.smallrye.mutiny.Multi;
 import io.quarkus.test.common.http.TestHTTPResource;
@@ -21,7 +21,9 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
+
 
 @QuarkusIntegrationTest
 class TestHarnessServiceIT {
@@ -64,10 +66,10 @@ class TestHarnessServiceIT {
         ModuleStatus status = testHarnessClient.getModuleStatus(Empty.getDefaultInstance())
                 .await().atMost(Duration.ofSeconds(5));
         
-        assertThat(status).isNotNull();
-        assertThat(status.getModuleName()).isEqualTo("test-processor");
+        assertThat("Status should not be null", status, is(notNullValue()));
+        assertThat("Module name should be test-processor", status.getModuleName(), is("test-processor"));
         // In prod mode, module should be functioning
-        assertThat(status.hasLastActivity()).isTrue();
+        assertThat("Module should have last activity", status.hasLastActivity(), is(true));
     }
     
     @Test
@@ -104,11 +106,11 @@ class TestHarnessServiceIT {
                 );
         
         // Wait for both streams to complete
-        assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
+        assertThat("Latch should countdown within 10 seconds", latch.await(10, TimeUnit.SECONDS), is(true));
         
         // Both streams should have received events
-        assertThat(stream1Events).isNotEmpty();
-        assertThat(stream2Events).isNotEmpty();
+        assertThat("Stream 1 should have events", stream1Events, is(not(empty())));
+        assertThat("Stream 2 should have events", stream2Events, is(not(empty())));
         
         // Each stream should have events for their own documents
         boolean stream1HasOwnDoc = stream1Events.stream()
@@ -119,8 +121,8 @@ class TestHarnessServiceIT {
                 .filter(TestEvent::hasDocumentProcessed)
                 .anyMatch(e -> e.getDocumentProcessed().getDocumentId().equals("stream2-doc"));
         
-        assertThat(stream1HasOwnDoc).isTrue();
-        assertThat(stream2HasOwnDoc).isTrue();
+        assertThat("Stream 1 should have processed its own document", stream1HasOwnDoc, is(true));
+        assertThat("Stream 2 should have processed its own document", stream2HasOwnDoc, is(true));
     }
     
     @Test
@@ -149,9 +151,9 @@ class TestHarnessServiceIT {
         TestResult result = testHarnessClient.executeTest(errorCommand)
                 .await().atMost(Duration.ofSeconds(5));
         
-        assertThat(result).isNotNull();
+        assertThat("Result should not be null", result, is(notNullValue()));
         // Even with no document, the harness should handle it gracefully
-        assertThat(result.getSuccess()).isTrue();
+        assertThat("Error handling should be successful", result.getSuccess(), is(true));
     }
     
     @Test
@@ -178,14 +180,14 @@ class TestHarnessServiceIT {
         TestResult result = testHarnessClient.executeTest(configCommand)
                 .await().atMost(Duration.ofSeconds(5));
         
-        assertThat(result.getSuccess()).isTrue();
+        assertThat("Module configuration should be successful", result.getSuccess(), is(true));
         
         // Check that configuration was applied
         ModuleStatus status = testHarnessClient.getModuleStatus(Empty.getDefaultInstance())
                 .await().atMost(Duration.ofSeconds(5));
         
-        assertThat(status.getCurrentConfigMap()).containsKey("test_mode");
-        assertThat(status.getCurrentConfigMap().get("test_mode")).isEqualTo("integration-test");
+        assertThat("Config map should contain test_mode key", status.getCurrentConfigMap(), hasKey("test_mode"));
+        assertThat("test_mode value should be integration-test", status.getCurrentConfigMap().get("test_mode"), is("integration-test"));
     }
     
     private TestCommand createHealthCheckCommand() {

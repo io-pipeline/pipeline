@@ -1,8 +1,8 @@
-# Test Module - Comprehensive Testing Harness for Rokkon Pipeline
+# Test Module - Comprehensive Testing Harness for IO Pipeline
 
 ## Overview
 
-The Test Module is a feature-rich implementation of the PipeStepProcessor interface designed to serve as both a reference implementation and a comprehensive testing harness for the Rokkon pipeline system. It provides configurable behaviors, error simulation, performance testing capabilities, and extensive validation features.
+The Test Module is a feature-rich implementation of the PipeStepProcessor interface designed to serve as both a reference implementation and a comprehensive testing harness for the IO Pipeline system. It provides configurable behaviors, error simulation, performance testing capabilities, and extensive validation features.
 
 ## Key Features
 
@@ -44,22 +44,22 @@ The Test Module is a feature-rich implementation of the PipeStepProcessor interf
 │                        Test Module                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  ┌─────────────────┐    ┌─────────────────┐               │
-│  │  gRPC Service   │    │  Configuration  │               │
-│  │  Implementation │◄───┤   Manager       │               │
-│  └────────┬────────┘    └─────────────────┘               │
+│  ┌─────────────────┐    ┌─────────────────┐                 │
+│  │  gRPC Service   │    │  Configuration  │                 │
+│  │  Implementation │◄───┤   Manager       │                 │
+│  └────────┬────────┘    └─────────────────┘                 │
 │           │                                                 │
 │           ▼                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐               │
-│  │   Processing    │    │   Validation    │               │
-│  │     Engine      │◄───┤   Engine        │               │
-│  └────────┬────────┘    └─────────────────┘               │
+│  ┌─────────────────┐    ┌─────────────────┐                 │
+│  │   Processing    │    │   Validation    │                 │
+│  │     Engine      │◄───┤   Engine        │                 │
+│  └────────┬────────┘    └─────────────────┘                 │
 │           │                                                 │
 │           ▼                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐               │
-│  │    Metrics      │    │  Health Check   │               │
-│  │   Collector     │    │    Service      │               │
-│  └─────────────────┘    └─────────────────┘               │
+│  ┌─────────────────┐    ┌─────────────────┐                 │
+│  │    Metrics      │    │  Health Check   │                 │
+│  │   Collector     │    │    Service      │                 │
+│  └─────────────────┘    └─────────────────┘                 │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -341,19 +341,19 @@ Timer customTimer = Timer.builder("test_module_custom_duration")
 ### Common Issues
 
 1. **Module fails to start**
-   - Check port availability: `lsof -i :48095`
-   - Verify Java version: `java -version` (requires 21+)
-   - Check logs: `docker logs <container-id>`
+    - Check port availability: `lsof -i :48095`
+    - Verify Java version: `java -version` (requires 21+)
+    - Check logs: `docker logs <container-id>`
 
 2. **Registration fails**
-   - Ensure engine is running and accessible
-   - Verify network connectivity
-   - Check firewall rules
+    - Ensure engine is running and accessible
+    - Verify network connectivity
+    - Check firewall rules
 
 3. **High memory usage**
-   - Reduce `MEMORY_SIMULATION_MB`
-   - Check for memory leaks in custom processors
-   - Monitor with: `docker stats <container-id>`
+    - Reduce `MEMORY_SIMULATION_MB`
+    - Check for memory leaks in custom processors
+    - Monitor with: `docker stats <container-id>`
 
 ## Contributing
 
@@ -367,4 +367,4 @@ When adding features to the test module:
 
 ## License
 
-This module is part of the Rokkon Pipeline project and follows the same licensing terms.
+This module is part of the IO Pipeline project and follows the same licensing terms.

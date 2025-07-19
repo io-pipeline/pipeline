@@ -1,10 +1,11 @@
 package com.rokkon.testmodule;
 
-import com.rokkon.pipeline.testing.harness.grpc.TestHarness;
-import com.rokkon.pipeline.testing.harness.grpc.TestHarnessClient;
-import com.rokkon.search.util.ProtobufTestDataHelper;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.pipeline.data.util.proto.ProtobufTestDataHelper;
+import io.pipeline.module.testharness.TestHarnessTestBase;
+import io.pipeline.testing.harness.grpc.TestHarness;
+import io.pipeline.testing.harness.grpc.TestHarnessClient;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
@@ -15,7 +16,7 @@ import java.net.URL;
 /**
  * Integration test for TestHarness service.
  * This test runs against the containerized application.
- * 
+ * <p>
  * Quarkus handles the container lifecycle and assigns a random available port.
  * We use the unified HTTP/gRPC server, so both protocols share the same port.
  */

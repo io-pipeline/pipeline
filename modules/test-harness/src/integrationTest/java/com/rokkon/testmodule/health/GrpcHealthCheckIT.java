@@ -1,8 +1,9 @@
 package com.rokkon.testmodule.health;
 
-import io.grpc.health.v1.HealthGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.health.v1.HealthGrpc;
+import io.pipeline.module.testharness.health.GrpcHealthCheckTestBase;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +48,7 @@ public class GrpcHealthCheckIT extends GrpcHealthCheckTestBase {
     }
     
     @Override
-    protected HealthGrpc.HealthBlockingStub getHealthService() {
+    protected io.grpc.health.v1.HealthGrpc.HealthBlockingStub getHealthService() {
         return healthService;
     }
 }
