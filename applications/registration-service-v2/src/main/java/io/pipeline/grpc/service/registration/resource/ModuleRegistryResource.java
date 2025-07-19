@@ -1,6 +1,6 @@
-package com.rokkon.pipeline.registration.resource;
+package io.pipeline.grpc.service.registration.resource;
 
-import com.rokkon.pipeline.commons.model.GlobalModuleRegistryService;
+import io.pipeline.api.service.ModuleRegistryService;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.ext.consul.ConsulClient;
 import jakarta.inject.Inject;
@@ -21,7 +21,7 @@ public class ModuleRegistryResource {
     private static final Logger log = Logger.getLogger(ModuleRegistryResource.class);
     
     @Inject
-    GlobalModuleRegistryService globalModuleRegistryService;
+    ModuleRegistryService globalModuleRegistryService;
     
     @Inject
     ConsulClient consulClient;
@@ -57,7 +57,7 @@ public class ModuleRegistryResource {
                                 "moduleId", module.moduleId(),
                                 "moduleName", module.moduleName(),
                                 "healthStatus", health.healthStatus().name(),
-                                "isHealthy", health.healthStatus() == GlobalModuleRegistryService.HealthStatus.PASSING,
+                                "isHealthy", health.healthStatus() == ModuleRegistryService.HealthStatus.PASSING,
                                 "exists", health.exists()
                             ))
                             .onFailure().recoverWithItem(Map.<String, Object>of(

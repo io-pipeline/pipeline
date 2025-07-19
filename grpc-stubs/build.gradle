@@ -20,6 +20,10 @@ dependencies {
 quarkus {
     quarkusBuildProperties.put("quarkus.generate-code.grpc.scan-for-imports", "com.google.protobuf:protobuf-java,com.google.api.grpc:proto-google-common-protos")
     quarkusBuildProperties.put("quarkus.generate-code.grpc.scan-for-proto", "com.google.api.grpc:proto-google-common-protos")
+    
+    // Disable dev mode for this library project
+    quarkusBuildProperties.put("quarkus.package.type", "jar")
+    quarkusBuildProperties.put("quarkus.live-reload.instrumentation", "false")
 }
 
 java {

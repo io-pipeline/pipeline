@@ -1,11 +1,11 @@
-package com.rokkon.pipeline.registration.service;
+package io.pipeline.grpc.service.registration;
 
 import com.google.protobuf.Empty;
-import com.pipeline.registration.*;
-import com.rokkon.pipeline.commons.model.GlobalModuleRegistryService;
-import com.rokkon.search.sdk.MutinyPipeStepProcessorGrpc;
-import com.rokkon.search.sdk.RegistrationRequest;
 import io.grpc.ManagedChannel;
+import io.pipeline.api.service.ModuleRegistryService;
+import io.pipeline.data.module.MutinyPipeStepProcessorGrpc;
+import io.pipeline.data.module.RegistrationRequest;
+import io.pipeline.registration.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -17,7 +17,7 @@ public class ModuleRegistrationService extends MutinyModuleRegistrationGrpc.Modu
     private static final Logger log = Logger.getLogger(ModuleRegistrationService.class);
     
     @Inject
-    GlobalModuleRegistryService globalModuleRegistryService;
+    ModuleRegistryService globalModuleRegistryService;
     
     @Inject
     io.vertx.mutiny.ext.consul.ConsulClient consulClient;
@@ -77,7 +77,7 @@ public class ModuleRegistrationService extends MutinyModuleRegistrationGrpc.Modu
                 .map(healthStatus -> ModuleHealthStatus.newBuilder()
                         .setServiceId(healthStatus.module().moduleId())
                         .setServiceName(healthStatus.module().moduleName())
-                        .setIsHealthy(healthStatus.healthStatus() == GlobalModuleRegistryService.HealthStatus.PASSING)
+                        .setIsHealthy(healthStatus.healthStatus() == ModuleRegistryService.HealthStatus.PASSING)
                         .build());
     }
 

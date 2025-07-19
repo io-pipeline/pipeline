@@ -1,9 +1,12 @@
-package com.pipeline.registration.resource;
+package io.pipeline.grpc.service.registration.resource;
 
 import com.google.protobuf.Empty;
-import com.pipeline.registration.*;
-import io.quarkus.grpc.GrpcClient;
+import io.pipeline.registration.ModuleId;
+import io.pipeline.registration.ModuleInfo;
+import io.pipeline.grpc.service.registration.ModuleRegistrationService;
+import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -18,8 +21,9 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class RegistrationResource {
 
-    @GrpcClient("registration")
-    MutinyModuleRegistrationGrpc.MutinyModuleRegistrationStub registrationClient;
+    @Inject
+    @GrpcService
+    ModuleRegistrationService registrationService;
 
     @POST
     @Path("/register")
@@ -37,7 +41,7 @@ public class RegistrationResource {
             moduleInfo.putAllMetadata(request.metadata);
         }
         
-        return registrationClient.registerModule(moduleInfo.build())
+        return registrationService.registerModule(moduleInfo.build())
                 .map(status -> Response.ok(Map.of(
                         "success", status.getSuccess(),
                         "message", status.getMessage(),
@@ -54,7 +58,7 @@ public class RegistrationResource {
     @DELETE
     @Path("/unregister/{serviceId}")
     public Uni<Response> unregisterModule(@PathParam("serviceId") String serviceId) {
-        return registrationClient.unregisterModule(
+        return registrationService.unregisterModule(
                 ModuleId.newBuilder().setServiceId(serviceId).build()
         )
         .map(status -> Response.ok(Map.of(
@@ -72,7 +76,7 @@ public class RegistrationResource {
     @GET
     @Path("/health/{serviceId}")
     public Uni<Response> getModuleHealth(@PathParam("serviceId") String serviceId) {
-        return registrationClient.getModuleHealth(
+        return registrationService.getModuleHealth(
                 ModuleId.newBuilder().setServiceId(serviceId).build()
         )
         .map(health -> Response.ok(Map.of(
@@ -90,7 +94,7 @@ public class RegistrationResource {
     @GET
     @Path("/list")
     public Uni<Response> listModules() {
-        return registrationClient.listModules(Empty.getDefaultInstance())
+        return registrationService.listModules(Empty.getDefaultInstance())
                 .map(moduleList -> {
                     var modules = moduleList.getModulesList().stream()
                             .map(module -> Map.of(

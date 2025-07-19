@@ -1,8 +1,10 @@
 package io.pipeline.api.registration;
 
-import com.pipeline.registration.*;
 import io.pipeline.api.annotation.PipelineAutoRegister;
 import io.pipeline.data.module.PipeStepProcessor;
+import io.pipeline.registration.ModuleId;
+import io.pipeline.registration.ModuleInfo;
+import io.pipeline.registration.MutinyModuleRegistrationGrpc;
 import io.quarkus.arc.All;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.runtime.ShutdownEvent;

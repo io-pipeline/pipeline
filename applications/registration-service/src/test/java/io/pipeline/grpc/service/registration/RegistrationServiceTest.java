@@ -1,4 +1,4 @@
-package com.pipeline.registration;
+package io.pipeline.grpc.service.registration;
 
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;

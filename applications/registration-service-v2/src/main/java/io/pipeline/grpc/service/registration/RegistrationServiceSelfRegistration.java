@@ -1,4 +1,4 @@
-package com.rokkon.pipeline.registration.service;
+package io.pipeline.grpc.service.registration;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
@@ -11,7 +11,6 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 

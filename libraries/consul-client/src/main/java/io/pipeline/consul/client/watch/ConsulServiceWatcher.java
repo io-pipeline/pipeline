@@ -6,6 +6,7 @@ import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.ext.consul.*;
+import java.util.Map;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.Observes;
@@ -47,6 +48,7 @@ public class ConsulServiceWatcher {
     // Track active watches
     private final List<Watch<ServiceEntryList>> activeWatches = new ArrayList<>();
     private final Map<String, ServiceHealthState> lastHealthStates = new ConcurrentHashMap<>();
+    private final Map<String, Long> lastSeenTimestamp = new ConcurrentHashMap<>();
     private volatile boolean running = false;
 
     /**
@@ -112,28 +114,145 @@ public class ConsulServiceWatcher {
         activeWatches.forEach(Watch::stop);
         activeWatches.clear();
         lastHealthStates.clear();
+        lastSeenTimestamp.clear();
     }
 
     /**
      * Watch services tagged with "module"
      */
     private void watchModuleServices(io.vertx.mutiny.ext.consul.ConsulClient client) {
-        // Watch health endpoint directly for all services instead of specific service
-        // This allows us to filter by tag in the handler
-        activeWatches.clear(); // Clear any existing watches
-
-        // We need to watch specific services or use a different approach
-        // For now, let's disable service watching until we can test properly
-        LOG.warn("Service watching temporarily disabled - needs proper implementation");
-
-        // TODO: Implement proper service watching:
-        // Option 1: Query for services with "module" tag periodically
-        // Option 2: Watch individual module services by name
-        // Option 3: Use catalog watch endpoint
+        // Option 1: Periodic query for services with "module" tag
+        // This is more reliable than trying to watch all services at once
+        
+        LOG.info("Starting periodic health monitoring for module services");
+        
+        // Schedule periodic health checks every 30 seconds
+        vertx.setPeriodic(30000, timerId -> {
+            if (!running) {
+                vertx.cancelTimer(timerId);
+                return;
+            }
+            
+            queryModuleServiceHealth(client);
+            cleanupStaleServices();
+        });
+        
+        // Initial query
+        queryModuleServiceHealth(client);
     }
 
     /**
-     * Handle service health changes
+     * Query Consul for all services with "module" tag and check their health
+     */
+    private void queryModuleServiceHealth(io.vertx.mutiny.ext.consul.ConsulClient client) {
+        // Get all services from catalog, then filter by tag
+        client.catalogServices()
+            .subscribe().with(
+                serviceList -> {
+                    if (serviceList != null && serviceList.getList() != null) {
+                        // catalogServices() returns ServiceList with List<Service> objects
+                        serviceList.getList().stream()
+                            .filter(service -> service.getTags() != null && 
+                                          service.getTags().contains("module"))
+                            .forEach(service -> {
+                                String serviceName = service.getName();
+                                queryServiceHealth(client, serviceName);
+                            });
+                    }
+                },
+                error -> LOG.errorf("Failed to query Consul services: %s", error.getMessage())
+            );
+    }
+
+    /**
+     * Query health for a specific service
+     */
+    private void queryServiceHealth(io.vertx.mutiny.ext.consul.ConsulClient client, String serviceName) {
+        client.healthServiceNodes(serviceName, false) // false = all services (passing and failing)
+            .subscribe().with(
+                serviceEntryList -> handleServiceHealthResult(serviceName, serviceEntryList),
+                error -> LOG.errorf("Failed to query health for service %s: %s", serviceName, error.getMessage())
+            );
+    }
+
+    /**
+     * Handle service health query result
+     */
+    private void handleServiceHealthResult(String serviceName, ServiceEntryList serviceEntryList) {
+        if (serviceEntryList == null || serviceEntryList.getList() == null) {
+            return;
+        }
+
+        List<ServiceEntry> services = serviceEntryList.getList();
+        
+        long currentTime = System.currentTimeMillis();
+        
+        // Process each service instance
+        services.forEach(entry -> {
+            String serviceId = entry.getService().getId();
+            
+            // Update last seen timestamp
+            lastSeenTimestamp.put(serviceId, currentTime);
+            
+            // Determine health state
+            ServiceHealthState currentState = determineHealthState(entry);
+            ServiceHealthState lastState = lastHealthStates.get(serviceId);
+            
+            // Check if state changed
+            if (lastState == null || !lastState.equals(currentState)) {
+                LOG.debugf("Module %s health changed: %s -> %s", 
+                    serviceName, lastState, currentState);
+                
+                lastHealthStates.put(serviceId, currentState);
+                
+                // Fire health change event
+                moduleHealthChangedEvent.fire(
+                    new ConsulModuleHealthChanged(
+                        serviceId,
+                        serviceName,
+                        currentState.status(),
+                        currentState.reason()
+                    )
+                );
+            }
+        });
+    }
+
+    /**
+     * Clean up services that haven't been seen in recent queries (likely deregistered)
+     */
+    private void cleanupStaleServices() {
+        long currentTime = System.currentTimeMillis();
+        long staleThreshold = 90000; // 90 seconds (3 query cycles)
+        
+        lastSeenTimestamp.entrySet().removeIf(entry -> {
+            String serviceId = entry.getKey();
+            long lastSeen = entry.getValue();
+            
+            if (currentTime - lastSeen > staleThreshold) {
+                LOG.debugf("Module service removed: %s", serviceId);
+                
+                // Remove from health tracking
+                lastHealthStates.remove(serviceId);
+                
+                // Fire removal event
+                moduleHealthChangedEvent.fire(
+                    new ConsulModuleHealthChanged(
+                        serviceId,
+                        "",
+                        "removed",
+                        "Service no longer registered"
+                    )
+                );
+                
+                return true; // Remove from lastSeenTimestamp
+            }
+            return false;
+        });
+    }
+
+    /**
+     * Handle service health changes (legacy method for watch-based approach)
      */
     private void handleServiceHealthChange(WatchResult<ServiceEntryList> result) {
         ServiceEntryList serviceList = result.nextResult();
