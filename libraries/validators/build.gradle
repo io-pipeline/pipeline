@@ -4,7 +4,7 @@ plugins {
     id 'org.kordamp.gradle.jandex' version '2.2.0-SNAPSHOT'
 }
 
-group = 'com.pipeline'
+group = 'io.pipeline'
 version = '1.0.0-SNAPSHOT'
 
 repositories {
