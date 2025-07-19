@@ -18,8 +18,8 @@ public class SampleDataCreator {
      * Default constructor for SampleDataCreator.
      * This class only contains static utility methods, so the constructor is not used.
      */
-    private SampleDataCreator() {
-        // Private constructor to prevent instantiation
+    public SampleDataCreator() {
+        // CDI fun
     }
 
     /**
