@@ -30,6 +30,7 @@ opencsv = { module = "com.opencsv:opencsv", version = "5.11.2" }
 # Testing
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }
 rest-assured = { module = "io.rest-assured:rest-assured" }
+assertj = { module = "org.assertj:assertj-core", version = "3.27.3" }
 
 [plugins]
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }

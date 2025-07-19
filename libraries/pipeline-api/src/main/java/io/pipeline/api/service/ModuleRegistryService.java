@@ -32,6 +32,14 @@ public interface ModuleRegistryService {
     }
 
     /**
+     * Checks if a module service exists in the registry.
+     * 
+     * @param serviceName The service name to check
+     * @return Uni<Boolean> indicating whether the service exists
+     */
+    Uni<Boolean> moduleExists(String serviceName);
+
+    /**
      * Module registration data stored globally
      */
     record ModuleRegistration(

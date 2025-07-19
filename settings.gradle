@@ -21,6 +21,7 @@ include ':libraries:testing-commons'
 include ':libraries:data-util'
 include ':libraries:validators'
 include ':libraries:dynamic-grpc'
+include ':libraries:consul-client'
 // Modules
 // include ':modules:your-module'
 

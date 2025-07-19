@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
     implementation platform(project(':bom'))
     implementation project(':libraries:pipeline-api')
     implementation project(':libraries:pipeline-common')
