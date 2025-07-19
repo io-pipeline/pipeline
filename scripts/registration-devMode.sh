@@ -14,4 +14,4 @@ echo "Press 'q' to quit, 'r' to restart"
 echo "----------------------------------------"
 
 cd "$(dirname "$0")/.."
-./gradlew :applications:registration-service-v2:quarkusDev
+./gradlew :applications:registration-service:quarkusDev

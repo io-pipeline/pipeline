@@ -9,7 +9,7 @@ pluginManagement {
 rootProject.name = 'pipeline'
 
 include ':bom'
-include ':applications:registration-service-v2'
+include ':applications:registration-service'
 include ':grpc-stubs'
 
 // Applications

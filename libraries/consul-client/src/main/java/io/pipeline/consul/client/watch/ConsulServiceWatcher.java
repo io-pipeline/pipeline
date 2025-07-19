@@ -17,13 +17,12 @@ import org.jboss.logging.Logger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Watches Consul service catalog for module health changes.
  * This complements the KV watcher by monitoring the health status of registered modules.
- * 
+ * <p>
  * TODO: Add comprehensive tests for the service watch functionality
  * TODO: Consider making this start on-demand rather than at startup
  */
