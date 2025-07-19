@@ -169,18 +169,11 @@ public abstract class IntraPipelineLoopValidatorTestBase {
         // Validate the pipeline
         ValidationResult result = getValidator().validate(config);
         
-        // Currently, the validator is not fully implemented, so it will pass
-        // When implemented, this should fail with a specific error message
-        assertTrue(result.valid(), "Validation should currently pass as the validator is not fully implemented");
-        
-        // TODO: When the validator is fully implemented, update this test to expect failure
-        // and check for the specific error message about the loop
-        /*
+        // Now that the validator is fully implemented, it should fail with a specific error message
         assertFalse(result.valid(), "Validation should fail for a pipeline with a direct two-step loop");
         assertFalse(result.errors().isEmpty(), "There should be at least one error");
         String expectedError = "Detected a loop in pipeline 'pipeline-with-direct-loop': step-a -> step-b -> step-a";
         assertTrue(result.errors().stream().anyMatch(e -> e.contains(expectedError)), 
                 "The error should indicate the specific loop that was detected");
-        */
     }
 }

@@ -4,8 +4,12 @@ import io.pipeline.model.validation.validators.InterPipelineLoopValidator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 
+/**
+ * Tests for the InterPipelineLoopValidator.
+ * Extends the InterPipelineLoopValidatorTestBase to inherit all test cases.
+ */
 @QuarkusTest
-class InterPipelineLoopValidatorTest extends InterPipelineLoopValidatorTestBase {
+public class InterPipelineLoopValidatorTest extends InterPipelineLoopValidatorTestBase {
     
     @Inject
     InterPipelineLoopValidator validator;
