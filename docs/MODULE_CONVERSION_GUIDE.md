@@ -44,20 +44,103 @@ Before starting module conversion:
 
 #### 1.1 Create New Module with Quarkus CLI
 
-**Always start with Quarkus CLI** - don't copy from existing modules:
+**🚀 ALWAYS START WITH QUARKUS CLI** - this is the foundation of our workflow:
 
 ```bash
 # Navigate to modules directory
 cd modules/
 
-# Create new module using Quarkus CLI
+# Create new module with Quarkus CLI - minimal start
 quarkus create app [module-name] \
-  --java=21 \
-  --gradle-flavor=groovy \
-  --extension=grpc,smallrye-health,quarkus-resteasy-reactive-jackson
+    --java=21 \
+    --gradle-kotlin-dsl=false \
+    --package-name=io.pipeline.module.[module-name] \
+    --no-code
 
-# Move to correct location
-mv [module-name] [module-name]/
+# Navigate to new module
+cd [module-name]
+
+# Add dependencies incrementally via CLI (don't edit build.gradle manually yet)
+quarkus ext add grpc
+quarkus ext add smallrye-health  
+quarkus ext add rest-jackson
+quarkus ext add smallrye-openapi
+quarkus ext add smallrye-stork
+
+# Verify build works after each addition
+./gradlew compileJava
+
+# Test the basic Quarkus structure works
+./gradlew test
+```
+
+#### 1.2 Incremental Development Workflow
+
+**🔄 BUILD EARLY, BUILD OFTEN** - compile and verify at each step:
+
+1. **Start minimal**: Quarkus CLI + basic dependencies
+2. **Add one thing at a time**: dependency → compile → test → commit  
+3. **Verify frequently**: `./gradlew compileJava` after each change
+4. **Test incrementally**: `./gradlew test` to catch issues early
+5. **Reference Echo**: Compare your progress against Echo at each step
+
+```bash
+# Example incremental workflow:
+./gradlew compileJava    # ✅ Should work after CLI creation
+# Add one dependency via quarkus ext add
+./gradlew compileJava    # ✅ Should still work  
+# Add one Java class
+./gradlew compileJava    # ✅ Should still work
+# Add test
+./gradlew test          # ✅ Should pass
+# Repeat...
+```
+
+#### 1.3 Test Data and Sample Sources
+
+**📊 Where to get sample data for testing:**
+
+```bash
+# Test data is centralized in data-util library
+# Available test data types:
+libraries/data-util/src/main/resources/test-data/
+├── documents/           # Sample PipeDoc objects
+├── pipe-streams/        # Complete pipeline stream data  
+├── parser-test-data/    # Document parsing samples
+└── validation-data/     # Schema validation examples
+
+# In your tests, reference data-util:
+implementation project(':libraries:data-util')
+
+# Use in code:
+@Inject
+ProtobufTestDataHelper testDataHelper;
+
+// Get sample documents
+List<PipeDoc> sampleDocs = testDataHelper.getSamplePipeDocuments();
+```
+
+#### 1.4 CLI-First Dependency Management
+
+**⚡ Add dependencies via CLI, then refine build.gradle:**
+
+```bash
+# Use Quarkus CLI to add dependencies (automatically adds correct versions)
+quarkus ext add smallrye-stork           # Service discovery
+quarkus ext add micrometer-registry-prometheus  # If module needs metrics
+quarkus ext add container-image-docker   # If module needs Docker builds
+
+# Verify each addition compiles
+./gradlew compileJava
+
+# Only AFTER CLI additions, manually refine build.gradle to match Echo:
+# - Add project dependencies (pipeline-api, grpc-stubs, etc.)
+# - Add specific configurations 
+# - Remove unnecessary auto-generated content
+
+# ALWAYS verify build still works after manual changes
+./gradlew compileJava
+./gradlew test
 ```
 
 **Example for a 'parser' module:**
@@ -99,7 +182,6 @@ Replace the generated `build.gradle` with our standard pattern (**refer to echo/
 plugins {
     id 'java'
     id 'io.quarkus'
-    id 'org.kordamp.gradle.jandex'
 }
 
 repositories {
@@ -108,67 +190,95 @@ repositories {
 }
 
 dependencies {
-    implementation platform(project(':libraries:pipeline-commons'))
-    implementation project(':libraries:pipeline-api')
-    implementation project(':grpc-stubs')
-    implementation project(':libraries:data-util')
-    
-    // Core Quarkus dependencies
-    implementation 'io.quarkus:quarkus-arc'
+    implementation platform(project(':bom'))
     implementation 'io.quarkus:quarkus-grpc'
-    implementation 'io.quarkus:quarkus-smallrye-health'
-    implementation 'io.quarkus:quarkus-rest'
-    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-arc'
+
+    // Core Quarkus dependencies
+    implementation("io.quarkus:quarkus-rest")
+    implementation("io.quarkus:quarkus-rest-jackson")
+    implementation("io.quarkus:quarkus-smallrye-health")
+    implementation("io.quarkus:quarkus-smallrye-openapi")
     
-    // Testing dependencies  
+    // Service Discovery dependencies for Consul
+    implementation("io.quarkus:quarkus-smallrye-stork")
+    implementation("io.smallrye.stork:stork-service-discovery-consul")
+    implementation("io.smallrye.reactive:smallrye-mutiny-vertx-consul-client")
+
     testImplementation 'io.quarkus:quarkus-junit5'
-    testImplementation 'io.rest-assured:rest-assured'
-    testImplementation 'org.awaitility:awaitility'
-    testImplementation 'org.hamcrest:hamcrest'
-    testImplementation 'org.hamcrest:hamcrest-library'
+    testImplementation("io.rest-assured:rest-assured")
+
+    implementation project(":grpc-stubs")
+    implementation project(':libraries:pipeline-commons')
+    implementation project(':libraries:pipeline-api')
+    implementation project(':libraries:data-util')
 }
 
-// Jandex plugin for CDI scanning
-jandex {
-    includeInJar = true
-}
-```
+group 'io.pipeline.module'
+version '1.0.0-SNAPSHOT'
 
-#### 2.2 Add Integration Test Support
-
-Add to `build.gradle`:
-```gradle
-sourceSets {
-    integrationTest {
-        java {
-            srcDir 'src/integrationTest/java'
-            compileClasspath += main.output + test.output
-            runtimeClasspath += main.output + test.output
-        }
-        resources {
-            srcDir 'src/integrationTest/resources'
-        }
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
-configurations {
-    integrationTestImplementation.extendsFrom implementation
-    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    // Increase memory for large message testing
+    jvmArgs '-Xmx4g', '-Xms1g'
 }
 
-dependencies {
-    integrationTestImplementation 'io.quarkus:quarkus-junit5'
-    integrationTestImplementation 'io.quarkus:quarkus-test-common'
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
 }
 
-tasks.register('quarkusIntTest', Test) {
-    description = 'Runs Quarkus integration tests'
-    group = 'verification'
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-    shouldRunAfter test
+compileTestJava {
+    options.encoding = 'UTF-8'
 }
 ```
+
+#### 2.2 Integration Test Configuration
+
+**✅ NO additional configuration needed!** Echo's build.gradle shows that Quarkus handles integration tests automatically:
+
+- Create `src/integrationTest/java/` directory  
+- Use `@QuarkusIntegrationTest` annotation
+- Run with `./gradlew quarkusIntTest`
+- Tests run against packaged JAR (black-box testing)
+- **NO CDI injection** in integration tests
+
+### Phase 2.5: Code Standards and Best Practices
+
+Before writing any code, understand these **NON-NEGOTIABLE** standards:
+
+#### Logging Standards
+- ✅ **ALWAYS** use JBoss logging: `import org.jboss.logging.Logger;`
+- ✅ **NEVER** use `System.out.println()` anywhere (main code, tests, etc.)
+- ✅ Logger variable: `private static final Logger LOG = Logger.getLogger(ClassName.class);`
+- ✅ Use format methods: `LOG.infof("Processing document: %s", docId);`
+
+#### Testing Standards  
+- ✅ **Unit tests**: `@QuarkusTest` with CDI injection available
+- ✅ **Integration tests**: `@QuarkusIntegrationTest` with **NO CDI injection** (black-box only)
+- ✅ **Hamcrest assertions**: Comes with Quarkus automatically
+- ✅ **Given/When/Then** structure with JBoss logging for debug
+- ✅ **No shortcuts**: Proper test structure, no hacks to make tests pass
+
+#### Integration Test Rules (Following Echo)
+- ✅ Tests in `src/integrationTest/java/`
+- ✅ Class names end with `IT` (e.g., `EchoServiceIT`)
+- ✅ Use `@QuarkusIntegrationTest` annotation
+- ✅ Test through REST endpoints (no bean injection)
+- ✅ Tests run against packaged JAR
+- ✅ Run with `./gradlew quarkusIntTest`
+
+#### Build Standards
+- ✅ **Follow Echo exactly**: Don't add unnecessary dependencies or configurations
+- ✅ **No Jandex plugin**: Quarkus handles CDI automatically
+- ✅ **No explicit Hamcrest**: Comes with Quarkus
+- ✅ **No complex sourceSets**: Quarkus handles integration tests
+- ✅ **Use BOM**: `implementation platform(project(':bom'))`
 
 ### Phase 3: Configuration Setup
 
@@ -328,7 +438,7 @@ class [ModuleName]ServiceTest {
 
 **Testing Requirements:**
 - ✅ Use `@QuarkusTest` for unit tests
-- ✅ Use `@InjectMock` for mocking external dependencies  
+- ✅ Use `@InjectMock` for mocking external dependencies (this has a quarkus package name, not Mockito) 
 - ✅ Use **Hamcrest assertions** for detailed debugging messages
 - ✅ Use JBoss logging in tests, **NEVER** `System.out.println`
 - ✅ Follow Echo's test patterns exactly
@@ -435,11 +545,11 @@ grpcurl -plaintext localhost:[dev-port] grpc.health.v1.Health/Check
 ```gradle
 dependencies {
     // Only add dependencies specific to your module
-    implementation 'org.apache.tika:tika-core:2.9.1'  // Example for parser
+    implementation 'org.apache.tika:tika-core:3.1.0'  // Example for parser
 }
 ```
 
-### Phase 8: Web Service Dependencies (if needed)
+### Phase 8: Web Service Dependencies
 
 For modules requiring web interfaces, add **exactly** these dependencies:
 
@@ -451,6 +561,8 @@ dependencies {
     testImplementation 'io.rest-assured:rest-assured'
 }
 ```
+
+### Phase 9: expose REST endpoints
 
 ---
 
@@ -542,29 +654,55 @@ curl -s http://localhost:8500/v1/health/service/[module-name]
 package io.pipeline.module.[module-name];
 
 import io.pipeline.api.annotation.PipelineAutoRegister;
-import io.pipeline.data.module.PipeStepProcessor;
-import io.pipeline.data.module.PipeStreamData;
+import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
+import jakarta.inject.Singleton;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @GrpcService
+@Singleton
 @PipelineAutoRegister(
-    moduleType = "processor",
+    moduleType = "[module-name]-processor",
     useHttpPort = true,
-    metadata = {"category=data-processing", "type=parser"}
+    metadata = {"category=data-processing", "complexity=simple"}
 )
 public class [ModuleName]ServiceImpl implements PipeStepProcessor {
     
     private static final Logger LOG = Logger.getLogger([ModuleName]ServiceImpl.class);
     
+    @ConfigProperty(name = "quarkus.application.name")
+    String applicationName;
+    
     @Override
-    public Uni<PipeStreamData> process(PipeStreamData request) {
-        LOG.infof("Processing data with %d bytes", request.getData().size());
+    public Uni<ProcessResponse> processData(ProcessRequest request) {
+        LOG.debugf("[ModuleName] service received document: %s", 
+                 request.hasDocument() ? request.getDocument().getId() : "no document");
         
-        // Your implementation here
+        // Build response with success status
+        ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder()
+                .setSuccess(true)
+                .addProcessorLogs("[ModuleName] service successfully processed document");
         
-        return Uni.createFrom().item(processedData);
+        // Your processing logic here
+        
+        return Uni.createFrom().item(responseBuilder.build());
+    }
+    
+    @Override
+    public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
+        // Implementation similar to Echo - see Echo module for complete example
+        return Uni.createFrom().item(ServiceRegistrationResponse.newBuilder()
+                .setModuleName(applicationName)
+                .setHealthCheckPassed(true)
+                .build());
+    }
+    
+    @Override
+    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+        // Implementation similar to Echo - see Echo module for complete example
+        return processData(request);
     }
 }
 ```
@@ -775,6 +913,8 @@ public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationReque
 ```
 
 **✅ AFTER (automatic registration with annotation):**
+
+NOTE: PLEASE MAKE SURE THAT WE WILL HAVE THE RIGHT SCHEMA GET REGISTERED!!! 
 ```java
 @GrpcService
 @PipelineAutoRegister(
@@ -897,12 +1037,11 @@ dependencies {
 }
 ```
 
-**✅ AFTER (following Echo build.gradle with Groovy DSL):**
+**✅ AFTER (following Echo build.gradle exactly):**
 ```gradle
 plugins {
     id 'java'
     id 'io.quarkus'
-    id 'org.kordamp.gradle.jandex'
 }
 
 repositories {
@@ -911,38 +1050,60 @@ repositories {
 }
 
 dependencies {
-    implementation platform(project(':libraries:pipeline-commons'))
-    implementation project(':libraries:pipeline-api')
-    implementation project(':grpc-stubs')
-    implementation project(':libraries:data-util')
-    
-    // Core Quarkus dependencies
-    implementation 'io.quarkus:quarkus-arc'
+    implementation platform(project(':bom'))
     implementation 'io.quarkus:quarkus-grpc'
-    implementation 'io.quarkus:quarkus-smallrye-health'
-    implementation 'io.quarkus:quarkus-rest'
-    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-arc'
+
+    // Core Quarkus dependencies
+    implementation("io.quarkus:quarkus-rest")
+    implementation("io.quarkus:quarkus-rest-jackson")
+    implementation("io.quarkus:quarkus-smallrye-health")
+    implementation("io.quarkus:quarkus-smallrye-openapi")
     
-    // Testing dependencies  
+    // Service Discovery dependencies for Consul
+    implementation("io.quarkus:quarkus-smallrye-stork")
+    implementation("io.smallrye.stork:stork-service-discovery-consul")
+    implementation("io.smallrye.reactive:smallrye-mutiny-vertx-consul-client")
+
     testImplementation 'io.quarkus:quarkus-junit5'
-    testImplementation 'io.rest-assured:rest-assured'
-    testImplementation 'org.awaitility:awaitility'
-    testImplementation 'org.hamcrest:hamcrest'
-    testImplementation 'org.hamcrest:hamcrest-library'
+    testImplementation("io.rest-assured:rest-assured")
+
+    implementation project(":grpc-stubs")
+    implementation project(':libraries:pipeline-commons')
+    implementation project(':libraries:pipeline-api')
+    implementation project(':libraries:data-util')
 }
 
-// Jandex plugin for CDI scanning
-jandex {
-    includeInJar = true
+group 'io.pipeline.module'
+version '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    // Increase memory for large message testing
+    jvmArgs '-Xmx4g', '-Xms1g'
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
 }
 ```
 
 **Key Changes:**
 - ✅ Build DSL: Kotlin DSL → Groovy DSL (consistent with Echo)
-- ✅ Added Jandex plugin for CDI scanning
-- ✅ Use BOM for dependency management via `pipeline-commons`
-- ✅ Added required project dependencies (pipeline-api, grpc-stubs, data-util)
-- ✅ Added Hamcrest for testing assertions
+- ✅ **NO** Jandex plugin (Quarkus handles CDI automatically)
+- ✅ Use BOM for dependency management via `:bom` project
+- ✅ **NO** explicit Hamcrest (comes with Quarkus)
+- ✅ Simple, clean approach that doesn't fight Quarkus
 
 ### Example 7: Complete Module Directory Structure
 
