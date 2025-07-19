@@ -479,7 +479,7 @@ public class MockPipelineGenerator {
     public static PipelineClusterConfig createPipelineWithUnregisteredService() {
         String pipelineName = "pipeline-with-unregistered-service";
         String topicName = pipelineName + ".echo-connector.input";
-        ProcessorInfo connectorProcessor = new ProcessorInfo("echo");
+        ProcessorInfo connectorProcessor = new ProcessorInfo("unregistered-service");
         ProcessorInfo sinkProcessor = new ProcessorInfo("test-sink-service");
 
         KafkaTransportConfig kafkaTransport = new KafkaTransportConfig(topicName, "pipedocId", "snappy", 16384, 10, Map.of());
@@ -516,6 +516,85 @@ public class MockPipelineGenerator {
                 pipelineName,
                 Collections.emptySet(), // allowedKafkaTopics
                 Set.of("test-sink-service", "some-other-service") // allowedGrpcServices - includes "test-sink-service" but not "echo"
+        );
+    }
+
+    /**
+     * Creates a pipeline with a direct, two-step loop (A -> B -> A).
+     * <p>
+     * Use Case: Testing the IntraPipelineLoopValidator for direct loop detection.
+     * <p>
+     * Expected Validation Outcome:
+     * - Should FAIL {@code PRODUCTION} validation.
+     * - Should FAIL {@code DESIGN} validation.
+     * - Should PASS {@code TESTING} validation (loop detection relaxed).
+     *
+     * @return A {@link PipelineConfig} instance with a direct two-step loop.
+     */
+    public static PipelineConfig createPipelineWithDirectTwoStepLoop() {
+        String pipelineName = "pipeline-with-direct-loop";
+        
+        // Create processor info for both steps
+        // Using services that are already in the StepReferenceValidator's ALLOWED_SERVICES list
+        ProcessorInfo processorInfoA = new ProcessorInfo("echo");
+        ProcessorInfo processorInfoB = new ProcessorInfo("testing-harness");
+        
+        // Create Kafka transport configs for the connections
+        // A -> B connection
+        String topicAtoB = pipelineName + ".step-a.input";
+        KafkaTransportConfig kafkaAtoB = new KafkaTransportConfig(
+            topicAtoB, "pipedocId", "snappy", 16384, 10, Map.of()
+        );
+        
+        // B -> A connection (creates the loop)
+        String topicBtoA = pipelineName + ".step-b.input";
+        KafkaTransportConfig kafkaBtoA = new KafkaTransportConfig(
+            topicBtoA, "pipedocId", "snappy", 16384, 10, Map.of()
+        );
+        
+        // Create output targets
+        OutputTarget outputAtoB = new OutputTarget(
+            "step-b", TransportType.KAFKA, null, kafkaAtoB
+        );
+        
+        OutputTarget outputBtoA = new OutputTarget(
+            "step-a", TransportType.KAFKA, null, kafkaBtoA
+        );
+        
+        // Create consumer group name following the convention
+        String consumerGroupName = pipelineName + ".consumer-group";
+        
+        // Create input definitions
+        KafkaInputDefinition inputB = new KafkaInputDefinition(
+            List.of(topicAtoB), consumerGroupName, Map.of()
+        );
+        
+        KafkaInputDefinition inputA = new KafkaInputDefinition(
+            List.of(topicBtoA), consumerGroupName, Map.of()
+        );
+        
+        // Create step A (outputs to B)
+        PipelineStepConfig stepA = createStep(
+            "step-a",
+            StepType.PIPELINE,
+            processorInfoA,
+            List.of(inputA), // Step A receives input from Step B (creating the loop)
+            Map.of("default", outputAtoB) // Step A outputs to Step B
+        );
+        
+        // Create step B (outputs back to A, creating the loop)
+        PipelineStepConfig stepB = createStep(
+            "step-b",
+            StepType.PIPELINE,
+            processorInfoB,
+            List.of(inputB), // Step B receives input from Step A
+            Map.of("default", outputBtoA) // Step B outputs back to Step A (creating the loop)
+        );
+        
+        // Create the pipeline with both steps
+        return new PipelineConfig(
+            pipelineName,
+            Map.of("step-a", stepA, "step-b", stepB)
         );
     }
 

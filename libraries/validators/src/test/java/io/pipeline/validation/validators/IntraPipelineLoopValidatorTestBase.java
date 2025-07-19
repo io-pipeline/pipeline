@@ -160,4 +160,20 @@ public abstract class IntraPipelineLoopValidatorTestBase {
     // TODO: Add tests for actual loop detection when implemented
     // For now, these tests just verify the validator doesn't crash
     // and returns the expected warning about incomplete implementation
+    
+    @Test
+    void testDirectTwoStepLoop() {
+        // Get the pipeline with a direct two-step loop (A -> B -> A)
+        PipelineConfig config = io.pipeline.data.util.json.MockPipelineGenerator.createPipelineWithDirectTwoStepLoop();
+        
+        // Validate the pipeline
+        ValidationResult result = getValidator().validate(config);
+        
+        // Now that the validator is fully implemented, it should fail with a specific error message
+        assertFalse(result.valid(), "Validation should fail for a pipeline with a direct two-step loop");
+        assertFalse(result.errors().isEmpty(), "There should be at least one error");
+        String expectedError = "Detected a loop in pipeline 'pipeline-with-direct-loop': step-a -> step-b -> step-a";
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains(expectedError)), 
+                "The error should indicate the specific loop that was detected");
+    }
 }

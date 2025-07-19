@@ -50,12 +50,14 @@ Here's a high-level plan for implementing the loop detection validators:
 3.  **Add Edges:** For each step, iterate through its `outputs`.
     *   If the output is a gRPC call to another step in the *same* pipeline, add a directed edge.
     *   If the output is a Kafka topic, check if any other step in the *same* pipeline consumes from that topic. If so, add a directed edge.
-4.  **Detect Cycles:** Use JGraphT's `AllDirectedCycles` class to find all cycles in the graph.
+4.  **Detect Cycles:** Use JGraphT's `JohnsonSimpleCycles` class to find all cycles in the graph.
 5.  **Report Results:**
     *   If cycles are found, format the results into a user-friendly error message.
     *   In `DRAFT` mode, these might be warnings.
     *   In `PRODUCTION` mode, these would be errors.
     *   Adhere to the configured limit for the number of reported loops.
+
+**Implementation Note:** This validator has been successfully implemented using JGraphT's `JohnsonSimpleCycles` algorithm. The implementation includes a helper method `resolvePattern` to resolve Kafka topic patterns, which is important for correctly identifying connections between steps. The validator is configured to report up to 10 cycles as errors.
 
 ### 4.2. `InterPipelineLoopValidator`
 
@@ -205,23 +207,38 @@ This validator should be the first to run in the validation chain.
 
 ### 7.5. Loop Detection Implementation (Adapted from Previous Work)
 
-The archived `yappy_consul` implementation provides a proven and robust foundation for loop detection. The following plan adapts that logic to the new data model.
+The archived `yappy_consul` implementation provided a proven and robust foundation for loop detection. The following implementation adapts that logic to the new data model.
 
 **1. Dependency:**
 
-Add JGraphT to the `dependencies` block in the `build.gradle.kts` file of the `validators` library:
+JGraphT was added to the `dependencies` block in the `build.gradle` file of the `validators` library:
 
-```kotlin
-implementation("org.jgrapht:jgrapht-core:1.5.2")
+```gradle
+implementation 'org.jgrapht:jgrapht-core:1.5.2'
 ```
 
 **2. Intra-Pipeline Loop Validator (`IntraPipelineLoopValidator.java`):**
 
-This validator will be adapted from `IntraPipelineLoopValidator_yappy_consul.java`. The core logic of building a graph and using `JohnsonSimpleCycles` will be retained. The primary change will be in how the graph is constructed to match the new `PipelineConfig` model.
+This validator has been successfully implemented by adapting the logic from `IntraPipelineLoopValidator_yappy_consul.java`. The core logic of building a graph and using `JohnsonSimpleCycles` was retained. The implementation includes:
+
+- Creating a directed graph using JGraphT's `DefaultDirectedGraph`
+- Adding all pipeline steps as vertices in the graph
+- Adding edges between steps based on Kafka connections (resolving topic patterns)
+- Using `JohnsonSimpleCycles` to find all cycles in the graph
+- Reporting up to 10 cycles as errors
+- A helper method `resolvePattern` to resolve Kafka topic patterns
+
+Additionally, a `ClusterIntraPipelineLoopValidator` was implemented to apply the `IntraPipelineLoopValidator` to each pipeline in a cluster. This validator:
+
+- Injects the `IntraPipelineLoopValidator`
+- Iterates through all pipelines in the cluster
+- Applies the `IntraPipelineLoopValidator` to each pipeline
+- Aggregates the validation results, adding pipeline name prefixes to errors and warnings for better context
+- Returns a combined validation result
 
 **3. Inter-Pipeline Loop Validator (`InterPipelineLoopValidator.java`):**
 
-This validator will be adapted from `InterPipelineLoopValidator_yappy_consul.java`. The logic for resolving topic names with placeholders and building a cluster-wide graph will be preserved. The main adaptation will be to the new `PipelineClusterConfig` and `PipelineConfig` data structures.
+This validator will be adapted from `InterPipelineLoopValidator_yappy_consul.java`. The logic for resolving topic names with placeholders and building a cluster-wide graph will be preserved. The main adaptation will be to the new `PipelineClusterConfig` and `PipelineConfig` data structures. This implementation is planned for the next phase.
 
 ### 7.6. Test Data Generation Strategy
 
@@ -253,3 +270,51 @@ Once the validators have been thoroughly tested with mock data, the next step is
 3.  **Introducing Errors:** Use the same mutator approach as described in the previous section to introduce errors into the realistic pipeline configurations.
 
 This two-phased approach will allow you to develop and test the validation system in a controlled environment first, and then move on to more complex and realistic scenarios.
+
+## 8. Current Implementation Status and Next Steps
+
+### 8.1. Current Status
+
+As of July 2025, the following components have been successfully implemented:
+
+1. **JGraphT Integration:** The JGraphT library has been added to the project dependencies and is being used for graph-based loop detection.
+
+2. **IntraPipelineLoopValidator:** This validator has been fully implemented and tested. It successfully detects loops within a single pipeline by:
+   - Building a directed graph representation of the pipeline
+   - Using JGraphT's JohnsonSimpleCycles algorithm to find all cycles
+   - Reporting up to 10 cycles with clear error messages
+
+3. **ClusterIntraPipelineLoopValidator:** This validator applies the IntraPipelineLoopValidator to each pipeline in a cluster. It:
+   - Iterates through all pipelines in the cluster
+   - Applies the IntraPipelineLoopValidator to each pipeline
+   - Aggregates the validation results with pipeline context
+   - Returns a combined validation result
+
+4. **Test Coverage:** Comprehensive tests have been implemented to verify the loop detection logic, including:
+   - Unit tests for the IntraPipelineLoopValidator
+   - Integration tests that verify the validator works correctly in a realistic environment
+   - Test cases for various pipeline configurations, including those with and without loops
+
+### 8.2. Next Steps: Implementing the InterPipelineLoopValidator
+
+The next phase of development should focus on implementing the InterPipelineLoopValidator, which will detect loops that span across multiple pipelines in a cluster. Based on the experience with the IntraPipelineLoopValidator, here are some recommendations for the implementation:
+
+1. **Leverage Existing Patterns:** The InterPipelineLoopValidator should follow a similar pattern to the IntraPipelineLoopValidator, but operate at the cluster level.
+
+2. **Graph Construction:** The key difference will be in how the graph is constructed:
+   - Vertices should include a pipeline identifier (e.g., `pipelineName + ":" + stepName`)
+   - Edges should connect steps across different pipelines based on Kafka topics
+   - The graph should include all pipelines in the cluster
+
+3. **Topic Resolution:** Special attention should be paid to resolving Kafka topic patterns, as these can create connections between pipelines. The existing `resolvePattern` method can be adapted for this purpose.
+
+4. **Whitelisted Topics:** The implementation should handle whitelisted Kafka topics that might be used for cross-pipeline communication.
+
+5. **Performance Considerations:** Since the graph will be larger (spanning multiple pipelines), performance should be monitored, especially for large clusters.
+
+6. **Testing Strategy:** Comprehensive tests should be developed, including:
+   - Unit tests for the InterPipelineLoopValidator
+   - Integration tests with multiple pipelines
+   - Test cases for various cross-pipeline loop scenarios
+
+By following these recommendations and building on the successful implementation of the IntraPipelineLoopValidator, the InterPipelineLoopValidator can be implemented efficiently and effectively.
