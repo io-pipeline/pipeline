@@ -34,6 +34,9 @@ public class RegistrationServiceSelfRegistration {
     @ConfigProperty(name = "quarkus.http.port", defaultValue = "39100")
     int httpPort;
     
+    @ConfigProperty(name = "quarkus.profile")
+    String profile;
+    
     void onStart(@Observes StartupEvent ev) {
         registerWithConsul()
             .subscribe().with(
@@ -64,9 +67,9 @@ public class RegistrationServiceSelfRegistration {
         // Add health check
         CheckOptions checkOptions = new CheckOptions()
             .setName("Registration Service Health Check")
-            .setHttp("http://" + hostname + ":" + httpPort + "/q/health")
+            .setGrpc(hostname + ":" + httpPort)
             .setInterval("10s")
-            .setDeregisterAfter("30s");
+            .setDeregisterAfter("1m");
         
         serviceOptions.setCheckOptions(checkOptions);
         
@@ -77,7 +80,6 @@ public class RegistrationServiceSelfRegistration {
     private String getHostname() {
         try {
             // In dev mode, use localhost
-            String profile = System.getProperty("quarkus.profile", "prod");
             if ("dev".equals(profile)) {
                 return "localhost";
             }
