@@ -45,12 +45,18 @@ fi
 echo -e "${GREEN}☕ Using Java version: $(java -version 2>&1 | head -n 1)${NC}"
 
 # Display module configuration
-echo -e "${BLUE}📋 Echo Module Configuration:${NC}"
-echo -e "   ${YELLOW}HTTP Port:${NC} 39100 (shared with gRPC)"
+echo -e "${BLUE}📋 Echo Module Configuration (Development):${NC}"
+echo -e "   ${YELLOW}HTTP Port:${NC} 39100 (shared with gRPC, dev override)"
+echo -e "   ${YELLOW}Production Port:${NC} 39000 (see docs/Port_allocations.md)"
 echo -e "   ${YELLOW}Health Endpoints:${NC} http://localhost:39100/health"
 echo -e "   ${YELLOW}Swagger UI:${NC} http://localhost:39100/swagger-ui"
 echo -e "   ${YELLOW}API Endpoints:${NC} http://localhost:39100/api/echo"
 echo -e "   ${YELLOW}gRPC Max Message Size:${NC} 2GB (2,147,483,647 bytes)"
+
+echo -e "${BLUE}🔗 Dependencies:${NC}"
+echo -e "   ${YELLOW}Registration Service:${NC} localhost:38001 (dev) / 38501 (prod)"
+echo -e "   ${YELLOW}Start Registration Service:${NC} ./scripts/registration-devMode.sh"
+echo -e "   ${YELLOW}Port Documentation:${NC} See docs/Port_allocations.md"
 
 echo -e "${BLUE}🔧 Starting Quarkus dev mode...${NC}"
 echo -e "${YELLOW}   Press 'h' for help, 'r' for restart, 'q' for quit in dev mode${NC}"
