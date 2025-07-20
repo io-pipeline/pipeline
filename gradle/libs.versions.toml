@@ -1,6 +1,8 @@
 [versions]
-quarkus = "3.24.3"
+quarkus = "3.24.4"
 jandex-plugin = "2.2.0-SNAPSHOT"
+commons-lang3 = "3.18.0"
+opennlp-tools = "2.5.4"
 
 [libraries]
 # Quarkus BOM
@@ -27,10 +29,13 @@ proto-google-common-protos = { module = "com.google.api.grpc:proto-google-common
 # Data processing
 opencsv = { module = "com.opencsv:opencsv", version = "5.11.2" }
 
+# Utility libraries
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+opennlp-tools = { module = "org.apache.opennlp:opennlp-tools", version.ref = "opennlp-tools" }
+
 # Testing
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }
 rest-assured = { module = "io.rest-assured:rest-assured" }
-assertj = { module = "org.assertj:assertj-core", version = "3.27.3" }
 
 [plugins]
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }

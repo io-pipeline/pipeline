@@ -1,8 +1,0 @@
-# Production-specific configuration
-quarkus:
-  grpc:
-    server:
-      port: 39100  # Standard port for all modules
-  processing:
-    buffer:
-      enabled: false  # Disable buffer in production

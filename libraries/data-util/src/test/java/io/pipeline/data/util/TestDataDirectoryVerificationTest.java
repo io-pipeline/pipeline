@@ -2,6 +2,7 @@ package io.pipeline.data.util;
 
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -15,6 +16,8 @@ import java.util.stream.Stream;
  */
 @QuarkusTest
 class TestDataDirectoryVerificationTest {
+    
+    private static final Logger LOG = Logger.getLogger(TestDataDirectoryVerificationTest.class);
 
     private static Stream<Arguments> directoryMappings() {
         return Stream.of(
@@ -42,21 +45,21 @@ class TestDataDirectoryVerificationTest {
         URL resource = cl.getResource(actualPath);
         
         if (resource != null) {
-            System.out.println("✓ " + constantName + ": Found " + actualPath + " at " + resource);
+            LOG.infof("✓ %s: Found %s at %s", constantName, actualPath, resource);
         } else {
-            System.out.println("✗ " + constantName + ": NOT found " + actualPath);
+            LOG.infof("✗ %s: NOT found %s", constantName, actualPath);
             
             // Try the expected path to see if it exists
             URL expectedResource = cl.getResource(expectedPath);
             if (expectedResource != null) {
-                System.out.println("  BUT found at expected path: " + expectedPath + " at " + expectedResource);
+                LOG.infof("  BUT found at expected path: %s at %s", expectedPath, expectedResource);
             }
         }
     }
 
     @Test
     void documentCurrentState() {
-        System.out.println("\n=== Current Test Data Directory State ===");
+        LOG.info("=== Current Test Data Directory State ===");
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         
         // Check what actually exists
@@ -87,7 +90,7 @@ class TestDataDirectoryVerificationTest {
         for (String dir : possibleDirs) {
             URL resource = cl.getResource(dir);
             if (resource != null) {
-                System.out.println("Found: " + dir + " at " + resource);
+                LOG.infof("Found: %s at %s", dir, resource);
             }
         }
     }

@@ -4,21 +4,24 @@ import io.pipeline.data.util.proto.ProtobufTestDataHelper;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.jboss.logging.Logger;
 
 @QuarkusTest
 class TestDataDebugTest {
+    
+    private static final Logger LOG = Logger.getLogger(TestDataDebugTest.class);
 
     @Inject
     ProtobufTestDataHelper helper;
 
     @Test
     void debugTestDataLoading() {
-        System.out.println("=== Debugging Test Data Loading ===");
+        LOG.info("=== Debugging Test Data Loading ===");
 
         // Try to load with ProtobufTestDataHelper
-        System.out.println("\nTrying to load data with ProtobufTestDataHelper:");
-        System.out.println("Tika documents: " + helper.getTikaPipeDocuments().size());
-        System.out.println("Sample documents: " + helper.getSamplePipeDocuments().size());
-        System.out.println("Chunker documents: " + helper.getChunkerPipeDocuments().size());
+        LOG.info("Trying to load data with ProtobufTestDataHelper:");
+        LOG.infof("Tika documents: %d", helper.getTikaPipeDocuments().size());
+        LOG.infof("Sample documents: %d", helper.getSamplePipeDocuments().size());
+        LOG.infof("Chunker documents: %d", helper.getChunkerPipeDocuments().size());
     }
 }

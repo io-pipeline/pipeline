@@ -19,6 +19,7 @@ import org.junit.jupiter.api.*;
 import org.testcontainers.consul.ConsulContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.jboss.logging.Logger;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -48,6 +49,8 @@ import static org.awaitility.Awaitility.await;
 @Testcontainers
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class DynamicGrpcIntegrationIT {
+    
+    private static final Logger LOG = Logger.getLogger(DynamicGrpcIntegrationIT.class);
     
     @Container
     static ConsulContainer consul = new ConsulContainer(DockerImageName.parse("hashicorp/consul:latest"))
@@ -90,9 +93,9 @@ class DynamicGrpcIntegrationIT {
     
     @BeforeEach
     void setup() {
-        System.out.println("=== Setting up integration test ===");
-        System.out.println("Consul container host: " + consul.getHost());
-        System.out.println("Consul container port: " + consul.getFirstMappedPort());
+        LOG.info("=== Setting up integration test ===");
+        LOG.infof("Consul container host: %s", consul.getHost());
+        LOG.infof("Consul container port: %d", consul.getFirstMappedPort());
         
         // 1. Create Vertx instance
         vertx = Vertx.vertx();
@@ -118,7 +121,7 @@ class DynamicGrpcIntegrationIT {
         clientFactory = new DynamicGrpcClientFactory();
         clientFactory.setServiceDiscovery(serviceDiscovery);
         
-        System.out.println("=== Setup complete ===");
+        LOG.info("=== Setup complete ===");
     }
     
     @AfterEach

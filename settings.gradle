@@ -12,6 +12,12 @@ include ':bom'
 include ':applications:registration-service'
 include ':modules:echo'
 include ':modules:test-harness'
+include ':modules:draft'
+include ':modules:chunker'
+include ':modules:embedder'
+include ':modules:parser'
+//include ':modules:echo'
+//include ':modules:echo'
 include ':grpc-stubs'
 
 // Applications

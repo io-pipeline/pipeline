@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.core.Is.is;
+import org.jboss.logging.Logger;
 
 /**
  * Integration test for EchoService using real gRPC client.
@@ -22,6 +23,8 @@ import static org.hamcrest.core.Is.is;
  */
 @QuarkusIntegrationTest
 public class EchoServiceGrpcIT {
+    
+    private static final Logger LOG = Logger.getLogger(EchoServiceGrpcIT.class);
 
     private ManagedChannel channel;
     private PipeStepProcessor echoService;
@@ -31,7 +34,7 @@ public class EchoServiceGrpcIT {
         // Get the test port from Quarkus configuration
         int port = ConfigProvider.getConfig().getValue("quarkus.http.test-port", Integer.class);
         
-        System.out.println("Connecting gRPC client to localhost:" + port);
+        LOG.infof("Connecting gRPC client to localhost:%d", port);
 
         // Create a real gRPC channel
         channel = ManagedChannelBuilder.forAddress("localhost", port)
@@ -65,7 +68,7 @@ public class EchoServiceGrpcIT {
         assertThat("Health check message should indicate service is healthy", 
                   response.getHealthCheckMessage(), equalTo("Service is healthy"));
         
-        System.out.println("Received registration: " + response.getModuleName());
+        LOG.infof("Received registration: %s", response.getModuleName());
     }
 
     @Test
@@ -107,7 +110,7 @@ public class EchoServiceGrpcIT {
         assertThat("Echo processed flag should be true", 
                   returnedDoc.getMetadataMap().get("echo_processed"), equalTo("true"));
         
-        System.out.println("Document processed successfully: " + returnedDoc.getId());
+        LOG.infof("Document processed successfully: %s", returnedDoc.getId());
     }
 
     @Test
@@ -143,6 +146,6 @@ public class EchoServiceGrpcIT {
         assertThat("Returned document ID should match input ID", returnedDoc.getId(), equalTo("empty-doc"));
         assertThat("Metadata should contain echo_processed flag", returnedDoc.getMetadataMap(), hasKey("echo_processed"));
         
-        System.out.println("Empty document processed successfully");
+        LOG.info("Empty document processed successfully");
     }
 }

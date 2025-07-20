@@ -14,12 +14,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import org.jboss.logging.Logger;
 
 /**
  * Test resource that provides a Consul container with pre-registered test services
  * for dynamic gRPC integration tests.
  */
 public class DynamicGrpcTestResource implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
+    
+    private static final Logger LOG = Logger.getLogger(DynamicGrpcTestResource.class);
     
     private static final String CONSUL_IMAGE = "hashicorp/consul:latest";
     private ConsulContainer consul;
@@ -117,11 +120,11 @@ public class DynamicGrpcTestResource implements QuarkusTestResourceLifecycleMana
                 .toCompletableFuture();
             future.get();
             
-            System.out.println("Test services registered successfully in Consul");
+            LOG.info("Test services registered successfully in Consul");
             
         } catch (Exception e) {
-            System.err.println("Failed to seed test services: " + e.getMessage());
-            e.printStackTrace();
+            LOG.errorf("Failed to seed test services: %s", e.getMessage());
+            LOG.error("Stack trace:", e);
         }
     }
 }
