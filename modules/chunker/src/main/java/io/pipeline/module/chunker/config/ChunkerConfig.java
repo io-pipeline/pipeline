@@ -9,6 +9,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * Configuration record for chunker service.
  * This record serves as the single source of truth for chunker configuration schema.
  * The OpenAPI schema is auto-generated from this Java record.
+ * This should generate
  */
 @RegisterForReflection
 @Schema(name = "ChunkerConfig", description = "Configuration for text chunking operations")

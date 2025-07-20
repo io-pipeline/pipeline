@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.Struct;
 import com.google.protobuf.util.JsonFormat;
 import io.pipeline.api.annotation.PipelineAutoRegister;
+import io.pipeline.common.service.SchemaExtractorService;
 import io.pipeline.common.util.ProcessingBuffer;
 import io.pipeline.data.model.ChunkEmbedding;
 import io.pipeline.data.model.PipeDoc;
@@ -23,6 +24,7 @@ import org.jboss.logging.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -53,6 +55,9 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
     @Inject
     ProcessingBuffer<PipeDoc> outputBuffer;
 
+    @Inject
+    SchemaExtractorService schemaExtractorService;
+
     @Override
     public Uni<ProcessResponse> processData(ProcessRequest request) {
         if (request == null) {
@@ -68,20 +73,27 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
     public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
         return Uni.createFrom().item(() -> {
             try {
-                // Use ChunkerConfig OpenAPI schema instead of manual JSON
-                String schemaInfo = "JSON Schema auto-generated from ChunkerConfig Java record. " +
-                                  "Access via OpenAPI endpoint: /q/openapi. " +
-                                  "Default algorithm: " + ChunkerConfig.DEFAULT_ALGORITHM.getValue() + ". " +
-                                  "Supported algorithms: character, token, sentence, semantic.";
+                // Use SchemaExtractorService to get the dynamically generated ChunkerConfig schema
+                Optional<String> schemaOptional = schemaExtractorService.extractChunkerConfigSchema();
                 
                 ServiceRegistrationResponse.Builder registrationBuilder = ServiceRegistrationResponse.newBuilder()
                         .setModuleName("chunker")
-                        .setJsonConfigSchema(schemaInfo) // Reference to OpenAPI-generated schema
-                        .setHealthCheckPassed(true)
-                        .setHealthCheckMessage("Chunker module is healthy and ready to process documents. " +
-                                            "Using ChunkerConfig with clean semantic chunk IDs.");
+                        .setHealthCheckPassed(true);
 
-                LOG.info("Returned service registration for chunker module with OpenAPI schema reference");
+                if (schemaOptional.isPresent()) {
+                    String jsonSchema = schemaOptional.get();
+                    registrationBuilder.setJsonConfigSchema(jsonSchema);
+                    registrationBuilder.setHealthCheckMessage("Chunker module is healthy and ready to process documents. " +
+                                                            "Using dynamically generated ChunkerConfig schema from OpenAPI 3.1.");
+                    LOG.debugf("Successfully extracted ChunkerConfig schema (%d characters) using SchemaExtractorService", 
+                             jsonSchema.length());
+                } else {
+                    registrationBuilder.setHealthCheckPassed(false);
+                    registrationBuilder.setHealthCheckMessage("Failed to extract ChunkerConfig schema from OpenAPI document");
+                    LOG.error("SchemaExtractorService could not extract ChunkerConfig schema");
+                }
+
+                LOG.info("Returned service registration for chunker module using SchemaExtractorService");
                 return registrationBuilder.build();
 
             } catch (Exception e) {
@@ -94,6 +106,7 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
             }
         });
     }
+
 
     @Override
     public Uni<ProcessResponse> testProcessData(ProcessRequest request) {

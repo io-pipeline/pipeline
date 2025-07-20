@@ -11,6 +11,7 @@ dependencies {
     // Quarkus dependencies
     implementation libs.bundles.quarkus.common
     implementation libs.quarkus.jackson
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
     
     // Protobuf
     implementation libs.protobuf.java
