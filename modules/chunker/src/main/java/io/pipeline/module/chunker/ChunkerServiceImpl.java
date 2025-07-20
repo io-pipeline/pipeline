@@ -29,7 +29,7 @@ import java.util.UUID;
  * This service receives documents through gRPC and processes them by breaking them
  * into smaller, overlapping chunks for further processing.
  */
-
+@Singleton
 @GrpcService
 @PipelineAutoRegister(
         moduleType = "chunker", // Type identifier for this module
