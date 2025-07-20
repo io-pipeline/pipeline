@@ -3,6 +3,7 @@ package io.pipeline.module.echo;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.pipeline.api.annotation.PipelineAutoRegister;
+import io.pipeline.api.annotation.ProcessingBuffered;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcService;
@@ -28,6 +29,7 @@ public class EchoServiceImpl implements PipeStepProcessor {
     String applicationName;
 
     @Override
+    @ProcessingBuffered(type = PipeDoc.class, enabled = "${processing.buffer.enabled:false}")
     public Uni<ProcessResponse> processData(ProcessRequest request) {
         LOG.debugf("Echo service received document: %s", 
                  request.hasDocument() ? request.getDocument().getId() : "no document");

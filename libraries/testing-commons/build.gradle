@@ -15,9 +15,13 @@ dependencies {
     // Internal dependencies
     implementation project(':libraries:pipeline-api')
     implementation project(':libraries:pipeline-commons')
+    implementation project(':grpc-stubs')
     
     // Testing utilities
     api libs.rest.assured
+    api libs.grpc.protobuf
+    api libs.quarkus.grpc
+    api libs.quarkus.mutiny
     api 'org.awaitility:awaitility'
     
     // Testing
