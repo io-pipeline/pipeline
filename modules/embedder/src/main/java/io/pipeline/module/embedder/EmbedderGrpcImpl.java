@@ -28,7 +28,7 @@ import java.util.*;
 @Singleton // Ensures only one instance is created
 @PipelineAutoRegister(
         moduleType = "embedder", // Type identifier for this module
-        useHttpPort = true,  // Using unified HTTP/gRPC server on port 39100
+        useHttpPort = true,  // Using unified HTTP/gRPC server on port 391XX
         metadata = {"category=embedding", "complexity=high"} // Additional metadata for discovery
 )
 public class EmbedderGrpcImpl implements PipeStepProcessor {
