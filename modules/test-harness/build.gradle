@@ -9,6 +9,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'io.quarkiverse.wiremock:quarkus-wiremock-test:1.5.1'
+    implementation 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.1'
     implementation platform(project(':bom'))
     implementation 'io.quarkus:quarkus-grpc'
     implementation 'io.quarkus:quarkus-arc'
