@@ -15,6 +15,11 @@ dependencies {
     implementation 'io.quarkus:quarkus-smallrye-health'
     implementation 'io.quarkus:quarkus-smallrye-stork'
     
+    // REST API dependencies
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+    
     // Service Discovery dependencies for Consul
     implementation 'io.smallrye.stork:stork-service-discovery-consul'
     implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-consul-client'
@@ -25,6 +30,7 @@ dependencies {
     implementation project(':grpc-stubs')
     implementation project(':libraries:pipeline-commons')
     implementation project(':libraries:pipeline-api')
+    implementation project(':libraries:data-util')
 }
 
 group 'io.pipeline.module'

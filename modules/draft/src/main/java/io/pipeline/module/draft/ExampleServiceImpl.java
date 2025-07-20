@@ -13,12 +13,24 @@ import org.jboss.logging.Logger;
 
 import java.time.Instant;
 
-@GrpcService
-@Singleton
+/**
+ * Example implementation of a pipeline module service.
+ * <p>
+ * This class demonstrates how to implement a simple pipeline module that processes documents
+ * by adding metadata and returning them. It serves as a template for creating new modules.
+ * <p>
+ * Key features demonstrated:
+ * 1. Auto-registration with the pipeline system
+ * 2. Processing documents with metadata
+ * 3. Service registration and health checks
+ * 4. Test processing mode
+ */
+@GrpcService // Marks this as a gRPC service that Quarkus will expose
+@Singleton // Ensures only one instance is created
 @PipelineAutoRegister(
-    moduleType = "echo-processor",
+    moduleType = "draft-processor", // Type identifier for this module
     useHttpPort = true,  // Using unified HTTP/gRPC server on port 39100
-    metadata = {"category=testing", "complexity=simple"}
+    metadata = {"category=testing", "complexity=simple"} // Additional metadata for discovery
 )
 public class ExampleServiceImpl implements PipeStepProcessor {
 
@@ -27,17 +39,26 @@ public class ExampleServiceImpl implements PipeStepProcessor {
     @ConfigProperty(name = "quarkus.application.name")
     String applicationName;
 
+    /**
+     * Process a document request.
+     * <p>
+     * This method is called when a document is sent to this module for processing.
+     * It adds metadata to the document and returns it.
+     * 
+     * @param request The processing request containing the document and metadata
+     * @return A response containing the processed document
+     */
     @Override
     public Uni<ProcessResponse> processData(ProcessRequest request) {
-        LOG.debugf("Echo service received document: %s", 
+        LOG.debugf("Draft service received document: %s", 
                  request.hasDocument() ? request.getDocument().getId() : "no document");
 
         // Build response with success status
         ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder()
                 .setSuccess(true)
-                .addProcessorLogs("Echo service successfully processed document");
+                .addProcessorLogs("Draft service successfully processed document");
 
-        // If there's a document, add metadata and echo it back
+        // If there's a document, add metadata and return it
         if (request.hasDocument()) {
             PipeDoc originalDoc = request.getDocument();
             PipeDoc.Builder docBuilder = originalDoc.toBuilder();
@@ -47,52 +68,61 @@ public class ExampleServiceImpl implements PipeStepProcessor {
                     ? originalDoc.getCustomData().toBuilder() 
                     : Struct.newBuilder();
 
-            // Add echo module metadata
-            customDataBuilder.putFields("processed_by_echo", Value.newBuilder().setStringValue(applicationName).build());
-            customDataBuilder.putFields("echo_timestamp", Value.newBuilder().setStringValue(Instant.now().toString()).build());
-            customDataBuilder.putFields("echo_module_version", Value.newBuilder().setStringValue("1.0.0").build());
+            // Add draft module metadata
+            customDataBuilder.putFields("processed_by_draft", Value.newBuilder().setStringValue(applicationName).build());
+            customDataBuilder.putFields("draft_timestamp", Value.newBuilder().setStringValue(Instant.now().toString()).build());
+            customDataBuilder.putFields("draft_module_version", Value.newBuilder().setStringValue("1.0.0").build());
 
             // Add request metadata if available
             if (request.hasMetadata()) {
                 ServiceMetadata metadata = request.getMetadata();
                 if (metadata.getStreamId() != null && !metadata.getStreamId().isEmpty()) {
-                    customDataBuilder.putFields("echo_stream_id", Value.newBuilder().setStringValue(metadata.getStreamId()).build());
+                    customDataBuilder.putFields("draft_stream_id", Value.newBuilder().setStringValue(metadata.getStreamId()).build());
                 }
                 if (metadata.getPipeStepName() != null && !metadata.getPipeStepName().isEmpty()) {
-                    customDataBuilder.putFields("echo_step_name", Value.newBuilder().setStringValue(metadata.getPipeStepName()).build());
+                    customDataBuilder.putFields("draft_step_name", Value.newBuilder().setStringValue(metadata.getPipeStepName()).build());
                 }
             }
 
             // Set the updated custom data
             docBuilder.setCustomData(customDataBuilder.build());
 
-            // Add the echo_processed metadata key that tests expect
-            docBuilder.putMetadata("echo_processed", "true");
+            // Add the draft_processed metadata key that tests expect
+            docBuilder.putMetadata("draft_processed", "true");
 
             // Set the updated document in the response
             responseBuilder.setOutputDoc(docBuilder.build());
-            responseBuilder.addProcessorLogs("Echo service added metadata to document");
+            responseBuilder.addProcessorLogs("Draft service added metadata to document");
         }
 
         ProcessResponse response = responseBuilder.build();
-        LOG.debugf("Echo service returning success: %s", response.getSuccess());
+        LOG.debugf("Draft service returning success: %s", response.getSuccess());
 
         return Uni.createFrom().item(response);
     }
 
+    /**
+     * Handle service registration requests.
+     * 
+     * This method is called when the pipeline system needs to register this module.
+     * It provides information about the module's capabilities and health status.
+     * 
+     * @param request The registration request, which may include a test request
+     * @return A response containing registration information
+     */
     @Override
     public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
-        LOG.debug("Echo service registration requested");
+        LOG.debug("Draft service registration requested");
 
-        // Build a more comprehensive registration response with metadata
+        // Build a comprehensive registration response with metadata
         ServiceRegistrationResponse.Builder responseBuilder = ServiceRegistrationResponse.newBuilder()
                 .setModuleName(applicationName)
                 .setVersion("1.0.0")
                 .setDisplayName("Draft Service")
-                .setDescription("A simple echo module that returns documents with added metadata")
+                .setDescription("A simple draft module that processes documents and adds metadata")
                 .setOwner("Rokkon Team")
                 .addTags("pipeline-module")
-                .addTags("echo")
+                .addTags("draft")
                 .addTags("processor")
                 .setRegistrationTimestamp(com.google.protobuf.Timestamp.newBuilder()
                         .setSeconds(Instant.now().getEpochSecond())
@@ -117,11 +147,11 @@ public class ExampleServiceImpl implements PipeStepProcessor {
                     if (processResponse.getSuccess()) {
                         responseBuilder
                             .setHealthCheckPassed(true)
-                            .setHealthCheckMessage("Echo module is healthy and functioning correctly");
+                            .setHealthCheckMessage("Draft module is healthy and functioning correctly");
                     } else {
                         responseBuilder
                             .setHealthCheckPassed(false)
-                            .setHealthCheckMessage("Echo module health check failed: " + 
+                            .setHealthCheckMessage("Draft module health check failed: " + 
                                 (processResponse.hasErrorDetails() ? 
                                     processResponse.getErrorDetails().toString() : 
                                     "Unknown error"));
@@ -144,6 +174,15 @@ public class ExampleServiceImpl implements PipeStepProcessor {
         }
     }
 
+    /**
+     * Handle test processing requests.
+     * <p>
+     * This method is called when the pipeline system wants to test this module.
+     * It creates a test document if none is provided and processes it with test markers.
+     * 
+     * @param request The test processing request
+     * @return A response containing the processed document with test markers
+     */
     @Override
     public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
         LOG.debug("TestProcessData called - executing test version of processing");
@@ -153,7 +192,7 @@ public class ExampleServiceImpl implements PipeStepProcessor {
             PipeDoc testDoc = PipeDoc.newBuilder()
                     .setId("test-doc-" + System.currentTimeMillis())
                     .setTitle("Test Document")
-                    .setBody("This is a test document for echo module validation")
+                    .setBody("This is a test document for draft module validation")
                     .build();
 
             ServiceMetadata testMetadata = ServiceMetadata.newBuilder()
@@ -176,7 +215,7 @@ public class ExampleServiceImpl implements PipeStepProcessor {
                     for (int i = 0; i < builder.getProcessorLogsCount(); i++) {
                         builder.setProcessorLogs(i, "[TEST] " + builder.getProcessorLogs(i));
                     }
-                    builder.addProcessorLogs("[TEST] Echo module test validation completed successfully");
+                    builder.addProcessorLogs("[TEST] Draft module test validation completed successfully");
                     return builder.build();
                 });
     }
