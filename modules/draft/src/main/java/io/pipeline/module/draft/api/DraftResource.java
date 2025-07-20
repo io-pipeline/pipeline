@@ -1,4 +1,4 @@
-package io.pipeline.module.draft;
+package io.pipeline.module.draft.api;
 
 import com.google.protobuf.util.JsonFormat;
 import io.pipeline.data.model.PipeDoc;

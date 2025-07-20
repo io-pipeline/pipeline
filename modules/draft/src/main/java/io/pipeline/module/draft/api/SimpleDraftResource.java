@@ -1,4 +1,4 @@
-package io.pipeline.module.draft;
+package io.pipeline.module.draft.api;
 
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;

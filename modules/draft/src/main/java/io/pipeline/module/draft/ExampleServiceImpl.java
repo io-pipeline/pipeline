@@ -7,6 +7,7 @@ import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;

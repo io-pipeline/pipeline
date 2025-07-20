@@ -1,10 +1,11 @@
-package io.pipeline.module.draft;
+package io.pipeline.module.draft.api;
 
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.ProcessRequest;
 import io.pipeline.data.module.ProcessResponse;
 import io.pipeline.data.module.RegistrationRequest;
 import io.pipeline.data.module.ServiceMetadata;
+import io.pipeline.module.draft.ExampleServiceImpl;
 import io.quarkus.grpc.GrpcService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
