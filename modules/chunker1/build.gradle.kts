@@ -18,6 +18,8 @@ dependencies {
 
     // Utility libraries
     implementation("org.apache.commons:commons-lang3:3.12.0") // For StringUtils
+    // Module-specific dependencies only
+    implementation("org.apache.opennlp:opennlp-tools:2.5.4")
 
     // Protocol Buffers and model dependencies
     implementation(project(":grpc-stubs")) // For com.rokkon.search.model classes
@@ -25,8 +27,6 @@ dependencies {
     implementation(project(":libraries:pipeline-commons")) // Common utilities
     implementation(project(":libraries:data-util")) // For data utilities
 
-    // Module-specific dependencies only
-    implementation("org.apache.opennlp:opennlp-tools:2.5.4")
 
     // Module-specific test dependencies
     testImplementation(project(":libraries:testing-commons"))
