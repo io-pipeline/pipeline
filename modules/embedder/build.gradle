@@ -1,0 +1,68 @@
+plugins {
+    id 'java'
+    id 'io.quarkus'
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation platform(project(':bom'))
+    implementation 'io.quarkus:quarkus-grpc'
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-smallrye-health'
+    implementation 'io.quarkus:quarkus-smallrye-stork'
+    
+    // REST API dependencies
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+    
+    // Service Discovery dependencies for Consul
+    implementation 'io.smallrye.stork:stork-service-discovery-consul'
+    implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-consul-client'
+
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.rest-assured:rest-assured'
+
+    implementation project(':grpc-stubs')
+    implementation project(':libraries:pipeline-commons')
+    implementation project(':libraries:pipeline-api')
+    implementation project(':libraries:data-util')
+
+
+    // DJL (Deep Java Library) for ML inference
+    implementation("ai.djl.huggingface:tokenizers:0.33.0")
+    implementation("ai.djl.pytorch:pytorch-model-zoo:0.33.0")
+    implementation("ai.djl.pytorch:pytorch-jni:2.5.1-0.33.0")
+    // CUDA support for GPU acceleration (if on amd64 architecture)
+    if (System.getProperty("os.arch") == "amd64") {
+        implementation("ai.djl.pytorch:pytorch-native-cu124:2.5.1")
+    }
+
+    // Apache Commons for utilities
+    implementation("org.apache.commons:commons-lang3")
+
+}
+
+group 'io.pipeline.module'
+version '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+}
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}
