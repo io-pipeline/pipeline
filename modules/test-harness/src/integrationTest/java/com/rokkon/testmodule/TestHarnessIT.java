@@ -10,6 +10,7 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.jboss.logging.Logger;
 
 import java.net.URL;
 
@@ -22,6 +23,8 @@ import java.net.URL;
  */
 @QuarkusIntegrationTest
 class TestHarnessIT extends TestHarnessTestBase {
+    
+    private static final Logger LOG = Logger.getLogger(TestHarnessIT.class);
 
     // Quarkus provides the base URL for the running application
     @TestHTTPResource
@@ -37,7 +40,7 @@ class TestHarnessIT extends TestHarnessTestBase {
         String host = testUrl.getHost();
         int port = testUrl.getPort();
         
-        System.out.println("Connecting to TestHarness at " + host + ":" + port);
+        LOG.infof("Connecting to TestHarness at %s:%d", host, port);
         
         // Create gRPC channel to the running container
         // Since we use unified server, gRPC is on the same port as HTTP

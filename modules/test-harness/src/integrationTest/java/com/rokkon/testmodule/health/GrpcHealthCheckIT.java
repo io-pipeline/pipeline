@@ -8,6 +8,7 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.jboss.logging.Logger;
 
 import java.net.URL;
 
@@ -18,6 +19,8 @@ import java.net.URL;
  */
 @QuarkusIntegrationTest
 public class GrpcHealthCheckIT extends GrpcHealthCheckTestBase {
+    
+    private static final Logger LOG = Logger.getLogger(GrpcHealthCheckIT.class);
     
     @TestHTTPResource
     URL testUrl;
@@ -31,7 +34,7 @@ public class GrpcHealthCheckIT extends GrpcHealthCheckTestBase {
         String host = testUrl.getHost();
         int port = testUrl.getPort();
         
-        System.out.println("Connecting to gRPC health service at " + host + ":" + port);
+        LOG.infof("Connecting to gRPC health service at %s:%d", host, port);
         
         channel = ManagedChannelBuilder
                 .forAddress(host, port)

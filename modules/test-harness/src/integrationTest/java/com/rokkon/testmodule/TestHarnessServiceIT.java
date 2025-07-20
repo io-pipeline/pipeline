@@ -23,10 +23,13 @@ import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import org.jboss.logging.Logger;
 
 
 @QuarkusIntegrationTest
 class TestHarnessServiceIT {
+    
+    private static final Logger LOG = Logger.getLogger(TestHarnessServiceIT.class);
     
     @TestHTTPResource
     java.net.URL testUrl;
@@ -40,7 +43,7 @@ class TestHarnessServiceIT {
         String host = testUrl.getHost();
         int port = testUrl.getPort();
         
-        System.out.println("Connecting to TestHarness service at " + host + ":" + port);
+        LOG.infof("Connecting to TestHarness service at %s:%d", host, port);
         
         channel = ManagedChannelBuilder
                 .forAddress(host, port)

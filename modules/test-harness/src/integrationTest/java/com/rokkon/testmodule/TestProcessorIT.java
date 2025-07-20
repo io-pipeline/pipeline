@@ -7,12 +7,15 @@ import io.pipeline.module.testharness.TestProcessorTestBase;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.jboss.logging.Logger;
 
 /**
  * Integration test for TestProcessor.
  */
 @QuarkusIntegrationTest
 public class TestProcessorIT extends TestProcessorTestBase {
+    
+    private static final Logger LOG = Logger.getLogger(TestProcessorIT.class);
 
     @io.quarkus.test.common.http.TestHTTPResource
     java.net.URL testUrl;
@@ -26,7 +29,7 @@ public class TestProcessorIT extends TestProcessorTestBase {
         String host = testUrl.getHost();
         int port = testUrl.getPort();
         
-        System.out.println("Connecting to PipeStepProcessor at " + host + ":" + port);
+        LOG.infof("Connecting to PipeStepProcessor at %s:%d", host, port);
         
         channel = ManagedChannelBuilder
                 .forAddress(host, port)
