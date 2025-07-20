@@ -84,7 +84,7 @@ public class ChunkerResource {
                 )
             )
             Map<String, Object> input) {
-        LOG.infof("REST endpoint received: %s", input);
+        LOG.debugf("REST endpoint received: %s", input);
 
         try {
             // Build PipeDoc from input

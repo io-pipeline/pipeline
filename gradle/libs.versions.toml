@@ -3,6 +3,7 @@ quarkus = "3.24.4"
 jandex-plugin = "2.2.0-SNAPSHOT"
 commons-lang3 = "3.18.0"
 opennlp-tools = "2.5.4"
+jackson-module-jsonschema = "2.18.2"
 
 [libraries]
 # Quarkus BOM
@@ -32,6 +33,7 @@ opencsv = { module = "com.opencsv:opencsv", version = "5.11.2" }
 # Utility libraries
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 opennlp-tools = { module = "org.apache.opennlp:opennlp-tools", version.ref = "opennlp-tools" }
+jackson-module-jsonschema = { module = "com.fasterxml.jackson.module:jackson-module-jsonSchema", version.ref = "jackson-module-jsonschema" }
 
 # Testing
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }

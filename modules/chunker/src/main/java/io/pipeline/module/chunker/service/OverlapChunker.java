@@ -1,11 +1,14 @@
 package io.pipeline.module.chunker.service;
 
 import io.pipeline.data.model.PipeDoc;
+import io.pipeline.module.chunker.config.ChunkerConfig;
 import io.pipeline.module.chunker.model.Chunk;
+import io.pipeline.module.chunker.model.ChunkingAlgorithm;
 import io.pipeline.module.chunker.model.ChunkerOptions;
 import io.pipeline.module.chunker.model.ChunkingResult;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.tokenize.Tokenizer;
 import opennlp.tools.util.Span;
 import org.jboss.logging.Logger;
@@ -29,9 +32,10 @@ import java.util.Map;
 public class OverlapChunker {
 
     private static final Logger LOG = Logger.getLogger(OverlapChunker.class);
-    private static final long MAX_TEXT_BYTES = 100 * 1024 * 1024; // 100MB limit
+    private static final long MAX_TEXT_BYTES = 40 * 1024 * 1024; // 40MB limit
     private static final int MAX_CHUNKS_PER_DOCUMENT = 1000; // Limit chunks to prevent gRPC message size issues
     private final Tokenizer tokenizer;
+    private final SentenceDetector sentenceDetector;
 
     private static final Pattern URL_PATTERN = Pattern.compile(
             "\\b(?:https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]",
@@ -40,8 +44,9 @@ public class OverlapChunker {
     private static final String URL_PLACEHOLDER_SUFFIX = "__";
 
     @Inject
-    public OverlapChunker(Tokenizer tokenizer) {
+    public OverlapChunker(Tokenizer tokenizer, SentenceDetector sentenceDetector) {
         this.tokenizer = tokenizer;
+        this.sentenceDetector = sentenceDetector;
     }
 
     /**
@@ -68,6 +73,56 @@ public class OverlapChunker {
             result.add(currentString.toString());
         }
         return result;
+    }
+
+    /**
+     * Cleans text by normalizing whitespace and line endings.
+     * Based on the existing squish logic but adapted for single strings.
+     * 
+     * @param text Text to clean
+     * @return Cleaned text with normalized whitespace and line endings
+     */
+    private String cleanText(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        
+        // Normalize line endings (Windows \r\n and Mac \r to Unix \n)
+        String cleaned = text.replaceAll("\\r\\n", "\n").replaceAll("\\r", "\n");
+        
+        // Remove excessive whitespace while preserving paragraph breaks
+        // Split by double newlines to preserve paragraphs
+        String[] paragraphs = cleaned.split("\n\n+");
+        StringBuilder result = new StringBuilder();
+        
+        for (int i = 0; i < paragraphs.length; i++) {
+            String paragraph = paragraphs[i];
+            
+            // For each paragraph, normalize internal whitespace
+            // Replace multiple spaces/tabs with single space, trim lines
+            String[] lines = paragraph.split("\n");
+            StringBuilder paragraphBuilder = new StringBuilder();
+            
+            for (String line : lines) {
+                String trimmedLine = line.trim();
+                if (!trimmedLine.isEmpty()) {
+                    if (paragraphBuilder.length() > 0) {
+                        paragraphBuilder.append(" ");
+                    }
+                    // Replace multiple whitespace with single space
+                    paragraphBuilder.append(trimmedLine.replaceAll("\\s+", " "));
+                }
+            }
+            
+            if (paragraphBuilder.length() > 0) {
+                if (result.length() > 0) {
+                    result.append("\n\n");
+                }
+                result.append(paragraphBuilder.toString());
+            }
+        }
+        
+        return result.toString();
     }
 
     /**
@@ -148,7 +203,33 @@ public class OverlapChunker {
     }
 
     /**
-     * Main method to create chunks from a document.
+     * Create chunks using ChunkerConfig for better ID generation.
+     * This is the preferred method that generates clean, semantic chunk IDs.
+     * 
+     * @param document The PipeDoc to chunk
+     * @param config Chunker configuration with auto-generated config_id
+     * @param streamId Stream ID for logging
+     * @param pipeStepName Pipeline step name for logging
+     * @return ChunkingResult containing the created chunks and URL placeholder mappings
+     */
+    public ChunkingResult createChunks(PipeDoc document, ChunkerConfig config, String streamId, String pipeStepName) {
+        // Convert ChunkerConfig to ChunkerOptions for internal processing
+        ChunkerOptions options = new ChunkerOptions(
+            config.sourceField(),
+            config.chunkSize(),
+            config.chunkOverlap(),
+            null, // We'll generate IDs directly using config.configId()
+            config.configId(),
+            "%s_chunks_%s", // resultSetNameTemplate
+            "chunker", // logPrefix
+            config.preserveUrls()
+        );
+        
+        return createChunksInternal(document, options, config, streamId, pipeStepName);
+    }
+
+    /**
+     * Main method to create chunks from a document using legacy ChunkerOptions.
      * 
      * @param document The PipeDoc to chunk
      * @param options Chunking configuration options
@@ -157,6 +238,20 @@ public class OverlapChunker {
      * @return ChunkingResult containing the created chunks and URL placeholder mappings
      */
     public ChunkingResult createChunks(PipeDoc document, ChunkerOptions options, String streamId, String pipeStepName) {
+        return createChunksInternal(document, options, null, streamId, pipeStepName);
+    }
+
+    /**
+     * Internal method that handles the actual chunking logic.
+     * 
+     * @param document The PipeDoc to chunk
+     * @param options Chunking configuration options
+     * @param config Optional ChunkerConfig for better ID generation (can be null)
+     * @param streamId Stream ID for logging and chunk ID generation
+     * @param pipeStepName Pipeline step name for logging
+     * @return ChunkingResult containing the created chunks and URL placeholder mappings
+     */
+    private ChunkingResult createChunksInternal(PipeDoc document, ChunkerOptions options, ChunkerConfig config, String streamId, String pipeStepName) {
         if (document == null) {
             LOG.warnf("Input document is null. Cannot create chunks. streamId: %s, pipeStepName: %s", streamId, pipeStepName);
             return new ChunkingResult(Collections.emptyList(), Collections.emptyMap()); // Return empty result
@@ -174,6 +269,11 @@ public class OverlapChunker {
         
         // Sanitize the text to ensure valid UTF-8 encoding before processing
         originalText = UnicodeSanitizer.sanitizeInvalidUnicode(originalText);
+        
+        // Clean text if enabled (normalize whitespace and line endings)
+        if (config != null && config.cleanText() != null && config.cleanText()) {
+            originalText = cleanText(originalText);
+        }
 
         // Handle MAX_TEXT_BYTES before URL processing to avoid issues with placeholder lengths
         byte[] originalTextBytes = originalText.getBytes(StandardCharsets.UTF_8);
@@ -189,20 +289,101 @@ public class OverlapChunker {
 
         if (options.preserveUrls() != null && options.preserveUrls()) {
             textToProcess = transformURLsToPlaceholders(originalText, placeholderToUrlMap, originalUrlSpans);
-            LOG.debugf("Text after URL placeholder replacement: %s", textToProcess);
+            LOG.debugf("Text after URL placeholder replacement: %d characters, %d URLs replaced", 
+                      textToProcess.length(), placeholderToUrlMap.size());
         }
 
-        Span[] tokenSpans = tokenizer.tokenizePos(textToProcess); // Get tokens with their character spans
-        String[] tokens = Span.spansToStrings(tokenSpans, textToProcess);
-
-        if (tokens.length == 0) {
-            LOG.infof("No tokens found after tokenization for document part from field '%s'. streamId: %s, pipeStepName: %s", 
-                    textFieldPath, streamId, pipeStepName);
-            return new ChunkingResult(Collections.emptyList(), placeholderToUrlMap); // Return empty chunks but include map
+        // Determine chunking algorithm from config
+        ChunkingAlgorithm algorithm = ChunkingAlgorithm.TOKEN; // Default to token
+        if (config != null) {
+            algorithm = config.algorithm();
         }
 
-        LOG.infof("Creating chunks with target character size: %d, character overlap: %d, for document ID: %s, streamId: %s, pipeStepName: %s",
+        LOG.debugf("Using chunking algorithm: %s for document ID: %s", algorithm, documentId);
+
+        // Branch based on algorithm
+        if (algorithm == ChunkingAlgorithm.SENTENCE) {
+            return createSentenceBasedChunks(textToProcess, placeholderToUrlMap, options, config, streamId, pipeStepName, documentId);
+        } else {
+            // Default to token-based chunking (CHARACTER and SEMANTIC not implemented yet)
+            return createTokenBasedChunks(textToProcess, placeholderToUrlMap, options, config, streamId, pipeStepName, documentId, textFieldPath);
+        }
+    }
+
+    /**
+     * Extracts a short, clean document ID for use in chunk IDs.
+     * Removes common prefixes and UUID suffixes to create readable IDs.
+     * 
+     * @param documentId The full document ID
+     * @return A shortened version suitable for chunk IDs
+     */
+    private String extractShortDocumentId(String documentId) {
+        if (documentId == null || documentId.isEmpty()) {
+            return "doc";
+        }
+        
+        String shortId = documentId;
+        
+        // Remove common prefixes
+        if (shortId.startsWith("simple-doc-")) {
+            shortId = shortId.substring("simple-doc-".length());
+        } else if (shortId.startsWith("advanced-doc-")) {
+            shortId = shortId.substring("advanced-doc-".length());
+        } else if (shortId.startsWith("form-doc-")) {
+            shortId = shortId.substring("form-doc-".length());
+        } else if (shortId.contains("-doc-")) {
+            // Extract just the part after "-doc-"
+            int docIndex = shortId.indexOf("-doc-");
+            shortId = shortId.substring(docIndex + "-doc-".length());
+        }
+        
+        // If it's a UUID (36 chars with dashes), take first 8 characters
+        if (shortId.length() == 36 && shortId.charAt(8) == '-' && shortId.charAt(13) == '-') {
+            shortId = shortId.substring(0, 8);
+        } else if (shortId.length() > 12) {
+            // For other long IDs, take first 12 characters
+            shortId = shortId.substring(0, 12);
+        }
+        
+        // Clean up any remaining dashes at start/end
+        shortId = shortId.replaceAll("^-+|-+$", "");
+        
+        // If empty after cleanup, use default
+        if (shortId.isEmpty()) {
+            shortId = "doc";
+        }
+        
+        return shortId;
+    }
+
+    /**
+     * Creates chunks using token-based algorithm with sophisticated spacing and overlap handling.
+     * 
+     * @param textToProcess Text that has been preprocessed (URL placeholders if enabled)
+     * @param placeholderToUrlMap Map of URL placeholders to original URLs
+     * @param options Chunking configuration options
+     * @param config ChunkerConfig for ID generation (can be null)
+     * @param streamId Stream ID for logging and chunk IDs
+     * @param pipeStepName Pipeline step name for logging
+     * @param documentId Document ID for chunk ID generation
+     * @param textFieldPath Field path being chunked (for logging)
+     * @return ChunkingResult containing chunks and URL placeholder mappings
+     */
+    private ChunkingResult createTokenBasedChunks(String textToProcess, Map<String, String> placeholderToUrlMap,
+                                                  ChunkerOptions options, ChunkerConfig config, String streamId,
+                                                  String pipeStepName, String documentId, String textFieldPath) {
+        
+        LOG.debugf("Creating chunks with target character size: %d, character overlap: %d, for document ID: %s, streamId: %s, pipeStepName: %s",
                 options.chunkSize(), options.chunkOverlap(), documentId, streamId, pipeStepName);
+
+        // Tokenize the text to get both tokens and their positions
+        String[] tokens = tokenizer.tokenize(textToProcess);
+        opennlp.tools.util.Span[] tokenSpans = tokenizer.tokenizePos(textToProcess);
+        
+        if (tokens.length == 0) {
+            LOG.debugf("No tokens found in text. Returning empty chunks. streamId: %s, pipeStepName: %s", streamId, pipeStepName);
+            return new ChunkingResult(Collections.emptyList(), placeholderToUrlMap);
+        }
 
         List<Chunk> chunks = new ArrayList<>();
         int chunkIndex = 0;
@@ -287,11 +468,20 @@ public class OverlapChunker {
                 // This would involve iterating through originalUrlSpans and adjusting offsets
                 // based on whether the chunk's span in processedText overlaps with placeholder spans.
                 // For now, we'll use the processed text offsets, which will be inaccurate if URLs were replaced.
-                LOG.warnf("URL preservation is active, original character offsets for chunks might be approximate " +
+                LOG.debugf("URL preservation is active, original character offsets for chunks might be approximate " +
                          "due to placeholder substitutions. StreamID: %s, DocID: %s", streamId, documentId);
             }
 
-            String chunkId = String.format(options.chunkIdTemplate(), streamId, documentId, chunkIndex++);
+            // Generate clean, semantic chunk ID
+            String chunkId;
+            if (config != null) {
+                // Use ChunkerConfig for clean IDs: {configId}-{shortDocId}-{chunkIndex}
+                String shortDocId = extractShortDocumentId(documentId);
+                chunkId = String.format("%s-%s-%04d", config.configId(), shortDocId, chunkIndex++);
+            } else {
+                // Fallback to template-based ID generation
+                chunkId = String.format(options.chunkIdTemplate(), streamId, documentId, chunkIndex++);
+            }
             chunks.add(new Chunk(chunkId, finalChunkText, originalStartOffset, originalEndOffset));
 
             // Determine next starting token for overlap
@@ -321,9 +511,104 @@ public class OverlapChunker {
             currentTokenStartIndex = Math.max(currentTokenStartIndex + 1, nextTokenCandidate);
         }
 
-        LOG.infof("Created %d token-based chunks for document part from field '%s'. streamId: %s, pipeStepName: %s",
+        LOG.debugf("Created %d token-based chunks for document part from field '%s'. streamId: %s, pipeStepName: %s",
                 chunks.size(), textFieldPath, streamId, pipeStepName);
-        // Return the chunks and the map
+        
+        return new ChunkingResult(chunks, placeholderToUrlMap);
+    }
+
+    /**
+     * Creates chunks using sentence-based algorithm that respects sentence boundaries.
+     * For sentence chunking, chunkSize represents the number of sentences per chunk.
+     * 
+     * @param textToProcess Text that has been preprocessed (URL placeholders if enabled)
+     * @param placeholderToUrlMap Map of URL placeholders to original URLs
+     * @param options Chunking configuration options (chunkSize = number of sentences, chunkOverlap = number of sentences)
+     * @param config ChunkerConfig for ID generation (can be null)
+     * @param streamId Stream ID for logging and chunk IDs
+     * @param pipeStepName Pipeline step name for logging
+     * @param documentId Document ID for chunk ID generation
+     * @return ChunkingResult containing chunks and URL placeholder mappings
+     */
+    private ChunkingResult createSentenceBasedChunks(String textToProcess, Map<String, String> placeholderToUrlMap,
+                                                     ChunkerOptions options, ChunkerConfig config, String streamId,
+                                                     String pipeStepName, String documentId) {
+        
+        LOG.debugf("Creating sentence-based chunks with target sentences per chunk: %d, sentence overlap: %d, for document ID: %s, streamId: %s, pipeStepName: %s",
+                options.chunkSize(), options.chunkOverlap(), documentId, streamId, pipeStepName);
+
+        // Detect sentences and their positions
+        String[] sentences = sentenceDetector.sentDetect(textToProcess);
+        opennlp.tools.util.Span[] sentenceSpans = sentenceDetector.sentPosDetect(textToProcess);
+        
+        if (sentences.length == 0) {
+            LOG.debugf("No sentences found in text. Returning empty chunks. streamId: %s, pipeStepName: %s", streamId, pipeStepName);
+            return new ChunkingResult(Collections.emptyList(), placeholderToUrlMap);
+        }
+
+        List<Chunk> chunks = new ArrayList<>();
+        int chunkIndex = 0;
+        int currentSentenceIndex = 0;
+        int sentencesPerChunk = options.chunkSize(); // This is the number of sentences per chunk
+        int sentenceOverlap = options.chunkOverlap(); // This is the number of sentences to overlap
+
+        while (currentSentenceIndex < sentences.length) {
+            StringBuilder currentChunkBuilder = new StringBuilder();
+            int chunkStartCharOffset = sentenceSpans[currentSentenceIndex].getStart();
+            int chunkEndCharOffset = chunkStartCharOffset;
+            int sentencesInThisChunk = 0;
+
+            // Add up to sentencesPerChunk sentences to this chunk
+            while (currentSentenceIndex + sentencesInThisChunk < sentences.length && sentencesInThisChunk < sentencesPerChunk) {
+                String sentence = sentences[currentSentenceIndex + sentencesInThisChunk];
+                
+                // Add sentence to chunk
+                if (currentChunkBuilder.length() > 0) {
+                    currentChunkBuilder.append(" ");
+                }
+                currentChunkBuilder.append(sentence);
+                chunkEndCharOffset = sentenceSpans[currentSentenceIndex + sentencesInThisChunk].getEnd();
+                sentencesInThisChunk++;
+            }
+
+            // Create chunk if we have content
+            if (currentChunkBuilder.length() > 0) {
+                String chunkTextWithPlaceholders = currentChunkBuilder.toString().trim();
+                
+                String finalChunkText = chunkTextWithPlaceholders;
+                if (options.preserveUrls() != null && options.preserveUrls()) {
+                    finalChunkText = restorePlaceholdersInChunk(chunkTextWithPlaceholders, placeholderToUrlMap);
+                }
+
+                // Calculate offsets
+                int originalStartOffset = chunkStartCharOffset;
+                int originalEndOffset = chunkEndCharOffset - 1; // Span.getEnd() is exclusive
+
+                // Generate chunk ID
+                String chunkId;
+                if (config != null) {
+                    String shortDocId = extractShortDocumentId(documentId);
+                    chunkId = String.format("%s-%s-%04d", config.configId(), shortDocId, chunkIndex++);
+                } else {
+                    chunkId = String.format(options.chunkIdTemplate(), streamId, documentId, chunkIndex++);
+                }
+                
+                chunks.add(new Chunk(chunkId, finalChunkText, originalStartOffset, originalEndOffset));
+            }
+
+            // Calculate next starting position with sentence-based overlap
+            if (currentSentenceIndex + sentencesInThisChunk >= sentences.length) {
+                break; // No more sentences to process
+            }
+
+            // Move forward by (sentencesInThisChunk - sentenceOverlap) to create overlap
+            int advancement = Math.max(1, sentencesInThisChunk - sentenceOverlap);
+            currentSentenceIndex += advancement;
+        }
+
+        LOG.debugf("Created %d sentence-based chunks from %d sentences (target: %d sentences per chunk, overlap: %d sentences). streamId: %s, pipeStepName: %s",
+                chunks.size(), sentences.length, sentencesPerChunk, sentenceOverlap, streamId, pipeStepName);
+        
         return new ChunkingResult(chunks, placeholderToUrlMap);
     }
 }

@@ -1,0 +1,6 @@
+filename,title,author,category,description,estimated_chunks,recommended_chunk_size,recommended_algorithm
+alice_in_wonderland.txt,"Alice's Adventures in Wonderland","Lewis Carroll","Classic Literature","Lewis Carroll's beloved children's fantasy novel about Alice's journey through Wonderland",500,800,"sentence"
+constitution.txt,"U.S. Constitution","Founding Fathers","Historical Document","The Constitution of the United States including all amendments",200,600,"sentence"
+pride_and_prejudice.txt,"Pride and Prejudice","Jane Austen","Classic Literature","Jane Austen's romantic novel about Elizabeth Bennet and Mr. Darcy",800,1000,"sentence"
+sample_article.txt,"Sample Technology Article","Tech Writer","Technology","A sample article about emerging technologies and their impact on society",15,400,"token"
+lorem_ipsum.txt,"Lorem Ipsum Text","Unknown","Sample","Classic placeholder text used in the printing and typesetting industry",8,300,"character"

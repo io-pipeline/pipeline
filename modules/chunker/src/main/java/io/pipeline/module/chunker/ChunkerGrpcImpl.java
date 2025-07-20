@@ -10,6 +10,7 @@ import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.SemanticChunk;
 import io.pipeline.data.model.SemanticProcessingResult;
 import io.pipeline.data.module.*;
+import io.pipeline.module.chunker.config.ChunkerConfig;
 import io.pipeline.module.chunker.model.Chunk;
 import io.pipeline.module.chunker.model.ChunkerOptions;
 import io.pipeline.module.chunker.model.ChunkingResult;
@@ -67,13 +68,20 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
     public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
         return Uni.createFrom().item(() -> {
             try {
+                // Use ChunkerConfig OpenAPI schema instead of manual JSON
+                String schemaInfo = "JSON Schema auto-generated from ChunkerConfig Java record. " +
+                                  "Access via OpenAPI endpoint: /q/openapi. " +
+                                  "Default algorithm: " + ChunkerConfig.DEFAULT_ALGORITHM.getValue() + ". " +
+                                  "Supported algorithms: character, token, sentence, semantic.";
+                
                 ServiceRegistrationResponse.Builder registrationBuilder = ServiceRegistrationResponse.newBuilder()
                         .setModuleName("chunker")
-                        .setJsonConfigSchema(ChunkerOptions.getJsonV7Schema())
-                        .setHealthCheckPassed(true)  // Always pass health check for now
-                        .setHealthCheckMessage("Chunker module is healthy and ready to process documents");
+                        .setJsonConfigSchema(schemaInfo) // Reference to OpenAPI-generated schema
+                        .setHealthCheckPassed(true)
+                        .setHealthCheckMessage("Chunker module is healthy and ready to process documents. " +
+                                            "Using ChunkerConfig with clean semantic chunk IDs.");
 
-                LOG.info("Returned service registration for chunker module");
+                LOG.info("Returned service registration for chunker module with OpenAPI schema reference");
                 return registrationBuilder.build();
 
             } catch (Exception e) {
@@ -160,37 +168,55 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                             .build();
                 }
 
-                // Parse chunker options
-                ChunkerOptions chunkerOptions;
+                // Parse chunker config - prefer ChunkerConfig over legacy ChunkerOptions
+                ChunkerConfig chunkerConfig;
                 Struct customJsonConfig = config.getCustomJsonConfig();
                 if (customJsonConfig != null && customJsonConfig.getFieldsCount() > 0) {
-                    chunkerOptions = objectMapper.readValue(
-                            JsonFormat.printer().print(customJsonConfig),
-                            ChunkerOptions.class
-                    );
+                    try {
+                        // Try to parse as ChunkerConfig first
+                        chunkerConfig = objectMapper.readValue(
+                                JsonFormat.printer().print(customJsonConfig),
+                                ChunkerConfig.class
+                        );
+                    } catch (Exception e) {
+                        LOG.warnf("Failed to parse as ChunkerConfig, falling back to ChunkerOptions: %s", e.getMessage());
+                        // Fallback to ChunkerOptions for backward compatibility
+                        ChunkerOptions legacyOptions = objectMapper.readValue(
+                                JsonFormat.printer().print(customJsonConfig),
+                                ChunkerOptions.class
+                        );
+                        // Convert ChunkerOptions to ChunkerConfig
+                        chunkerConfig = ChunkerConfig.create(
+                            ChunkerConfig.DEFAULT_ALGORITHM, // Use default algorithm
+                            legacyOptions.sourceField(),
+                            legacyOptions.chunkSize(),
+                            legacyOptions.chunkOverlap(),
+                            legacyOptions.preserveUrls()
+                        );
+                    }
                 } else {
-                    chunkerOptions = new ChunkerOptions();
+                    chunkerConfig = ChunkerConfig.createDefault();
                 }
 
-                if (chunkerOptions.sourceField() == null || chunkerOptions.sourceField().isEmpty()) {
-                    return createErrorResponse("Missing 'source_field' in ChunkerOptions", null);
+                if (chunkerConfig.sourceField() == null || chunkerConfig.sourceField().isEmpty()) {
+                    return createErrorResponse("Missing 'sourceField' in ChunkerConfig", null);
                 }
 
-                // Create chunks
-                ChunkingResult chunkingResult = overlapChunker.createChunks(inputDoc, chunkerOptions, streamId, pipeStepName);
+                // Create chunks using ChunkerConfig for better ID generation
+                ChunkingResult chunkingResult = overlapChunker.createChunks(inputDoc, chunkerConfig, streamId, pipeStepName);
                 List<Chunk> chunkRecords = chunkingResult.chunks();
 
                 if (!chunkRecords.isEmpty()) {
                     Map<String, String> placeholderToUrlMap = chunkingResult.placeholderToUrlMap();
                     SemanticProcessingResult.Builder newSemanticResultBuilder = SemanticProcessingResult.newBuilder()
                             .setResultId(UUID.randomUUID().toString())
-                            .setSourceFieldName(chunkerOptions.sourceField())
-                            .setChunkConfigId(chunkerOptions.chunkConfigId());
+                            .setSourceFieldName(chunkerConfig.sourceField())
+                            .setChunkConfigId(chunkerConfig.configId());
 
                     String resultSetName = String.format(
-                            chunkerOptions.resultSetNameTemplate(),
+                            "%s_chunks_%s",
                             pipeStepName,
-                            chunkerOptions.chunkConfigId()
+                            chunkerConfig.configId()
                     ).replaceAll("[^a-zA-Z0-9_\\-]", "_");
                     newSemanticResultBuilder.setResultSetName(resultSetName);
 
@@ -204,9 +230,9 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                                 .setChunkId(chunkRecord.id())
                                 .setOriginalCharStartOffset(chunkRecord.originalIndexStart())
                                 .setOriginalCharEndOffset(chunkRecord.originalIndexEnd())
-                                .setChunkConfigId(chunkerOptions.chunkConfigId());
+                                .setChunkConfigId(chunkerConfig.configId());
 
-                        boolean containsUrlPlaceholder = (chunkerOptions.preserveUrls() != null && chunkerOptions.preserveUrls()) &&
+                        boolean containsUrlPlaceholder = (chunkerConfig.preserveUrls() != null && chunkerConfig.preserveUrls()) &&
                                 !placeholderToUrlMap.isEmpty() &&
                                 placeholderToUrlMap.keySet().stream().anyMatch(ph -> chunkRecord.text().contains(ph));
 
@@ -229,15 +255,15 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                     outputDocBuilder.addSemanticResults(newSemanticResultBuilder.build());
 
                     String successMessage = isTest ? 
-                        String.format("%s%sSuccessfully created and added metadata to %d chunks for testing. Chunker service validated successfully.",
-                            logPrefix, chunkerOptions.logPrefix(), chunkRecords.size()) :
-                        String.format("%s%sSuccessfully created and added metadata to %d chunks from source field '%s' into result set '%s'. Chunker service successfully processed document.",
-                            logPrefix, chunkerOptions.logPrefix(), chunkRecords.size(), chunkerOptions.sourceField(), resultSetName);
+                        String.format("%sSuccessfully created and added metadata to %d chunks for testing using %s algorithm. Chunker service validated successfully.",
+                            logPrefix, chunkRecords.size(), chunkerConfig.algorithm().getValue()) :
+                        String.format("%sSuccessfully created and added metadata to %d chunks from source field '%s' into result set '%s' using %s algorithm. Chunker service successfully processed document.",
+                            logPrefix, chunkRecords.size(), chunkerConfig.sourceField(), resultSetName, chunkerConfig.algorithm().getValue());
 
                     responseBuilder.addProcessorLogs(successMessage);
                 } else {
-                    responseBuilder.addProcessorLogs(String.format("%s%sNo content in '%s' to chunk for document ID: %s",
-                            logPrefix, chunkerOptions.logPrefix(), chunkerOptions.sourceField(), inputDoc.getId()));
+                    responseBuilder.addProcessorLogs(String.format("%sNo content in '%s' to chunk for document ID: %s",
+                            logPrefix, chunkerConfig.sourceField(), inputDoc.getId()));
                 }
 
                 responseBuilder.setSuccess(true);

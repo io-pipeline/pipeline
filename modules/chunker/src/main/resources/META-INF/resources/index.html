@@ -68,33 +68,40 @@
         
         <h1 class="mb-4">Chunker Module Test UI</h1>
         
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Module Information</h5>
+        <!-- Navigation tabs -->
+        <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="custom-tab" data-bs-toggle="tab" data-bs-target="#custom" type="button" role="tab">Custom Text</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="demo-tab" data-bs-toggle="tab" data-bs-target="#demo" type="button" role="tab">Demo Documents</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config" type="button" role="tab">Configuration</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="mainTabContent">
+            <!-- Custom Text Tab -->
+            <div class="tab-pane fade show active" id="custom" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Module Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="moduleInfo">Loading...</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div id="moduleInfo">Loading...</div>
-                    </div>
-                </div>
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Configuration Schema</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="configSchema">Loading schema...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Test Chunker Service</h5>
-                    </div>
-                    <div class="card-body">
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Test Chunker Service</h5>
+                            </div>
+                            <div class="card-body">
                         <form id="chunkerForm">
                             <div class="mb-3">
                                 <label for="docId" class="form-label">Document ID</label>
@@ -142,6 +149,106 @@
                         </form>
                     </div>
                 </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Demo Documents Tab -->
+            <div class="tab-pane fade" id="demo" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Available Demo Documents</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="demoDocumentsList">Loading demo documents...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <div class="card mb-4" id="demoDocumentPreview" style="display: none;">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Document Preview</h5>
+                                <button class="btn btn-sm btn-outline-primary" onclick="chunkSelectedDemo()">Chunk This Document</button>
+                            </div>
+                            <div class="card-body">
+                                <div id="demoDocumentMetadata" class="mb-3"></div>
+                                <div id="demoDocumentContent" style="max-height: 300px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="card" id="demoChunkingOptions" style="display: none;">
+                            <div class="card-header">
+                                <h5 class="mb-0">Chunking Options</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="useRecommended" checked>
+                                    <label class="form-check-label" for="useRecommended">
+                                        Use recommended settings from document metadata
+                                    </label>
+                                </div>
+                                
+                                <!-- Current Options Preview -->
+                                <div id="currentOptionsPreview" class="alert alert-info mb-3" style="display: none;">
+                                    <h6 class="mb-2">Current Chunker Options:</h6>
+                                    <div id="currentOptionsContent"></div>
+                                </div>
+                                
+                                <div id="demoCustomOptions" style="display: none;">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="demoAlgorithm" class="form-label">Algorithm</label>
+                                                <select class="form-select" id="demoAlgorithm">
+                                                    <option value="character">Character</option>
+                                                    <option value="token" selected>Token</option>
+                                                    <option value="sentence">Sentence</option>
+                                                    <option value="semantic">Semantic</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="demoChunkSize" class="form-label">Chunk Size</label>
+                                                <input type="number" class="form-control" id="demoChunkSize" value="500" min="50" max="10000">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="demoChunkOverlap" class="form-label">Overlap</label>
+                                                <input type="number" class="form-control" id="demoChunkOverlap" value="50" min="0" max="5000">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="demoPreserveUrls" checked>
+                                        <label class="form-check-label" for="demoPreserveUrls">
+                                            Preserve URLs
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-primary mt-3" onclick="chunkDemoDocument()">Process Document</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configuration Tab -->
+            <div class="tab-pane fade" id="config" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Configuration Schema</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="configSchema">Loading schema...</div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -160,6 +267,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
     <script>
@@ -168,11 +276,11 @@
         
         // Check module status
         function checkStatus() {
-            fetch('api/chunker/health')
+            fetch('api/chunker/service/health')
                 .then(response => response.json())
                 .then(data => {
                     const statusEl = document.getElementById('status');
-                    if (data.status === 'UP') {
+                    if (data.status === 'healthy') {
                         statusEl.textContent = 'Connected';
                         statusEl.className = 'badge bg-success';
                     } else {
@@ -188,18 +296,56 @@
         
         // Get module info and schema
         function loadModuleInfo() {
-            fetch('api/chunker/info')
+            fetch('api/chunker/service/config')
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('moduleInfo').innerHTML = `
-                        <strong>Module Name:</strong> ${data.moduleName}<br>
-                        <strong>Has Schema:</strong> ${data.hasSchema ? 'Yes' : 'No'}
+                        <strong>Module Name:</strong> chunker<br>
+                        <strong>Schema Type:</strong> OpenAPI Auto-Generated<br>
+                        <strong>Default Algorithm:</strong> ${data.defaultConfig?.algorithm || 'token'}<br>
+                        <strong>Config Class:</strong> ${data.metadata?.configClass || 'ChunkerConfig'}
                     `;
                     
-                    if (data.schema) {
-                        moduleSchema = data.schema;
-                        renderSchema(data.schema);
-                    }
+                    // Create a mock schema from the ChunkerConfig for the UI
+                    const mockSchema = {
+                        title: "ChunkerConfig",
+                        description: "Configuration for text chunking operations", 
+                        properties: {
+                            algorithm: {
+                                type: "string",
+                                enum: ["character", "token", "sentence", "semantic"],
+                                default: "token",
+                                description: "Chunking algorithm to use for splitting text"
+                            },
+                            sourceField: {
+                                type: "string", 
+                                default: "body",
+                                description: "Document field to extract text from for chunking"
+                            },
+                            chunkSize: {
+                                type: "integer",
+                                default: 500,
+                                minimum: 50,
+                                maximum: 10000,
+                                description: "Target size for each chunk (characters/tokens)"
+                            },
+                            chunkOverlap: {
+                                type: "integer",
+                                default: 50,
+                                minimum: 0,
+                                maximum: 5000,
+                                description: "Amount of overlap between consecutive chunks"
+                            },
+                            preserveUrls: {
+                                type: "boolean",
+                                default: true,
+                                description: "Whether to preserve URLs as atomic units"
+                            }
+                        }
+                    };
+                    
+                    moduleSchema = mockSchema;
+                    renderSchema(mockSchema);
                 })
                 .catch(error => {
                     document.getElementById('moduleInfo').innerHTML = 
@@ -383,12 +529,11 @@
         // Load sample configuration
         function loadSampleConfig() {
             const sampleConfig = {
+                algorithm: "token",
+                sourceField: "body", 
                 chunkSize: 300,
-                overlap: 75,
-                minChunkSize: 100,
-                maxChunkSize: 500,
-                chunkingStrategy: "sentence",
-                preserveWhitespace: false
+                chunkOverlap: 75,
+                preserveUrls: true
             };
             
             // Update form fields
@@ -427,21 +572,21 @@
                 return;
             }
             
-            const payload = {
-                id: document.getElementById('docId').value,
-                type: document.getElementById('docType').value,
-                content: document.getElementById('content').value,
-                metadata: metadataObj,
-                customConfig: configObj
-            };
+            // Use the simple chunking endpoint with ChunkerConfig
+            const formData = new URLSearchParams();
+            formData.append('text', document.getElementById('content').value);
+            formData.append('algorithm', configObj.algorithm || 'token');
+            formData.append('chunkSize', configObj.chunkSize || 500);
+            formData.append('chunkOverlap', configObj.chunkOverlap || 50);
+            formData.append('preserveUrls', configObj.preserveUrls !== false);
             
             try {
-                const response = await fetch('api/chunker/process', {
+                const response = await fetch('api/chunker/service/simple-form', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/x-www-form-urlencoded'
                     },
-                    body: JSON.stringify(payload)
+                    body: formData
                 });
                 
                 const responseText = await response.text();
@@ -476,13 +621,16 @@
         function displayResponse(response) {
             // Extract statistics
             let stats = '';
-            if (response.success && response.outputDoc) {
-                const chunks = response.outputDoc.chunks || [];
+            if (response.success && response.chunks) {
+                const chunks = response.chunks || [];
+                const metadata = response.metadata || {};
                 stats = `
                     <div class="alert alert-info mb-2">
                         <strong>Processing Results:</strong><br>
                         Total Chunks: ${chunks.length}<br>
-                        ${chunks.length > 0 ? `First Chunk Size: ${chunks[0].content?.length || 0} chars` : ''}
+                        ${chunks.length > 0 ? `First Chunk ID: ${chunks[0].id}` : ''}<br>
+                        ${metadata.processingTime ? `Processing Time: ${metadata.processingTime}ms` : ''}<br>
+                        ${metadata.originalTextLength ? `Original Text: ${metadata.originalTextLength} chars` : ''}
                     </div>
                 `;
             }
@@ -514,10 +662,257 @@
             });
         }
         
+        // Demo Documents functionality
+        let demoDocuments = [];
+        let selectedDemoDocument = null;
+        
+        // Load demo documents on page load
+        function loadDemoDocuments() {
+            fetch('api/chunker/service/demo/documents')
+                .then(response => response.json())
+                .then(data => {
+                    demoDocuments = data.documents || [];
+                    renderDemoDocumentsList();
+                })
+                .catch(error => {
+                    console.error('Error loading demo documents:', error);
+                    document.getElementById('demoDocumentsList').innerHTML = 
+                        '<div class="text-danger">Failed to load demo documents</div>';
+                });
+        }
+        
+        // Render demo documents list
+        function renderDemoDocumentsList() {
+            const listEl = document.getElementById('demoDocumentsList');
+            
+            if (demoDocuments.length === 0) {
+                listEl.innerHTML = '<div class="text-muted">No demo documents available</div>';
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            
+            demoDocuments.forEach(doc => {
+                const isSelected = selectedDemoDocument && selectedDemoDocument.filename === doc.filename;
+                html += `
+                    <button type="button" class="list-group-item list-group-item-action ${isSelected ? 'active' : ''}" 
+                            onclick="selectDemoDocument('${doc.filename}')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${doc.title}</h6>
+                            <small class="text-muted">${doc.estimatedChunks} chunks</small>
+                        </div>
+                        <p class="mb-1 small">${doc.description}</p>
+                        <small class="text-muted">by ${doc.author} • ${doc.category}</small>
+                    </button>
+                `;
+            });
+            
+            html += '</div>';
+            listEl.innerHTML = html;
+        }
+        
+        // Select a demo document
+        function selectDemoDocument(filename) {
+            selectedDemoDocument = demoDocuments.find(doc => doc.filename === filename);
+            
+            if (!selectedDemoDocument) {
+                console.error('Demo document not found:', filename);
+                return;
+            }
+            
+            // Update the list selection
+            renderDemoDocumentsList();
+            
+            // Load document content
+            loadDemoDocumentContent(filename);
+            
+            // Show preview and options cards
+            document.getElementById('demoDocumentPreview').style.display = 'block';
+            document.getElementById('demoChunkingOptions').style.display = 'block';
+            
+            // Update recommended settings
+            updateRecommendedSettings();
+        }
+        
+        // Load document content
+        function loadDemoDocumentContent(filename) {
+            fetch(`api/chunker/service/demo/documents/${filename}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    // Display metadata
+                    const metadataEl = document.getElementById('demoDocumentMetadata');
+                    metadataEl.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Filename:</strong> ${data.filename}<br>
+                                <strong>Content Length:</strong> ${data.contentLength} characters<br>
+                                <strong>Recommended Algorithm:</strong> ${selectedDemoDocument.recommendedAlgorithm}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Recommended Chunk Size:</strong> ${selectedDemoDocument.recommendedChunkSize}<br>
+                                <strong>Estimated Chunks:</strong> ${selectedDemoDocument.estimatedChunks}<br>
+                                <strong>File Size:</strong> ${selectedDemoDocument.fileSize} bytes
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Display content preview
+                    const contentEl = document.getElementById('demoDocumentContent');
+                    const preview = data.content.length > 1000 ? data.content.substring(0, 1000) + '...' : data.content;
+                    contentEl.innerHTML = `<pre style="white-space: pre-wrap; font-size: 0.9em;">${preview}</pre>`;
+                })
+                .catch(error => {
+                    console.error('Error loading document content:', error);
+                    document.getElementById('demoDocumentContent').innerHTML = 
+                        `<div class="text-danger">Failed to load document: ${error.message}</div>`;
+                });
+        }
+        
+        // Update recommended settings
+        function updateRecommendedSettings() {
+            if (!selectedDemoDocument) return;
+            
+            // Update form fields with recommended values
+            document.getElementById('demoAlgorithm').value = selectedDemoDocument.recommendedAlgorithm || 'token';
+            document.getElementById('demoChunkSize').value = selectedDemoDocument.recommendedChunkSize || 500;
+            document.getElementById('demoChunkOverlap').value = Math.floor((selectedDemoDocument.recommendedChunkSize || 500) / 10);
+            
+            // Update the current options preview
+            updateCurrentOptionsPreview();
+        }
+        
+        // Toggle between recommended and custom settings
+        function toggleRecommendedSettings() {
+            const useRecommended = document.getElementById('useRecommended').checked;
+            const customOptions = document.getElementById('demoCustomOptions');
+            
+            customOptions.style.display = useRecommended ? 'none' : 'block';
+            
+            // Update the options preview
+            updateCurrentOptionsPreview();
+        }
+        
+        // Update current options preview
+        function updateCurrentOptionsPreview() {
+            if (!selectedDemoDocument) return;
+            
+            const useRecommended = document.getElementById('useRecommended').checked;
+            const preserveUrls = document.getElementById('demoPreserveUrls').checked;
+            
+            let algorithm, chunkSize, chunkOverlap;
+            
+            if (useRecommended) {
+                algorithm = selectedDemoDocument.recommendedAlgorithm || 'token';
+                chunkSize = selectedDemoDocument.recommendedChunkSize || 500;
+                chunkOverlap = Math.floor(chunkSize / 10);
+            } else {
+                algorithm = document.getElementById('demoAlgorithm').value;
+                chunkSize = parseInt(document.getElementById('demoChunkSize').value);
+                chunkOverlap = parseInt(document.getElementById('demoChunkOverlap').value);
+            }
+            
+            const optionsHtml = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Algorithm:</strong><br>
+                        <span class="badge bg-primary">${algorithm.toUpperCase()}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Chunk Size:</strong><br>
+                        <span class="badge bg-info">${chunkSize}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Overlap:</strong><br>
+                        <span class="badge bg-secondary">${chunkOverlap}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Preserve URLs:</strong><br>
+                        <span class="badge ${preserveUrls ? 'bg-success' : 'bg-warning'}">${preserveUrls ? 'Yes' : 'No'}</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        ${useRecommended ? 
+                            '📋 Using recommended settings from document metadata' : 
+                            '⚙️ Using custom settings'
+                        }
+                    </small>
+                </div>
+            `;
+            
+            document.getElementById('currentOptionsContent').innerHTML = optionsHtml;
+            document.getElementById('currentOptionsPreview').style.display = 'block';
+        }
+        
+        // Chunk demo document
+        function chunkDemoDocument() {
+            if (!selectedDemoDocument) {
+                alert('Please select a demo document first');
+                return;
+            }
+            
+            const useRecommended = document.getElementById('useRecommended').checked;
+            const formData = new URLSearchParams();
+            
+            formData.append('useRecommended', useRecommended);
+            formData.append('preserveUrls', document.getElementById('demoPreserveUrls').checked);
+            
+            if (!useRecommended) {
+                formData.append('algorithm', document.getElementById('demoAlgorithm').value);
+                formData.append('chunkSize', document.getElementById('demoChunkSize').value);
+                formData.append('chunkOverlap', document.getElementById('demoChunkOverlap').value);
+            }
+            
+            fetch(`api/chunker/service/demo/chunk/${selectedDemoDocument.filename}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(response => {
+                currentResponse = response;
+                displayResponse(response);
+                document.getElementById('responseCard').style.display = 'block';
+                
+                // Scroll to response
+                document.getElementById('responseCard').scrollIntoView({ behavior: 'smooth' });
+            })
+            .catch(error => {
+                console.error('Error chunking demo document:', error);
+                document.getElementById('response').textContent = 'Error: ' + error.message;
+                document.getElementById('response').className = 'text-danger';
+                document.getElementById('responseCard').style.display = 'block';
+                document.getElementById('responseStats').innerHTML = '';
+            });
+        }
+        
+        // Quick chunk function for header button
+        function chunkSelectedDemo() {
+            document.getElementById('useRecommended').checked = true;
+            toggleRecommendedSettings();
+            chunkDemoDocument();
+        }
+        
         // Initialize
         checkStatus();
         loadModuleInfo();
+        loadDemoDocuments();
         setInterval(checkStatus, 5000);
+        
+        // Add event listener for recommended settings toggle
+        document.getElementById('useRecommended').addEventListener('change', toggleRecommendedSettings);
+        
+        // Add event listeners for custom options to update preview
+        document.getElementById('demoAlgorithm').addEventListener('change', updateCurrentOptionsPreview);
+        document.getElementById('demoChunkSize').addEventListener('input', updateCurrentOptionsPreview);
+        document.getElementById('demoChunkOverlap').addEventListener('input', updateCurrentOptionsPreview);
+        document.getElementById('demoPreserveUrls').addEventListener('change', updateCurrentOptionsPreview);
         
         // Set current timestamp in metadata
         document.getElementById('metadata').value = document.getElementById('metadata').value.replace(
