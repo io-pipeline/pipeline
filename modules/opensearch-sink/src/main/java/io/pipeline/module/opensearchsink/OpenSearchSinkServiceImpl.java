@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Singleton
 @GrpcService
 @PipelineAutoRegister(
-    moduleType = "opensearch-sink",
+    moduleType = "opensearch",
     useHttpPort = true,
     metadata = {"category=sink", "type=vector-search"}
 )
@@ -272,7 +272,7 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
             
             // Store schema metadata using settings service
             OpenSearchSettings.IndexSchema schema = new OpenSearchSettings.IndexSchema(
-                indexName, vectorDimension, result.getEmbeddingConfigId(), "cosinesimilarity");
+                indexName, vectorDimension, result.getEmbeddingConfigId(), this.settings.getDefaultVectorSpaceType());
             settings.storeIndexSchema(schema);
         }
     }
@@ -302,7 +302,7 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
                     .dimension(vectorDimension)
                     .method(method -> method
                         .name("hnsw")
-                        .spaceType("cosinesimilarity")
+                        .spaceType(this.settings.getDefaultVectorSpaceType())
                         .engine("lucene")
                     )
                 ))

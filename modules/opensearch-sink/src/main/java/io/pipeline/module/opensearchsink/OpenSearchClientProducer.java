@@ -33,7 +33,7 @@ public class OpenSearchClientProducer {
     @ConfigProperty(name = "opensearch.username")
     String username;
     
-    @ConfigProperty(name = "opensearch.password")
+    @ConfigProperty(name = "opensearch.password") 
     String password;
     
     @ConfigProperty(name = "opensearch.ssl-verify", defaultValue = "true")
@@ -78,16 +78,21 @@ public class OpenSearchClientProducer {
             var transport = ApacheHttpClient5TransportBuilder.builder(httpHosts)
                 .setMapper(new JacksonJsonpMapper())
                 .setHttpClientConfigCallback(httpClientBuilder -> {
-                    // Set up authentication
-                    final var credentialsProvider = new BasicCredentialsProvider();
-                    for (final var httpHost : httpHosts) {
-                        credentialsProvider.setCredentials(
-                            new AuthScope(httpHost), 
-                            new UsernamePasswordCredentials(username, password.toCharArray())
-                        );
+                    // Set up authentication only if username and password are provided
+                    if (username != null && !username.trim().isEmpty() && 
+                        password != null && !password.trim().isEmpty()) {
+                        LOG.debug("Setting up HTTP Basic authentication");
+                        final var credentialsProvider = new BasicCredentialsProvider();
+                        for (final var httpHost : httpHosts) {
+                            credentialsProvider.setCredentials(
+                                new AuthScope(httpHost), 
+                                new UsernamePasswordCredentials(username, password.toCharArray())
+                            );
+                        }
+                        httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                    } else {
+                        LOG.debug("No authentication credentials provided - connecting without auth");
                     }
-                    
-                    httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
                     
                     // Configure SSL if needed
                     if (finalSslContext != null) {

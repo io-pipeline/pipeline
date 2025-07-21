@@ -17,20 +17,22 @@ docker compose up -d
 
 # Wait for OpenSearch to be ready
 echo "⏳ Waiting for OpenSearch to start..."
-until curl -k -u admin:$OPENSEARCH_INITIAL_ADMIN_PASSWORD https://localhost:9200/_cluster/health > /dev/null 2>&1; do
+until curl http://localhost:9200/_cluster/health > /dev/null 2>&1; do
     echo "   Still starting..."
     sleep 5
 done
 
 echo "✅ OpenSearch is ready!"
-echo "🌐 OpenSearch API: https://localhost:9200"
+echo "🌐 OpenSearch API: http://localhost:9200"
 echo "📊 OpenSearch Dashboards: http://localhost:5601"
 echo ""
 echo "🔧 Seeding sample vector indices..."
 
+# Wait a bit more for security to initialize
+sleep 10
+
 # Create sample vector index for document chunks
-curl -k -X PUT "https://localhost:9200/documents" \
-     -u admin:$OPENSEARCH_INITIAL_ADMIN_PASSWORD \
+curl -X PUT "http://localhost:9200/documents" \
      -H 'Content-Type: application/json' \
      -d '{
   "mappings": {
@@ -44,7 +46,7 @@ curl -k -X PUT "https://localhost:9200/documents" \
         "dimension": 384,
         "method": {
           "name": "hnsw",
-          "space_type": "cosinesimilarity",
+          "space_type": "cosine",
           "engine": "lucene"
         }
       },

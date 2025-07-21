@@ -258,13 +258,14 @@ public class PipeStreamTestResource {
     public Uni<Response> createTestPipeline() {
         LOG.info("Creating simple test pipeline");
 
-        // Create basic pipeline config with parser -> chunker -> embedder
+        // Create basic pipeline config with parser -> chunker -> embedder -> opensearch-sink
         PipelineConfig config = new PipelineConfig(
                 "test-pipeline",
                 Map.of(
                         "parse-docs", createStepWithOutput("parse-docs", StepType.PIPELINE, "parser", "chunk-text"),
                         "chunk-text", createStepWithOutput("chunk-text", StepType.PIPELINE, "chunker", "embed-chunks"), 
-                        "embed-chunks", createStep("embed-chunks", StepType.SINK, "embedder")
+                        "embed-chunks", createStepWithOutput("embed-chunks", StepType.PIPELINE, "embedder", "store-vectors"),
+                        "store-vectors", createStep("store-vectors", StepType.SINK, "opensearch-sink")
                 )
         );
 

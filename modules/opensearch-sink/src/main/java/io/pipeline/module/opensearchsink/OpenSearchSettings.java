@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import io.quarkus.cache.CacheResult;
+// import io.quarkus.cache.CacheResult; // Cache dependency not needed for now
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -35,14 +35,16 @@ public class OpenSearchSettings {
     @ConfigProperty(name = "opensearch.default.vector-dimension")
     int defaultVectorDimension;
     
+    @ConfigProperty(name = "opensearch.default.vector-space-type")
+    String defaultVectorSpaceType;
+    
     @ConfigProperty(name = "opensearch.cluster.name", defaultValue = "opensearch-cluster")
     String clusterName;
     
     @ConfigProperty(name = "opensearch.pipeline.name", defaultValue = "default-pipeline")
     String pipelineName;
     
-    @Inject
-    ConsulClient consulClient;
+    // ConsulClient injection removed for now - can be added later for schema storage
     
     /**
      * Get the index schema for the specified index name.
@@ -51,7 +53,7 @@ public class OpenSearchSettings {
      * @param indexName The name of the index
      * @return The index schema
      */
-    @CacheResult(cacheName = "index-schema-cache")
+    // @CacheResult(cacheName = "index-schema-cache") // Cache dependency not needed for now
     public IndexSchema getIndexSchema(String indexName) {
         LOG.debugf("Getting index schema for %s", indexName);
         
@@ -61,26 +63,12 @@ public class OpenSearchSettings {
             return indexSchemaCache.get(indexName);
         }
         
-        // Try to get from Consul
-        try {
-            String metadataKey = "opensearch/schemas/" + indexName;
-            var keyValue = consulClient.getValue(metadataKey)
-                .await().indefinitely();
-            String schemaJson = keyValue != null ? keyValue.getValue() : null;
-                
-            if (schemaJson != null && !schemaJson.isEmpty()) {
-                LOG.debugf("Found index schema in Consul for %s", indexName);
-                IndexSchema schema = OBJECT_MAPPER.readValue(schemaJson, IndexSchema.class);
-                indexSchemaCache.put(indexName, schema);
-                return schema;
-            }
-        } catch (Exception e) {
-            LOG.warnf(e, "Failed to get schema from Consul for index %s", indexName);
-        }
+        // TODO: Try to get from Consul (ConsulClient injection disabled for now)
+        // Consul integration can be added later for centralized schema storage
         
         // Create a new schema if not found
         LOG.debugf("Creating new index schema for %s", indexName);
-        IndexSchema schema = new IndexSchema(indexName, defaultVectorDimension, "default", "cosinesimilarity");
+        IndexSchema schema = new IndexSchema(indexName, defaultVectorDimension, "default", defaultVectorSpaceType);
         indexSchemaCache.put(indexName, schema);
         return schema;
     }
@@ -91,21 +79,11 @@ public class OpenSearchSettings {
      * @param schema The index schema to store
      */
     public void storeIndexSchema(IndexSchema schema) {
-        try {
-            String metadataKey = "opensearch/schemas/" + schema.getIndexName();
-            String schemaJson = OBJECT_MAPPER.writeValueAsString(schema);
-            
-            // Store in Consul
-            consulClient.putValue(metadataKey, schemaJson)
-                .await().indefinitely();
-                
-            // Update local cache
-            indexSchemaCache.put(schema.getIndexName(), schema);
-            
-            LOG.debugf("Stored schema metadata in Consul: %s", metadataKey);
-        } catch (Exception e) {
-            LOG.warnf(e, "Failed to store schema metadata in Consul for index %s", schema.getIndexName());
-        }
+        // Update local cache only for now
+        indexSchemaCache.put(schema.getIndexName(), schema);
+        LOG.debugf("Stored schema metadata locally: %s", schema.getIndexName());
+        
+        // TODO: Store in Consul when ConsulClient integration is enabled
     }
     
     /**
@@ -148,6 +126,15 @@ public class OpenSearchSettings {
      */
     public String getPipelineName() {
         return pipelineName;
+    }
+    
+    /**
+     * Get the default vector space type.
+     * 
+     * @return The default vector space type
+     */
+    public String getDefaultVectorSpaceType() {
+        return defaultVectorSpaceType;
     }
     
     /**

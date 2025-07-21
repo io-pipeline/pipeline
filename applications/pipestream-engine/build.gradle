@@ -21,8 +21,10 @@ dependencies {
     implementation 'io.quarkus:quarkus-smallrye-openapi'
     
     // Service Discovery dependencies for Consul
-    implementation 'io.smallrye.stork:stork-service-discovery-consul'
     implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-consul-client'
+
+    implementation 'io.smallrye.stork:stork-service-registration-consul'
+    implementation 'io.smallrye.stork:stork-service-discovery-consul'
 
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'

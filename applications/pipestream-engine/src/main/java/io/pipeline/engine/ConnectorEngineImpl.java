@@ -67,11 +67,9 @@ public class ConnectorEngineImpl implements ConnectorEngine {
             ? request.getSuggestedStreamId()
             : generateStreamId(request.getConnectorType());
         
-        // Create PipeStream from ConnectorRequest
-        PipeStream pipeStream = createPipeStream(request, streamId);
-        
-        // Forward to PipeStreamEngine for actual processing
-        return pipeStreamEngine.processPipeAsync(pipeStream)
+        // Create PipeStream from ConnectorRequest and forward to PipeStreamEngine
+        return createPipeStream(request, streamId)
+            .flatMap(pipeStream -> pipeStreamEngine.processPipeAsync(pipeStream))
             .onItem().transform(processResponse -> {
                 LOG.infof("PipeStreamEngine response - stream_id: %s, status: %s", 
                          processResponse.getStreamId(), processResponse.getStatus());
@@ -99,56 +97,65 @@ public class ConnectorEngineImpl implements ConnectorEngine {
      * Create PipeStream from ConnectorRequest.
      * This converts the connector's document into a pipeline execution request.
      */
-    private PipeStream createPipeStream(ConnectorRequest request, String streamId) {
-        // Look up connector configuration from Consul
-        String cluster = "dev"; // Default
-        String targetStepName = "parse-docs"; // Default
+    private Uni<PipeStream> createPipeStream(ConnectorRequest request, String streamId) {
+        // Look up connector config in Consul KV store
+        String kvKey = "connectors/" + request.getConnectorId();
+        LOG.debugf("Looking up connector config for: %s", kvKey);
         
-        try {
-            // Look up connector config in Consul KV store
-            String kvKey = "connectors/" + request.getConnectorId();
-            LOG.debugf("Looking up connector config for: %s", kvKey);
-            
-            var kvResult = consulClient.getValue(kvKey)
-                .await().indefinitely();
+        return consulClient.getValue(kvKey)
+            .onItem().transform(kvResult -> {
+                String cluster = "dev"; // Default
+                String targetStepName = "parse-docs"; // Default
                 
-            if (kvResult != null && kvResult.getValue() != null) {
-                String configJson = kvResult.getValue();
-                JsonNode config = objectMapper.readTree(configJson);
-                cluster = config.get("cluster").asText("dev");
-                
-                // Get first pipeline step as target
-                JsonNode stepsNode = config.get("pipeline_steps");
-                if (stepsNode != null && stepsNode.isArray() && !stepsNode.isEmpty()) {
-                    targetStepName = stepsNode.get(0).asText();
+                try {
+                    if (kvResult != null && kvResult.getValue() != null) {
+                        String configJson = kvResult.getValue();
+                        JsonNode config = objectMapper.readTree(configJson);
+                        cluster = config.get("cluster").asText("dev");
+                        
+                        // Get first pipeline step as target
+                        JsonNode stepsNode = config.get("pipeline_steps");
+                        if (stepsNode != null && stepsNode.isArray() && !stepsNode.isEmpty()) {
+                            targetStepName = stepsNode.get(0).asText();
+                        }
+                        
+                        LOG.infof("Loaded connector config - cluster: %s, first_step: %s", cluster, targetStepName);
+                    } else {
+                        LOG.warnf("No connector config found for %s, using defaults", request.getConnectorId());
+                    }
+                } catch (Exception e) {
+                    LOG.warnf(e, "Failed to load connector config for %s, using defaults", request.getConnectorId());
                 }
                 
-                LOG.infof("Loaded connector config - cluster: %s, first_step: %s", cluster, targetStepName);
-            } else {
-                LOG.warnf("No connector config found for %s, using defaults", request.getConnectorId());
-            }
-        } catch (Exception e) {
-            LOG.warnf(e, "Failed to load connector config for %s, using defaults", request.getConnectorId());
-        }
+                return new String[]{cluster, targetStepName};
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                LOG.warnf(throwable, "Failed to load connector config for %s, using defaults", request.getConnectorId());
+                return new String[]{"dev", "parse-docs"};
+            })
+            .map(config -> {
+                String cluster = config[0];
+                String targetStepName = config[1];
         
-        // Build context params - include cluster name and connector context
-        var contextParamsBuilder = PipeStream.newBuilder()
-            .setStreamId(streamId)
-            .setDocument(request.getDocument())
-            .setCurrentPipelineName("test-pipeline") // Use existing test pipeline
-            .setTargetStepName(targetStepName)
-            .setCurrentHopNumber(0)
-            .setActionType(ActionType.CREATE) // Connectors always create
-            .putContextParams("cluster", cluster)
-            .putContextParams("connector_type", request.getConnectorType())
-            .putContextParams("connector_id", request.getConnectorId());
-            
-        // Add any additional context params from the request
-        if (request.getContextParamsCount() > 0) {
-            contextParamsBuilder.putAllContextParams(request.getContextParamsMap());
-        }
-        
-        return contextParamsBuilder.build();
+                // Build context params - include cluster name and connector context
+                var contextParamsBuilder = PipeStream.newBuilder()
+                    .setStreamId(streamId)
+                    .setDocument(request.getDocument())
+                    .setCurrentPipelineName("test-pipeline") // Use existing test pipeline
+                    .setTargetStepName(targetStepName)
+                    .setCurrentHopNumber(0)
+                    .setActionType(ActionType.CREATE) // Connectors always create
+                    .putContextParams("cluster", cluster)
+                    .putContextParams("connector_type", request.getConnectorType())
+                    .putContextParams("connector_id", request.getConnectorId());
+                    
+                // Add any additional context params from the request
+                if (request.getContextParamsCount() > 0) {
+                    contextParamsBuilder.putAllContextParams(request.getContextParamsMap());
+                }
+                
+                return contextParamsBuilder.build();
+            });
     }
     
     /**

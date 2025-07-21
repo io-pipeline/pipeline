@@ -6,6 +6,8 @@ import io.pipeline.data.model.PipeStream;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.StepExecutionRecord;
 import io.pipeline.data.module.MutinyPipeStepProcessorGrpc;
+import io.pipeline.data.module.PipeStepProcessor;
+import io.pipeline.api.annotation.PipelineAutoRegister;
 import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ModuleProcessResponse;
 import io.pipeline.data.module.ProcessConfiguration;
