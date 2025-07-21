@@ -12,8 +12,13 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Singleton;
 import jakarta.annotation.PostConstruct;
 import org.jboss.logging.Logger;
+import io.vertx.mutiny.ext.consul.ConsulClient;
+import jakarta.inject.Inject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.UUID;
+import java.util.List;
 
 /**
  * ConnectorEngine - Lightweight wrapper that receives connector requests
@@ -27,6 +32,11 @@ public class ConnectorEngineImpl implements ConnectorEngine {
     
     @GrpcClient("pipestream-engine")
     PipeStreamEngine pipeStreamEngine;
+    
+    @Inject
+    ConsulClient consulClient;
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
     
     @PostConstruct
     void init() {
@@ -90,18 +100,55 @@ public class ConnectorEngineImpl implements ConnectorEngine {
      * This converts the connector's document into a pipeline execution request.
      */
     private PipeStream createPipeStream(ConnectorRequest request, String streamId) {
-        // For now, use simple mapping - later will read from Consul
-        String pipelineName = mapConnectorTypeToPipeline(request.getConnectorType());
-        String targetStepName = "first-step"; // TODO: Read from pipeline config in Consul
+        // Look up connector configuration from Consul
+        String cluster = "dev"; // Default
+        String targetStepName = "parse-docs"; // Default
         
-        return PipeStream.newBuilder()
+        try {
+            // Look up connector config in Consul KV store
+            String kvKey = "connectors/" + request.getConnectorId();
+            LOG.debugf("Looking up connector config for: %s", kvKey);
+            
+            var kvResult = consulClient.getValue(kvKey)
+                .await().indefinitely();
+                
+            if (kvResult != null && kvResult.getValue() != null) {
+                String configJson = kvResult.getValue();
+                JsonNode config = objectMapper.readTree(configJson);
+                cluster = config.get("cluster").asText("dev");
+                
+                // Get first pipeline step as target
+                JsonNode stepsNode = config.get("pipeline_steps");
+                if (stepsNode != null && stepsNode.isArray() && !stepsNode.isEmpty()) {
+                    targetStepName = stepsNode.get(0).asText();
+                }
+                
+                LOG.infof("Loaded connector config - cluster: %s, first_step: %s", cluster, targetStepName);
+            } else {
+                LOG.warnf("No connector config found for %s, using defaults", request.getConnectorId());
+            }
+        } catch (Exception e) {
+            LOG.warnf(e, "Failed to load connector config for %s, using defaults", request.getConnectorId());
+        }
+        
+        // Build context params - include cluster name and connector context
+        var contextParamsBuilder = PipeStream.newBuilder()
             .setStreamId(streamId)
             .setDocument(request.getDocument())
-            .setCurrentPipelineName(pipelineName)
+            .setCurrentPipelineName("test-pipeline") // Use existing test pipeline
             .setTargetStepName(targetStepName)
             .setCurrentHopNumber(0)
             .setActionType(ActionType.CREATE) // Connectors always create
-            .build();
+            .putContextParams("cluster", cluster)
+            .putContextParams("connector_type", request.getConnectorType())
+            .putContextParams("connector_id", request.getConnectorId());
+            
+        // Add any additional context params from the request
+        if (request.getContextParamsCount() > 0) {
+            contextParamsBuilder.putAllContextParams(request.getContextParamsMap());
+        }
+        
+        return contextParamsBuilder.build();
     }
     
     /**

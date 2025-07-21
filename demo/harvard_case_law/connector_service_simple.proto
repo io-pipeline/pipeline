@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package io.pipeline.search.engine;
+
+option java_multiple_files = true;
+option java_package = "io.pipeline.processor.engine";
+option java_outer_classname = "ConnectorServiceProto";
+
+import "pipeline_core_types.proto";
+
+message ConnectorRequest {
+  string connector_type = 1;
+  string connector_id = 9;
+  io.pipeline.search.model.PipeDoc document = 2;
+  repeated string tags = 3;
+  optional io.pipeline.search.model.BatchInfo batch_info = 4;
+  map<string, string> context_params = 5;
+  optional string suggested_stream_id = 6;
+  optional int32 priority = 7;
+  optional string connector_version = 8;
+}
+
+message ConnectorResponse {
+  string stream_id = 1;
+  bool accepted = 2;
+  string message = 3;
+}
+
+service ConnectorEngine {
+  rpc processConnectorDoc(ConnectorRequest) returns (ConnectorResponse);
+}
