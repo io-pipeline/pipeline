@@ -77,7 +77,7 @@ message TestEvent {
 
 // Command to process a document
 message ProcessDocumentCommand {
-    io.pipeline.search.model.ProcessRequest request = 1;
+    io.pipeline.search.model.ModuleProcessRequest request = 1;
     bool expect_success = 2;
     int64 timeout_ms = 3;
 }

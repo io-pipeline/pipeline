@@ -62,8 +62,8 @@ public abstract class DynamicGrpcClientFactoryTestBase {
         assertThat(client).isNotNull();
         
         // And we can make a call
-        ProcessRequest request = createTestRequest();
-        ProcessResponse response = client.processData(request)
+        ModuleProcessRequest request = createTestRequest();
+        ModuleProcessResponse response = client.processData(request)
             .await().atMost(java.time.Duration.ofSeconds(5));
         
         assertThat(response).isNotNull();
@@ -83,11 +83,11 @@ public abstract class DynamicGrpcClientFactoryTestBase {
         assertThat(factory.getActiveChannelCount()).isEqualTo(1);
         
         // And both clients should work
-        ProcessRequest request = createTestRequest();
+        ModuleProcessRequest request = createTestRequest();
         
-        ProcessResponse response1 = client1.processData(request)
+        ModuleProcessResponse response1 = client1.processData(request)
             .await().atMost(java.time.Duration.ofSeconds(5));
-        ProcessResponse response2 = client2.processData(request)
+        ModuleProcessResponse response2 = client2.processData(request)
             .await().atMost(java.time.Duration.ofSeconds(5));
         
         assertThat(response1.getSuccess()).isTrue();
@@ -112,10 +112,10 @@ public abstract class DynamicGrpcClientFactoryTestBase {
         var mutinyClient = getFactory().getMutinyClient("localhost", testGrpcPort);
         
         // Then we can make reactive calls
-        ProcessRequest request = createTestRequest();
+        ModuleProcessRequest request = createTestRequest();
         
-        Uni<ProcessResponse> responseUni = mutinyClient.processData(request);
-        ProcessResponse response = responseUni
+        Uni<ModuleProcessResponse> responseUni = mutinyClient.processData(request);
+        ModuleProcessResponse response = responseUni
             .await().atMost(java.time.Duration.ofSeconds(5));
         
         assertThat(response).isNotNull();
@@ -123,8 +123,8 @@ public abstract class DynamicGrpcClientFactoryTestBase {
         assertThat(response.getOutputDoc().getBody()).contains("Processed:");
     }
     
-    protected ProcessRequest createTestRequest() {
-        return ProcessRequest.newBuilder()
+    protected ModuleProcessRequest createTestRequest() {
+        return ModuleProcessRequest.newBuilder()
             .setDocument(PipeDoc.newBuilder()
                 .setId("test-doc-1")
                 .setBody("Test content")
@@ -142,8 +142,8 @@ public abstract class DynamicGrpcClientFactoryTestBase {
      */
     static class TestPipeStepProcessor extends PipeStepProcessorGrpc.PipeStepProcessorImplBase {
         @Override
-        public void processData(ProcessRequest request, StreamObserver<ProcessResponse> responseObserver) {
-            ProcessResponse response = ProcessResponse.newBuilder()
+        public void processData(ModuleProcessRequest request, StreamObserver<ModuleProcessResponse> responseObserver) {
+            ModuleProcessResponse response = ModuleProcessResponse.newBuilder()
                 .setSuccess(true)
                 .setOutputDoc(PipeDoc.newBuilder()
                     .setId(request.getDocument().getId())

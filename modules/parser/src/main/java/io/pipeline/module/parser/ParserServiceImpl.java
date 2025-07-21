@@ -21,7 +21,7 @@ import java.util.Map;
 @Singleton // Ensures only one instance is created
 @PipelineAutoRegister(
         moduleType = "parser", // Type identifier for this module
-        useHttpPort = true,  // Using unified HTTP/gRPC server on port 39100
+        useHttpPort = true,  // Using unified HTTP/gRPC server on port 39101
         metadata = {"category=processor", "complexity=medium"} // Additional metadata for discovery
 )
 public class ParserServiceImpl implements PipeStepProcessor {
@@ -29,17 +29,17 @@ public class ParserServiceImpl implements PipeStepProcessor {
     private static final Logger LOG = Logger.getLogger(ParserServiceImpl.class);
 
     @Inject
-    @Named("outputBuffer")
+    @Named("parserOutputBuffer")
     ProcessingBuffer<PipeDoc> outputBuffer;
 
     @Override
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         LOG.debugf("Parser service received document: %s", 
                  request.hasDocument() ? request.getDocument().getId() : "no document");
 
         return Uni.createFrom().item(() -> {
             try {
-                ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder()
+                ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder()
                         .setSuccess(true);
 
                 if (request.hasDocument()) {
@@ -103,7 +103,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
             } catch (Exception e) {
                 LOG.error("Error parsing document: " + e.getMessage(), e);
 
-                return ProcessResponse.newBuilder()
+                return ModuleProcessResponse.newBuilder()
                         .setSuccess(false)
                         .addProcessorLogs("Parser service failed to process document: " + e.getMessage())
                         .addProcessorLogs("Error type: " + e.getClass().getSimpleName())
@@ -111,7 +111,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
             } catch (AssertionError e) {
                 LOG.error("Assertion error parsing document: " + e.getMessage(), e);
 
-                return ProcessResponse.newBuilder()
+                return ModuleProcessResponse.newBuilder()
                         .setSuccess(false)
                         .addProcessorLogs("Parser service failed with assertion error: " + e.getMessage())
                         .addProcessorLogs("This may be a Tika internal issue with the document format")
@@ -119,7 +119,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
             } catch (Throwable t) {
                 LOG.error("Unexpected error parsing document: " + t.getMessage(), t);
 
-                return ProcessResponse.newBuilder()
+                return ModuleProcessResponse.newBuilder()
                         .setSuccess(false)
                         .addProcessorLogs("Parser service failed with unexpected error: " + t.getMessage())
                         .addProcessorLogs("Error type: " + t.getClass().getSimpleName())
@@ -183,7 +183,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
     }
     
     @Override
-    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         LOG.debug("TestProcessData called - proxying to processData");
         return processData(request);
     }
@@ -204,7 +204,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
     /**
      * Extracts configuration parameters from the process request.
      */
-    private Map<String, String> extractConfiguration(ProcessRequest request) {
+    private Map<String, String> extractConfiguration(ModuleProcessRequest request) {
         Map<String, String> config = new HashMap<>();
 
         // Extract from config params if available

@@ -72,7 +72,7 @@ public class SchemaValidator implements ModeAwareValidator<PipelineConfig> {
             
             // Check for required step types in production mode
             if (mode == ValidationMode.PRODUCTION) {
-                validateStepTypes(config, errors);
+                validateStepTypes(config, errors, warnings);
             }
         }
         
@@ -172,7 +172,7 @@ public class SchemaValidator implements ModeAwareValidator<PipelineConfig> {
         }
     }
     
-    private void validateStepTypes(PipelineConfig config, List<String> errors) {
+    private void validateStepTypes(PipelineConfig config, List<String> errors, List<String> warnings) {
         boolean hasInitial = false;
         boolean hasRegular = false;
         
@@ -185,7 +185,9 @@ public class SchemaValidator implements ModeAwareValidator<PipelineConfig> {
         }
         
         if (!hasInitial) {
-            errors.add("Pipeline must have at least one CONNECTOR step as entry point");
+            // TODO: Change tests to reflect that pipelines can have inputs from Kafka without CONNECTOR steps
+            // This should be a warning, not an error, since pipelines can receive inputs from Kafka
+            warnings.add("Pipeline has no CONNECTOR step - ensure input comes from Kafka or external source");
         }
     }
     

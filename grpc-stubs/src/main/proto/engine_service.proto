@@ -16,7 +16,7 @@ enum ProcessStatus {
 }
 
 // Response for engine processing operations
-message ProcessResponse {
+message PipeStreamResponse {
   string stream_id = 1;
   ProcessStatus status = 2;
   string message = 3;
@@ -29,6 +29,6 @@ service PipeStreamEngine {
   // --- Existing RPCs (can be kept for specific internal/advanced use cases or deprecated over time) ---
   // --- NOTE: a sink has the same signature - the engine controls the outgoing routing, if it's a sink implementation then that will be noted in the step
   rpc testPipeStream(io.pipeline.search.model.PipeStream) returns (io.pipeline.search.model.PipeStream);
-  rpc processPipeAsync(io.pipeline.search.model.PipeStream) returns (ProcessResponse);
-  rpc processPipeStream(stream io.pipeline.search.model.PipeStream) returns (stream ProcessResponse);
+  rpc processPipeAsync(io.pipeline.search.model.PipeStream) returns (PipeStreamResponse);
+  rpc processPipeStream(stream io.pipeline.search.model.PipeStream) returns (stream PipeStreamResponse);
 }

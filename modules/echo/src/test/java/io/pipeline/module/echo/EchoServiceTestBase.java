@@ -52,7 +52,7 @@ public abstract class EchoServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(config)
@@ -75,7 +75,7 @@ public abstract class EchoServiceTestBase {
     @Test
     void testProcessDataWithoutDocument() {
         // Test with no document - should still succeed (echo service is tolerant)
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
                         .setPipeStepName("echo-step")
@@ -121,7 +121,7 @@ public abstract class EchoServiceTestBase {
                 .setBody("Health check test")
                 .build();
 
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("health-check")
@@ -160,7 +160,7 @@ public abstract class EchoServiceTestBase {
                 .putContextParams("region", "us-east-1")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(PipeDoc.newBuilder()
                         .setId("metadata-test-doc")
                         .setBody("Test metadata propagation")
@@ -200,7 +200,7 @@ public abstract class EchoServiceTestBase {
                 .setTitle("Large Document Test")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(largeDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("large-doc-test")
@@ -233,7 +233,7 @@ public abstract class EchoServiceTestBase {
                 .setCustomData(existingCustomData)
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(docWithCustomData)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("custom-data-test")

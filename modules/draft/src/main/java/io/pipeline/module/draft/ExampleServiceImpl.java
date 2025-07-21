@@ -8,7 +8,6 @@ import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -52,12 +51,12 @@ public class ExampleServiceImpl implements PipeStepProcessor {
      */
     @Override
     @ProcessingBuffered(type = PipeDoc.class, enabled = "${processing.buffer.enabled:false}")
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         LOG.debugf("Draft service received document: %s", 
                  request.hasDocument() ? request.getDocument().getId() : "no document");
 
         // Build response with success status
-        ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder()
+        ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder()
                 .setSuccess(true)
                 .addProcessorLogs("Draft service successfully processed document");
 
@@ -98,7 +97,7 @@ public class ExampleServiceImpl implements PipeStepProcessor {
             responseBuilder.addProcessorLogs("Draft service added metadata to document");
         }
 
-        ProcessResponse response = responseBuilder.build();
+        ModuleProcessResponse response = responseBuilder.build();
         LOG.debugf("Draft service returning success: %s", response.getSuccess());
 
         return Uni.createFrom().item(response);
@@ -187,7 +186,7 @@ public class ExampleServiceImpl implements PipeStepProcessor {
      * @return A response containing the processed document with test markers
      */
     @Override
-    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         LOG.debug("TestProcessData called - executing test version of processing");
 
         // For test processing, create a test document if none provided
@@ -204,7 +203,7 @@ public class ExampleServiceImpl implements PipeStepProcessor {
                     .setPipelineName("test-pipeline")
                     .build();
 
-            request = ProcessRequest.newBuilder()
+            request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(testMetadata)
                     .build();
@@ -214,7 +213,7 @@ public class ExampleServiceImpl implements PipeStepProcessor {
         return processData(request)
                 .onItem().transform(response -> {
                     // Add test marker to logs
-                    ProcessResponse.Builder builder = response.toBuilder();
+                    ModuleProcessResponse.Builder builder = response.toBuilder();
                     for (int i = 0; i < builder.getProcessorLogsCount(); i++) {
                         builder.setProcessorLogs(i, "[TEST] " + builder.getProcessorLogs(i));
                     }

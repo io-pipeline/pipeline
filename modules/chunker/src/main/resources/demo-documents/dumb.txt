@@ -1,0 +1,163 @@
+Guide: Programmatically Accessing Your OpenAPI Schema
+This guide will walk you through the full process of accessing the OpenAPI schema generated from your ChunkerConfig record. We will:
+
+Ensure your project is correctly configured for JSON Schema compatibility.
+
+Create a service to programmatically access the specific ChunkerConfig schema object.
+
+Demonstrate how to use this service to retrieve the schema and pass it to another function.
+
+Step 1: Ensure Project Dependencies
+First, confirm your pom.xml contains the necessary dependencies for OpenAPI, JAX-RS, and Jackson. Your existing setup with Swagger UI likely means you have these, but it's good to double-check.
+
+<dependencies>
+    <!-- For REST Endpoints and Jackson Serialization -->
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
+    </dependency>
+
+    <!-- For OpenAPI and Swagger UI -->
+    <dependency>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-smallrye-openapi</artifactId>
+    </dependency>
+</dependencies>
+
+Step 2: Configure for JSON Schema Compatibility (Crucial)
+As discussed, a default OpenAPI v3.0 schema is not fully compatible with JSON Schema Draft 7. To fix this, you must configure Quarkus to generate an OpenAPI v3.1 document. The schema objects within OAS 3.1 are designed to be fully compatible with JSON Schema 2020-12, which is even newer and more capable than Draft 7.
+
+Add the following line to your src/main/resources/application.properties file:
+
+# This forces the generation of an OpenAPI 3.1.0 document.
+# The schemas within it are compatible with JSON Schema 2020-12.
+mp.openapi.version=3.1.0
+
+With this single line, the schema generated from your ChunkerConfig record will now be compliant with a modern JSON Schema standard.
+
+Step 3: Create a Service to Access the Schema
+The best practice for accessing the schema is to inject the generated OpenAPI model into a CDI bean. Let's create a dedicated service for this.
+
+SchemaProvider.java
+
+package io.pipeline.module.chunker.service;
+
+import org.eclipse.microprofile.openapi.models.OpenAPI;
+import org.eclipse.microprofile.openapi.models.media.Schema;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import java.util.Optional;
+
+/**
+ * A service that provides access to the generated OpenAPI schema model.
+ * It allows other parts of the application to retrieve specific schema definitions.
+ */
+@ApplicationScoped
+public class SchemaProvider {
+
+    @Inject
+    OpenAPI openapi; // The entire, fully-generated OpenAPI model is injected here.
+
+    /**
+     * Retrieves a specific schema definition by its name from the OpenAPI components.
+     *
+     * @param schemaName The name of the schema to retrieve (e.g., "ChunkerConfig").
+     * @return An Optional containing the Schema object if found, otherwise empty.
+     */
+    public Optional<Schema> getSchemaByName(String schemaName) {
+        if (openapi == null || openapi.getComponents() == null || openapi.getComponents().getSchemas() == null) {
+            // This is unlikely but a good defensive check.
+            return Optional.empty();
+        }
+
+        // The schema for your record is located in components -> schemas -> {SchemaName}
+        Schema schema = openapi.getComponents().getSchemas().get(schemaName);
+        return Optional.ofNullable(schema);
+    }
+
+    /**
+     * A convenience method specifically for your ChunkerConfig schema.
+     */
+    public Optional<Schema> getChunkerConfigSchema() {
+        return getSchemaByName("ChunkerConfig");
+    }
+}
+
+Step 4: Use the Service and Pass the Schema to a Function
+Now, you can inject your new SchemaProvider into any other bean (like a JAX-RS resource or a startup service) to get the schema and use it.
+
+Here’s an example of a JAX-RS resource that retrieves the schema and passes it to a mock validation function.
+
+SchemaResource.java
+
+package io.pipeline.module.chunker.api;
+
+import io.pipeline.module.chunker.service.SchemaProvider;
+import org.eclipse.microprofile.openapi.models.media.Schema;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.Optional;
+
+@Path("/api/schema")
+public class SchemaResource {
+
+    @Inject
+    SchemaProvider schemaProvider;
+
+    /**
+     * An example of how to use the schema internally.
+     * This function simulates passing the schema to some other logic.
+     */
+    private void processSchema(Schema chunkerSchema) {
+        System.out.println("---- Schema passed to internal function ----");
+        System.out.println("Schema Title: " + chunkerSchema.getTitle());
+        System.out.println("Schema Description: " + chunkerSchema.getDescription());
+        System.out.println("Required Fields: " + chunkerSchema.getRequired());
+        System.out.println("Full Schema Object (as String): " + chunkerSchema.toString());
+        System.out.println("------------------------------------------");
+        // Here you could pass 'chunkerSchema' to a validation library,
+        // a configuration generator, or any other function.
+    }
+
+    /**
+     * This endpoint retrieves the ChunkerConfig schema and returns it as JSON.
+     * It also demonstrates calling an internal function with the schema object.
+     */
+    @GET
+    @Path("/chunker-config")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getChunkerConfigSchema() {
+        Optional<Schema> schemaOptional = schemaProvider.getChunkerConfigSchema();
+
+        if (schemaOptional.isPresent()) {
+            Schema chunkerSchema = schemaOptional.get();
+
+            // *** This is where you pass the schema object to your function call ***
+            processSchema(chunkerSchema);
+
+            // You can also return it directly from the endpoint
+            return Response.ok(chunkerSchema).build();
+        } else {
+            return Response.status(Response.Status.NOT_FOUND)
+                           .entity("Schema 'ChunkerConfig' not found.")
+                           .build();
+        }
+    }
+}
+
+Summary of Your ChunkerConfig Record
+Your use of annotations on the ChunkerConfig record is excellent and works perfectly with this system:
+
+@Schema(name = "ChunkerConfig", ...): Correctly sets the name we use to look up the schema ("ChunkerConfig").
+
+@JsonProperty("algorithm"): Ensures the field name in the schema matches the JSON.
+
+@Schema(description = "...", required = true, ...) on each field: This is the correct way to define properties. The required = true on algorithm and chunkSize will automatically populate the required array in the final schema object.
+
+After running your application in dev mode (./mvnw quarkus:dev), you can now access http://localhost:8080/api/schema/chunker-config to see the JSON Schema for your ChunkerConfig, and you will see the output from the processSchema method in your console logs.

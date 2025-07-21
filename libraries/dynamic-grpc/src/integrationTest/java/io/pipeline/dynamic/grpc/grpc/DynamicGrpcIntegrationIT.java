@@ -203,7 +203,7 @@ class DynamicGrpcIntegrationIT {
         assertThat(client).isNotNull();
         
         // Make a gRPC call
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
             .setDocument(PipeDoc.newBuilder()
                 .setId("test-doc-1")
                 .setBody("Hello, World!")
@@ -215,7 +215,7 @@ class DynamicGrpcIntegrationIT {
                 .build())
             .build();
         
-        ProcessResponse response = client.processData(request)
+        ModuleProcessResponse response = client.processData(request)
             .await().atMost(Duration.ofSeconds(5));
         
         assertThat(response).isNotNull();
@@ -255,7 +255,7 @@ class DynamicGrpcIntegrationIT {
         assertThat(mutinyClient).isNotNull();
         
         // Make a reactive gRPC call
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
             .setDocument(PipeDoc.newBuilder()
                 .setId("test-doc-2")
                 .setBody("Hello, Mutiny!")
@@ -268,7 +268,7 @@ class DynamicGrpcIntegrationIT {
             .build();
         
         // Use the Mutiny API directly
-        ProcessResponse response = mutinyClient.processData(request)
+        ModuleProcessResponse response = mutinyClient.processData(request)
             .await().atMost(Duration.ofSeconds(5));
         
         assertThat(response).isNotNull();
@@ -321,7 +321,7 @@ class DynamicGrpcIntegrationIT {
                 PipeStepProcessor client = clientFactory.getClientForServiceUncached(serviceName)
                     .await().atMost(Duration.ofSeconds(5));
                 
-                ProcessRequest request = ProcessRequest.newBuilder()
+                ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(PipeDoc.newBuilder()
                         .setId("test-doc-" + i)
                         .setBody("test")
@@ -333,7 +333,7 @@ class DynamicGrpcIntegrationIT {
                         .build())
                     .build();
                 
-                ProcessResponse response = client.processData(request)
+                ModuleProcessResponse response = client.processData(request)
                     .await().atMost(Duration.ofSeconds(5));
                 
                 String responseText = response.getOutputDoc().getBody();
@@ -502,9 +502,9 @@ class DynamicGrpcIntegrationIT {
         }
         
         @Override
-        public void processData(ProcessRequest request, StreamObserver<ProcessResponse> responseObserver) {
+        public void processData(ModuleProcessRequest request, StreamObserver<ModuleProcessResponse> responseObserver) {
             String payload = request.getDocument().getBody();
-            ProcessResponse response = ProcessResponse.newBuilder()
+            ModuleProcessResponse response = ModuleProcessResponse.newBuilder()
                 .setSuccess(true)
                 .setOutputDoc(PipeDoc.newBuilder()
                     .setId(request.getDocument().getId())

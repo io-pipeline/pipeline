@@ -1,0 +1,57 @@
+plugins {
+    id 'java-library'
+    alias(libs.plugins.quarkus)
+    alias(libs.plugins.jandex)
+}
+
+group = 'io.pipeline'
+version = '1.0.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform(project(':bom'))
+
+    // Core dependencies for testing framework
+    implementation 'io.quarkus:quarkus-junit5'
+    implementation 'org.junit.jupiter:junit-jupiter-api'
+    implementation 'io.quarkus:quarkus-test-common'
+    
+    // Consul client dependencies
+    implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-consul-client'
+    implementation 'io.vertx:vertx-consul-client'
+    implementation 'org.jboss.logging:jboss-logging'
+    
+    // Pipeline API dependencies 
+    implementation project(':libraries:pipeline-api')
+    
+    // JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    
+    // For logging
+    implementation 'io.quarkus:quarkus-core'
+}
+
+tasks.named('compileJava') {
+    dependsOn tasks.named('compileQuarkusGeneratedSourcesJava')
+}
+
+tasks.named('compileTestJava') {
+    dependsOn tasks.named('jandex')
+}
+
+// Publish artifacts for use by other modules
+configurations {
+    testArtifacts
+}
+
+tasks.register('testJar', Jar) {
+    archiveClassifier = 'tests'
+    from sourceSets.main.output
+}
+
+artifacts {
+    testArtifacts testJar
+}

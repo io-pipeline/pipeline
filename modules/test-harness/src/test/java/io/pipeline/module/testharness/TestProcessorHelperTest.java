@@ -2,8 +2,8 @@ package io.pipeline.module.testharness;
 
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.PipeStepProcessor;
-import io.pipeline.data.module.ProcessRequest;
-import io.pipeline.data.module.ProcessResponse;
+import io.pipeline.data.module.ModuleProcessRequest;
+import io.pipeline.data.module.ModuleProcessResponse;
 import io.pipline.module.testharness.TestProcessorHelper;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
@@ -32,14 +32,14 @@ class TestProcessorHelperTest {
     void testHelperWithSimpleRequest() {
         // Given
         LOG.debug("Testing TestProcessorHelper with simple request");
-        ProcessRequest request = createSimpleRequest();
+        ModuleProcessRequest request = createSimpleRequest();
         
         // When
-        UniAssertSubscriber<ProcessResponse> subscriber = testProcessor
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = testProcessor
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
         
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
         
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response.getSuccess()).isTrue() -> Hamcrest: assertThat("Response should be successful", response.getSuccess(), is(true))
@@ -59,14 +59,14 @@ class TestProcessorHelperTest {
         
         // Test with valid document
         PipeDoc validDoc = createValidDocument();
-        ProcessRequest validRequest = createSchemaValidationRequest(validDoc);
+        ModuleProcessRequest validRequest = createSchemaValidationRequest(validDoc);
         
         // When - Process valid document
-        UniAssertSubscriber<ProcessResponse> validSubscriber = testProcessor
+        UniAssertSubscriber<ModuleProcessResponse> validSubscriber = testProcessor
                 .processData(validRequest)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
         
-        ProcessResponse validResponse = validSubscriber.awaitItem().getItem();
+        ModuleProcessResponse validResponse = validSubscriber.awaitItem().getItem();
         
         // Then - Convert AssertJ to Hamcrest for valid document
         // AssertJ: assertThat(validResponse.getSuccess()).isTrue() -> Hamcrest: assertThat("Valid document should be processed successfully", validResponse.getSuccess(), is(true))
@@ -77,14 +77,14 @@ class TestProcessorHelperTest {
         
         // Given - Test with invalid document (missing title)
         PipeDoc invalidDoc = createDocumentWithoutTitle();
-        ProcessRequest invalidRequest = createSchemaValidationRequest(invalidDoc);
+        ModuleProcessRequest invalidRequest = createSchemaValidationRequest(invalidDoc);
         
         // When - Process invalid document
-        UniAssertSubscriber<ProcessResponse> invalidSubscriber = testProcessor
+        UniAssertSubscriber<ModuleProcessResponse> invalidSubscriber = testProcessor
                 .processData(invalidRequest)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
         
-        ProcessResponse invalidResponse = invalidSubscriber.awaitItem().getItem();
+        ModuleProcessResponse invalidResponse = invalidSubscriber.awaitItem().getItem();
         
         // Then - Convert AssertJ to Hamcrest for invalid document
         // AssertJ: assertThat(invalidResponse.getSuccess()).isFalse() -> Hamcrest: assertThat("Invalid document should fail processing", invalidResponse.getSuccess(), is(false))
@@ -116,7 +116,7 @@ class TestProcessorHelperTest {
                 .withCustomField("score", 0.95)
                 .build();
         
-        ProcessRequest request = requestBuilder()
+        ModuleProcessRequest request = requestBuilder()
                 .withDocument(document)
                 .withPipelineName("custom-pipeline")
                 .withStepName("custom-test-step")
@@ -128,11 +128,11 @@ class TestProcessorHelperTest {
                 .build();
         
         // When
-        UniAssertSubscriber<ProcessResponse> subscriber = testProcessor
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = testProcessor
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
         
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
         
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response.getSuccess()).isTrue() -> Hamcrest: assertThat("Custom configuration processing should be successful", response.getSuccess(), is(true))
@@ -158,14 +158,14 @@ class TestProcessorHelperTest {
     void testHelperWithErrorSimulation() {
         // Given
         LOG.debug("Testing error simulation with error request");
-        ProcessRequest errorRequest = createErrorRequest();
+        ModuleProcessRequest errorRequest = createErrorRequest();
         
         // When
-        UniAssertSubscriber<ProcessResponse> subscriber = testProcessor
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = testProcessor
                 .processData(errorRequest)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
         
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
         
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response.getSuccess()).isFalse() -> Hamcrest: assertThat("Error simulation should fail", response.getSuccess(), is(false))
@@ -204,7 +204,7 @@ class TestProcessorHelperTest {
         
         // Step 1: Initial processing
         LOG.debug("Executing Step 1: Initial processing");
-        ProcessRequest step1Request = requestBuilder()
+        ModuleProcessRequest step1Request = requestBuilder()
                 .withDocument(initialDoc)
                 .withStepName("step-1")
                 .withHopNumber(1)
@@ -212,7 +212,7 @@ class TestProcessorHelperTest {
                 .build();
         
         // When - Process Step 1
-        ProcessResponse step1Response = testProcessor
+        ModuleProcessResponse step1Response = testProcessor
                 .processData(step1Request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem().getItem();
@@ -223,7 +223,7 @@ class TestProcessorHelperTest {
         
         // Step 2: Validation
         LOG.debug("Executing Step 2: Validation processing");
-        ProcessRequest step2Request = requestBuilder()
+        ModuleProcessRequest step2Request = requestBuilder()
                 .withDocument(step1Response.getOutputDoc())
                 .withStepName("step-2-validation")
                 .withHopNumber(2)
@@ -231,7 +231,7 @@ class TestProcessorHelperTest {
                 .build();
         
         // When - Process Step 2
-        ProcessResponse step2Response = testProcessor
+        ModuleProcessResponse step2Response = testProcessor
                 .processData(step2Request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem().getItem();
@@ -246,7 +246,7 @@ class TestProcessorHelperTest {
         
         // Step 3: Transform
         LOG.debug("Executing Step 3: Transform processing");
-        ProcessRequest step3Request = requestBuilder()
+        ModuleProcessRequest step3Request = requestBuilder()
                 .withDocument(step2Response.getOutputDoc())
                 .withStepName("step-3-transform")
                 .withHopNumber(3)
@@ -255,7 +255,7 @@ class TestProcessorHelperTest {
                 .build();
         
         // When - Process Step 3
-        ProcessResponse step3Response = testProcessor
+        ModuleProcessResponse step3Response = testProcessor
                 .processData(step3Request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem().getItem();

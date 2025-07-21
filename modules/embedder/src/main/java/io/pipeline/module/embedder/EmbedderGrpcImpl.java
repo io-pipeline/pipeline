@@ -43,7 +43,7 @@ public class EmbedderGrpcImpl implements PipeStepProcessor {
 
     @RunOnVirtualThread
     @Override
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         return Uni.createFrom().item(() -> {
             if (request == null) {
                 log.error("Received null request");
@@ -59,7 +59,7 @@ public class EmbedderGrpcImpl implements PipeStepProcessor {
         });
     }
 
-    private Uni<ProcessResponse> processDocumentReactive(ProcessRequest request) {
+    private Uni<ModuleProcessResponse> processDocumentReactive(ModuleProcessRequest request) {
         if (!request.hasDocument()) {
             throw new IllegalArgumentException("No document provided in the request");
         }
@@ -75,7 +75,7 @@ public class EmbedderGrpcImpl implements PipeStepProcessor {
 
         return parseConfiguration(config, streamId, pipeStepName)
                 .chain(embedderOptions -> {
-                    ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder();
+                    ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder();
                     PipeDoc.Builder outputDocBuilder = inputDoc.toBuilder();
 
                     // Process chunks if available and enabled
@@ -303,7 +303,7 @@ public class EmbedderGrpcImpl implements PipeStepProcessor {
     }
 
 
-    private ProcessResponse buildSuccessResponse(ProcessResponse.Builder responseBuilder, PipeDoc.Builder outputDocBuilder) {
+    private ModuleProcessResponse buildSuccessResponse(ModuleProcessResponse.Builder responseBuilder, PipeDoc.Builder outputDocBuilder) {
         responseBuilder.setSuccess(true);
         responseBuilder.setOutputDoc(outputDocBuilder.build());
         return responseBuilder.build();
@@ -356,13 +356,13 @@ public class EmbedderGrpcImpl implements PipeStepProcessor {
     }
 
     @Override
-    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         log.debug("TestProcessData called - proxying to processData");
         return processData(request);
     }
 
-    private ProcessResponse createErrorResponse(String errorMessage, Throwable e) {
-        ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder();
+    private ModuleProcessResponse createErrorResponse(String errorMessage, Throwable e) {
+        ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder();
         responseBuilder.setSuccess(false);
         responseBuilder.addProcessorLogs(errorMessage);
 

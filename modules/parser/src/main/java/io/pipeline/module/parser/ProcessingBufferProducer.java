@@ -63,7 +63,7 @@ public class ProcessingBufferProducer {
 
     @Produces
     @Singleton
-    @jakarta.inject.Named("outputBuffer")
+    @jakarta.inject.Named("parserOutputBuffer")
     public ProcessingBuffer<PipeDoc> createPipeDocOutputBuffer() {
         if (bufferEnabled) {
             return ProcessingBufferFactory.createBuffer(
@@ -85,7 +85,7 @@ public class ProcessingBufferProducer {
     
     @Produces
     @Singleton
-    @jakarta.inject.Named("inputBuffer")
+    @jakarta.inject.Named("parserInputBuffer")
     public ProcessingBuffer<PipeStream> createPipeStreamInputBuffer() {
         if (bufferEnabled) {
             return ProcessingBufferFactory.createBuffer(

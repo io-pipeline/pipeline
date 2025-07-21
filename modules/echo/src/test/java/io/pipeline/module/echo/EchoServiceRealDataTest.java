@@ -3,7 +3,7 @@ package io.pipeline.module.echo;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.PipeStream;
 import io.pipeline.data.module.PipeStepProcessor;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.pipeline.data.util.proto.ProtobufTestDataHelper;
 import io.quarkus.grpc.GrpcService;
@@ -65,7 +65,7 @@ class EchoServiceRealDataTest extends EchoServiceTestBase {
     @MethodSource("sampleDocuments")
     void testProcessSampleDocuments(PipeDoc sampleDoc) {
         // Create request with sample document
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(sampleDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("sample-data-test")
@@ -104,7 +104,7 @@ class EchoServiceRealDataTest extends EchoServiceTestBase {
 
         // Process first Tika document
         PipeDoc tikaDoc = tikaDocs.iterator().next();
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(tikaDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("tika-test")
@@ -143,7 +143,7 @@ class EchoServiceRealDataTest extends EchoServiceTestBase {
 
         // Process first chunked document
         PipeDoc chunkedDoc = chunkerDocs.iterator().next();
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(chunkedDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("chunker-test")
@@ -172,7 +172,7 @@ class EchoServiceRealDataTest extends EchoServiceTestBase {
         // Process each document in the stream
         PipeDoc doc = stream.getDocument();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(doc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("stream-test")
@@ -213,7 +213,7 @@ class EchoServiceRealDataTest extends EchoServiceTestBase {
         for (PipeDoc doc : docs) {
             if (processedCount >= 50) break;
 
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(doc)
                     .setMetadata(ServiceMetadata.newBuilder()
                             .setPipelineName("bulk-test")
@@ -253,7 +253,7 @@ class EchoServiceRealDataTest extends EchoServiceTestBase {
             System.out.printf("Testing with large document: %s (size: %d bytes)%n", 
                     largeDoc.getId(), largeDoc.getBody().length());
 
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(largeDoc)
                     .setMetadata(ServiceMetadata.newBuilder()
                             .setPipelineName("large-doc-test")

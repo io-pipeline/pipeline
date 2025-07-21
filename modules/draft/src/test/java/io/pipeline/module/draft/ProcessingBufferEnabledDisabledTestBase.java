@@ -61,7 +61,7 @@ public abstract class ProcessingBufferEnabledDisabledTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .build();
@@ -69,7 +69,7 @@ public abstract class ProcessingBufferEnabledDisabledTestBase {
         LOG.infof("Processing document with buffer enabled=%s: %s", bufferEnabled, testDoc.getId());
 
         // Execute the service call
-        ProcessResponse response = getDraftService().processData(request)
+        ModuleProcessResponse response = getDraftService().processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem()
                 .getItem();
@@ -118,7 +118,7 @@ public abstract class ProcessingBufferEnabledDisabledTestBase {
                     .putMetadata("buffer_enabled", String.valueOf(bufferEnabled))
                     .build();
 
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(ServiceMetadata.newBuilder()
                             .setPipelineName("multi-buffer-test")
@@ -128,7 +128,7 @@ public abstract class ProcessingBufferEnabledDisabledTestBase {
                             .build())
                     .build();
 
-            ProcessResponse response = getDraftService().processData(request)
+            ModuleProcessResponse response = getDraftService().processData(request)
                     .subscribe().withSubscriber(UniAssertSubscriber.create())
                     .awaitItem()
                     .getItem();
@@ -157,7 +157,7 @@ public abstract class ProcessingBufferEnabledDisabledTestBase {
                 .setBody("Testing performance impact of buffer enabled=" + bufferEnabled)
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("performance-test")
@@ -169,7 +169,7 @@ public abstract class ProcessingBufferEnabledDisabledTestBase {
         // Measure processing time
         long startTime = System.currentTimeMillis();
 
-        ProcessResponse response = getDraftService().processData(request)
+        ModuleProcessResponse response = getDraftService().processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem()
                 .getItem();

@@ -41,11 +41,11 @@ public class SourceDocumentProcessingTest {
     PipeStepProcessor parserService;
 
     @Inject
-    @Named("outputBuffer")
+    @Named("parserOutputBuffer")
     ProcessingBuffer<PipeDoc> outputBuffer;
 
     @Inject
-    @Named("inputBuffer")
+    @Named("parserInputBuffer")
     ProcessingBuffer<PipeStream> inputBuffer;
 
     private ProtobufTestDataHelper testDataHelper;
@@ -85,13 +85,13 @@ public class SourceDocumentProcessingTest {
                     PipeDoc requestDoc = requestStream.getDocument();
                     
                     // Create request
-                    ProcessRequest request = createProcessRequest(requestDoc);
+                    ModuleProcessRequest request = createProcessRequest(requestDoc);
 
                     // Process document
-                    UniAssertSubscriber<ProcessResponse> subscriber = parserService.processData(request)
+                    UniAssertSubscriber<ModuleProcessResponse> subscriber = parserService.processData(request)
                             .subscribe().withSubscriber(UniAssertSubscriber.create());
                     
-                    ProcessResponse response = subscriber
+                    ModuleProcessResponse response = subscriber
                             .awaitItem()
                             .assertCompleted()
                             .getItem();
@@ -169,7 +169,7 @@ public class SourceDocumentProcessingTest {
                 outputDir.toAbsolutePath());
     }
 
-    private ProcessRequest createProcessRequest(PipeDoc doc) {
+    private ModuleProcessRequest createProcessRequest(PipeDoc doc) {
         // Create metadata
         ServiceMetadata metadata = ServiceMetadata.newBuilder()
                 .setPipelineName("test-data-generation")
@@ -184,7 +184,7 @@ public class SourceDocumentProcessingTest {
                 .build();
 
         // Create request
-        return ProcessRequest.newBuilder()
+        return ModuleProcessRequest.newBuilder()
                 .setDocument(doc)
                 .setMetadata(metadata)
                 .setConfig(config)

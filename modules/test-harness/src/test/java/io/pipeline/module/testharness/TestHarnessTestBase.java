@@ -3,7 +3,7 @@ package io.pipeline.module.testharness;
 
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.ProcessConfiguration;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.pipeline.data.util.proto.ProtobufTestDataHelper;
 import io.pipeline.testing.harness.grpc.*;
@@ -117,7 +117,7 @@ public abstract class TestHarnessTestBase {
         
         LOG.debugf("Using sample document - ID: %s, Title: %s", sampleDoc.getId(), sampleDoc.getTitle());
         
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(sampleDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -280,7 +280,7 @@ public abstract class TestHarnessTestBase {
         
         LOG.debugf("Processing test document with ID %s that might fail", doc.getId());
         
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(doc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("error-test")

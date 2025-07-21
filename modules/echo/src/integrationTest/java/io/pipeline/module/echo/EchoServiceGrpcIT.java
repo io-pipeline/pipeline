@@ -82,7 +82,7 @@ public class EchoServiceGrpcIT {
                 .build();
 
         // Build request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(document)
                 .setConfig(ProcessConfiguration.newBuilder().build())
                 .setMetadata(ServiceMetadata.newBuilder()
@@ -94,7 +94,7 @@ public class EchoServiceGrpcIT {
                 .build();
 
         // Call the service and block for result
-        ProcessResponse response = echoService.processData(request)
+        ModuleProcessResponse response = echoService.processData(request)
                 .await().atMost(java.time.Duration.ofSeconds(5));
 
         // Verify response
@@ -122,7 +122,7 @@ public class EchoServiceGrpcIT {
                 .build();
 
         // Build request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(document)
                 .setConfig(ProcessConfiguration.newBuilder().build())
                 .setMetadata(ServiceMetadata.newBuilder()
@@ -134,7 +134,7 @@ public class EchoServiceGrpcIT {
                 .build();
 
         // Call the service and block for result
-        ProcessResponse response = echoService.processData(request)
+        ModuleProcessResponse response = echoService.processData(request)
                 .await().atMost(java.time.Duration.ofSeconds(5));
 
         // Verify response

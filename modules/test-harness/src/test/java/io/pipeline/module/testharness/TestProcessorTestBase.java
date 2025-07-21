@@ -38,7 +38,7 @@ public abstract class TestProcessorTestBase {
                 .build();
 
         // Create request with metadata
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(document)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -55,11 +55,11 @@ public abstract class TestProcessorTestBase {
         // Process and verify
         LOG.debugf("Sending test request with document: %s", document.getId());
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response).isNotNull() -> Hamcrest: assertThat("Response should not be null", response, is(notNullValue()))
@@ -104,7 +104,7 @@ public abstract class TestProcessorTestBase {
 
     @Test
     void testProcessDataWithoutDocument() {
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
                         .setPipeStepName("test-processor")
@@ -115,11 +115,11 @@ public abstract class TestProcessorTestBase {
 
         LOG.debugf("Sending test request without document");
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response).isNotNull() -> Hamcrest: assertThat("Response should not be null", response, is(notNullValue()))
@@ -185,7 +185,7 @@ public abstract class TestProcessorTestBase {
                 .setBody("Testing processing delay")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(document)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -199,11 +199,11 @@ public abstract class TestProcessorTestBase {
 
         long startTime = System.currentTimeMillis();
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         long endTime = System.currentTimeMillis();
 
@@ -229,7 +229,7 @@ public abstract class TestProcessorTestBase {
                 .setBody("This document has all required fields")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(validDocument)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -246,11 +246,11 @@ public abstract class TestProcessorTestBase {
 
         LOG.debugf("Testing schema validation with valid document");
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response).isNotNull() -> Hamcrest: assertThat("Schema validation response should not be null", response, is(notNullValue()))
@@ -273,7 +273,7 @@ public abstract class TestProcessorTestBase {
                 .setBody("This document is missing title")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(invalidDocument)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -290,11 +290,11 @@ public abstract class TestProcessorTestBase {
 
         LOG.debugf("Testing schema validation with missing title");
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response).isNotNull() -> Hamcrest: assertThat("Invalid document response should not be null", response, is(notNullValue()))
@@ -321,7 +321,7 @@ public abstract class TestProcessorTestBase {
                 .setBody("Testing requireSchema flag")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(validDocument)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -339,11 +339,11 @@ public abstract class TestProcessorTestBase {
 
         LOG.debugf("Testing requireSchema flag");
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response).isNotNull() -> Hamcrest: assertThat("RequireSchema flag response should not be null", response, is(notNullValue()))
@@ -366,7 +366,7 @@ public abstract class TestProcessorTestBase {
                 .setBody("Testing error simulation")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(document)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -383,11 +383,11 @@ public abstract class TestProcessorTestBase {
 
         LOG.debugf("Testing error simulation");
 
-        UniAssertSubscriber<ProcessResponse> subscriber = getTestProcessor()
+        UniAssertSubscriber<ModuleProcessResponse> subscriber = getTestProcessor()
                 .processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create());
 
-        ProcessResponse response = subscriber.awaitItem().getItem();
+        ModuleProcessResponse response = subscriber.awaitItem().getItem();
 
         // Then - Convert AssertJ to Hamcrest with detailed descriptions
         // AssertJ: assertThat(response).isNotNull() -> Hamcrest: assertThat("Error simulation response should not be null", response, is(notNullValue()))

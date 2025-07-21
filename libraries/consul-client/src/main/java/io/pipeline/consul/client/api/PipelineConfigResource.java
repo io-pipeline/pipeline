@@ -1,6 +1,7 @@
 package io.pipeline.consul.client.api;
 
 import io.pipeline.api.model.PipelineConfig;
+import io.pipeline.api.model.PipelineStepConfig;
 import io.pipeline.api.service.PipelineConfigService;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -235,6 +236,130 @@ public class PipelineConfigResource {
         LOG.debugf("Listing pipelines in cluster '%s'", clusterName);
 
         return pipelineConfigService.listPipelines(clusterName);
+    }
+
+    // Convenience endpoints for pipeline step access
+    
+    @GET
+    @Path("/{pipelineId}/steps/{stepId}")
+    @Operation(
+        summary = "Get a specific step from a pipeline",
+        description = "Retrieves a specific step configuration from a pipeline"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Step found",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = PipelineStepConfig.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "404",
+            description = "Step or pipeline not found"
+        )
+    })
+    public Uni<Response> getPipeStep(
+            @PathParam("clusterName") String clusterName,
+            @PathParam("pipelineId") String pipelineId,
+            @PathParam("stepId") String stepId) {
+
+        LOG.debugf("Getting step '%s' from pipeline '%s' in cluster '%s'", stepId, pipelineId, clusterName);
+
+        return pipelineConfigService.getPipeStep(clusterName, pipelineId, stepId)
+            .map(optional -> {
+                if (optional.isPresent()) {
+                    return Response.ok(optional.get()).build();
+                } else {
+                    return Response.status(Status.NOT_FOUND)
+                            .entity(new ApiResponse(false, "Step not found", 
+                                    java.util.List.of("Step '" + stepId + "' not found in pipeline '" + pipelineId + "'"), null))
+                            .build();
+                }
+            });
+    }
+
+    @GET
+    @Path("/steps/{stepId}")
+    @Operation(
+        summary = "Find a step across all pipelines in cluster",
+        description = "Searches all pipelines in a cluster for a step with the given ID"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Step found",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = PipelineStepConfig.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "404",
+            description = "Step not found in any pipeline"
+        )
+    })
+    public Uni<Response> findPipeStep(
+            @PathParam("clusterName") String clusterName,
+            @PathParam("stepId") String stepId) {
+
+        LOG.debugf("Searching for step '%s' across all pipelines in cluster '%s'", stepId, clusterName);
+
+        return pipelineConfigService.findPipeStep(clusterName, stepId)
+            .map(optional -> {
+                if (optional.isPresent()) {
+                    return Response.ok(optional.get()).build();
+                } else {
+                    return Response.status(Status.NOT_FOUND)
+                            .entity(new ApiResponse(false, "Step not found", 
+                                    java.util.List.of("Step '" + stepId + "' not found in any pipeline in cluster '" + clusterName + "'"), null))
+                            .build();
+                }
+            });
+    }
+
+    @GET
+    @Path("/steps/{stepId}/pipeline")
+    @Operation(
+        summary = "Find which pipeline contains a step",
+        description = "Returns the pipeline ID that contains the specified step"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Pipeline found",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = String.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "404",
+            description = "Step not found in any pipeline"
+        )
+    })
+    public Uni<Response> getPipelineForStep(
+            @PathParam("clusterName") String clusterName,
+            @PathParam("stepId") String stepId) {
+
+        LOG.debugf("Finding which pipeline contains step '%s' in cluster '%s'", stepId, clusterName);
+
+        return pipelineConfigService.getPipelineForStep(clusterName, stepId)
+            .map(optional -> {
+                if (optional.isPresent()) {
+                    return Response.ok(java.util.Map.of(
+                        "stepId", stepId,
+                        "pipelineId", optional.get(),
+                        "clusterName", clusterName
+                    )).build();
+                } else {
+                    return Response.status(Status.NOT_FOUND)
+                            .entity(new ApiResponse(false, "Step not found", 
+                                    java.util.List.of("Step '" + stepId + "' not found in any pipeline in cluster '" + clusterName + "'"), null))
+                            .build();
+                }
+            });
     }
 
     /**

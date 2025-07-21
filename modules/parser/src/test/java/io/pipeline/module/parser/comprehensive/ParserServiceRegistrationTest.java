@@ -3,16 +3,12 @@ package io.pipeline.module.parser.comprehensive;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
 import io.pipeline.data.model.Blob;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.Uni;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
@@ -89,7 +85,7 @@ public class ParserServiceRegistrationTest {
                 .setBlob(testBlob)
                 .build();
 
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("health-check")

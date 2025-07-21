@@ -5,7 +5,7 @@ import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.PipeStream;
-import io.pipeline.data.module.ProcessResponse;
+import io.pipeline.data.module.ModuleProcessResponse;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
@@ -103,12 +103,12 @@ public class SampleDataLoader {
      * @return ProcessResponse object
      * @throws IOException if the resource cannot be read
      */
-    public ProcessResponse loadSampleProcessResponse(String filename) throws IOException {
+    public ModuleProcessResponse loadSampleProcessResponse(String filename) throws IOException {
         try (InputStream is = SampleDataLoader.class.getResourceAsStream(SAMPLE_PATH + filename)) {
             if (is == null) {
                 throw new IOException("Sample file not found: " + filename);
             }
-            return ProcessResponse.parseFrom(is);
+            return ModuleProcessResponse.parseFrom(is);
         } catch (InvalidProtocolBufferException e) {
             throw new IOException("Failed to parse ProcessResponse from " + filename, e);
         }
@@ -119,7 +119,7 @@ public class SampleDataLoader {
      * @return ProcessResponse object
      * @throws IOException if the resource cannot be read
      */
-    public ProcessResponse loadDefaultSampleProcessResponse() throws IOException {
+    public ModuleProcessResponse loadDefaultSampleProcessResponse() throws IOException {
         return loadSampleProcessResponse(DEFAULT_SAMPLE);
     }
 
@@ -131,7 +131,7 @@ public class SampleDataLoader {
      */
     public PipeDoc loadSamplePipeDocFromResponse(String filename) throws IOException {
         try {
-            ProcessResponse response = loadSampleProcessResponse(filename);
+            ModuleProcessResponse response = loadSampleProcessResponse(filename);
             if (response.hasOutputDoc()) {
                 return response.getOutputDoc();
             }

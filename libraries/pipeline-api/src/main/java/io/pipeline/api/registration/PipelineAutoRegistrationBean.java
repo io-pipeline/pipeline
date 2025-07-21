@@ -196,7 +196,14 @@ public class PipelineAutoRegistrationBean {
         
         for (PipeStepProcessor processor : processors) {
             Class<?> processorClass = processor.getClass();
+            
+            // Check for annotation on the actual class (CDI creates proxy subclasses)
             PipelineAutoRegister annotation = processorClass.getAnnotation(PipelineAutoRegister.class);
+            if (annotation == null && processorClass.getSuperclass() != null) {
+                // CDI proxy - check the superclass for the annotation
+                annotation = processorClass.getSuperclass().getAnnotation(PipelineAutoRegister.class);
+                LOG.debugf("Checking superclass %s for @PipelineAutoRegister annotation", processorClass.getSuperclass().getName());
+            }
             
             if (annotation == null) {
                 LOG.debugf("Processor %s is not annotated with @PipelineAutoRegister, skipping", processorClass.getName());

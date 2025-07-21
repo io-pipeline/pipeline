@@ -68,14 +68,14 @@ public class ParserServiceComprehensiveTest {
                         .setCurrentHopNumber(1)
                         .build();
 
-                ProcessRequest request = ProcessRequest.newBuilder()
+                ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                         .setDocument(testDoc)
                         .setConfig(config)
                         .setMetadata(metadata)
                         .build();
 
                 // Process through ParserService
-                ProcessResponse response = parserService.processData(request)
+                ModuleProcessResponse response = parserService.processData(request)
                         .subscribe().withSubscriber(UniAssertSubscriber.create())
                         .awaitItem()
                         .getItem();

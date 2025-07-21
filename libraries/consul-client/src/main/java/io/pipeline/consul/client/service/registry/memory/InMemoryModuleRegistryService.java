@@ -33,6 +33,14 @@ public class InMemoryModuleRegistryService extends AbstractModuleRegistryService
     ModuleRegistryConfig config;
 
     @PostConstruct
+    void validateProfile() {
+        String profile = System.getProperty("quarkus.profile", "prod");
+        if ("prod".equals(profile)) {
+            throw new IllegalStateException("InMemoryModuleRegistryService MUST NOT be used in production!");
+        }
+    }
+
+    @PostConstruct
     void init() {
         LOG.info("Initializing InMemoryModuleRegistryService");
         

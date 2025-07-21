@@ -4,7 +4,7 @@ import com.google.protobuf.Empty;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.pipeline.testing.harness.grpc.*;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
@@ -137,7 +137,7 @@ class TestHarnessServiceIT {
                         .setSeconds(System.currentTimeMillis() / 1000)
                         .build())
                 .setProcessDocument(ProcessDocumentCommand.newBuilder()
-                        .setRequest(ProcessRequest.newBuilder()
+                        .setRequest(ModuleProcessRequest.newBuilder()
                                 // No document - might cause issues
                                 .setMetadata(ServiceMetadata.newBuilder()
                                         .setPipelineName("error-test")
@@ -212,7 +212,7 @@ class TestHarnessServiceIT {
                 .setBody("Testing in production mode")
                 .build();
         
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("integration-test-pipeline")

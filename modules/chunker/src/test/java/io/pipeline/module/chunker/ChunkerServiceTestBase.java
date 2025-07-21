@@ -3,10 +3,9 @@ package io.pipeline.module.chunker;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.model.SemanticChunk;
 import io.pipeline.data.module.PipeStepProcessor;
 import io.pipeline.data.module.ProcessConfiguration;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.RegistrationRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
@@ -50,7 +49,7 @@ public abstract class ChunkerServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(config)
@@ -72,7 +71,7 @@ public abstract class ChunkerServiceTestBase {
     @Test
     void testProcessDataWithoutDocument() {
         // Test with no document - should still succeed but with appropriate message
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
                         .setPipeStepName("chunker-step")
@@ -109,7 +108,7 @@ public abstract class ChunkerServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(ProcessConfiguration.newBuilder().build())
@@ -158,7 +157,7 @@ public abstract class ChunkerServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(config)
@@ -216,7 +215,7 @@ public abstract class ChunkerServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(config)

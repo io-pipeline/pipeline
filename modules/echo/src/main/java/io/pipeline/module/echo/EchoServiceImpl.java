@@ -30,12 +30,12 @@ public class EchoServiceImpl implements PipeStepProcessor {
 
     @Override
     @ProcessingBuffered(type = PipeDoc.class, enabled = "${processing.buffer.enabled:false}")
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         LOG.debugf("Echo service received document: %s", 
                  request.hasDocument() ? request.getDocument().getId() : "no document");
 
         // Build response with success status
-        ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder()
+        ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder()
                 .setSuccess(true)
                 .addProcessorLogs("Echo service successfully processed document");
 
@@ -76,7 +76,7 @@ public class EchoServiceImpl implements PipeStepProcessor {
             responseBuilder.addProcessorLogs("Echo service added metadata to document");
         }
 
-        ProcessResponse response = responseBuilder.build();
+        ModuleProcessResponse response = responseBuilder.build();
         LOG.debugf("Echo service returning success: %s", response.getSuccess());
 
         return Uni.createFrom().item(response);
@@ -147,7 +147,7 @@ public class EchoServiceImpl implements PipeStepProcessor {
     }
 
     @Override
-    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         LOG.debug("TestProcessData called - executing test version of processing");
 
         // For test processing, create a test document if none provided
@@ -164,7 +164,7 @@ public class EchoServiceImpl implements PipeStepProcessor {
                     .setPipelineName("test-pipeline")
                     .build();
 
-            request = ProcessRequest.newBuilder()
+            request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(testMetadata)
                     .build();
@@ -174,7 +174,7 @@ public class EchoServiceImpl implements PipeStepProcessor {
         return processData(request)
                 .onItem().transform(response -> {
                     // Add test marker to logs
-                    ProcessResponse.Builder builder = response.toBuilder();
+                    ModuleProcessResponse.Builder builder = response.toBuilder();
                     for (int i = 0; i < builder.getProcessorLogsCount(); i++) {
                         builder.setProcessorLogs(i, "[TEST] " + builder.getProcessorLogs(i));
                     }

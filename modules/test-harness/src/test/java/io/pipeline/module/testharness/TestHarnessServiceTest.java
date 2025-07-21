@@ -2,7 +2,7 @@ package io.pipeline.module.testharness;
 
 import com.google.protobuf.Empty;
 import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.pipeline.testing.harness.grpc.*;
 import io.quarkus.grpc.GrpcClient;
@@ -104,7 +104,7 @@ class TestHarnessServiceTest {
                 .setBody("This is a test document for the harness")
                 .build();
         
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
@@ -232,7 +232,7 @@ class TestHarnessServiceTest {
                 .setBody("Testing streaming functionality")
                 .build();
         
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("stream-test-pipeline")

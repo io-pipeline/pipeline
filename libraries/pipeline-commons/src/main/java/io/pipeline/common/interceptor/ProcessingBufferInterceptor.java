@@ -4,11 +4,10 @@ import io.pipeline.api.annotation.ProcessingBuffered;
 import io.pipeline.common.util.ProcessingBuffer;
 import io.pipeline.common.util.ProcessingBufferFactory;
 import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.module.ProcessResponse;
+import io.pipeline.data.module.ModuleProcessResponse;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
 import jakarta.interceptor.InvocationContext;
@@ -131,8 +130,8 @@ public class ProcessingBufferInterceptor {
      * Captures PipeDoc from ProcessResponse and adds it to the buffer.
      */
     private void captureFromProcessResponse(Object result, ProcessingBuffer<PipeDoc> buffer) {
-        if (result instanceof ProcessResponse) {
-            ProcessResponse response = (ProcessResponse) result;
+        if (result instanceof ModuleProcessResponse) {
+            ModuleProcessResponse response = (ModuleProcessResponse) result;
             if (response.hasOutputDoc()) {
                 PipeDoc outputDoc = response.getOutputDoc();
                 buffer.add(outputDoc);

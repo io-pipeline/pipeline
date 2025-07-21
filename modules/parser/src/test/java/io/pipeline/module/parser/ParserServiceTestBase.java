@@ -50,7 +50,7 @@ public abstract class ParserServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(config)
@@ -73,7 +73,7 @@ public abstract class ParserServiceTestBase {
     @Test
     void testProcessDataWithoutDocument() {
         // Test with no document - should still succeed (parser service is tolerant)
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
                         .setPipeStepName("parser-step")

@@ -97,11 +97,11 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
     }
 
     @Override
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         return processingTimer.record(() -> processDataInternal(request));
     }
 
-    private Uni<ProcessResponse> processDataInternal(ProcessRequest request) {
+    private Uni<ModuleProcessResponse> processDataInternal(ModuleProcessRequest request) {
         LOG.infof("TestProcessor received request for document: %s",
                 request.hasDocument() ? request.getDocument().getId() : "no-document");
 
@@ -113,7 +113,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
 
                 // Return a failure response instead of throwing an exception
                 // This ensures the failure is properly counted by the test
-                ProcessResponse errorResponse = ProcessResponse.newBuilder()
+                ModuleProcessResponse errorResponse = ModuleProcessResponse.newBuilder()
                         .setSuccess(false)
                         .addProcessorLogs("TestProcessor: Simulated random failure")
                         .setErrorDetails(Struct.newBuilder()
@@ -133,7 +133,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
 
         return delay.onItem().transformToUni(v -> {
             try {
-                ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder()
+                ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder()
                         .setSuccess(true)
                         .addProcessorLogs("TestProcessor: Starting document processing");
 
@@ -214,7 +214,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
                     responseBuilder.addProcessorLogs("TestProcessor: No document provided");
                 }
 
-                ProcessResponse response = responseBuilder.build();
+                ModuleProcessResponse response = responseBuilder.build();
                 LOG.infof("TestProcessor returning success: %s", response.getSuccess());
 
                 return Uni.createFrom().item(response);
@@ -223,7 +223,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
                 LOG.errorf(e, "Error in TestProcessor");
                 failedDocuments.increment();
 
-                ProcessResponse errorResponse = ProcessResponse.newBuilder()
+                ModuleProcessResponse errorResponse = ModuleProcessResponse.newBuilder()
                         .setSuccess(false)
                         .addProcessorLogs("TestProcessor: Error - " + e.getMessage())
                         .setErrorDetails(Struct.newBuilder()
@@ -300,7 +300,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
      * Performs a health check by running a test request through the processor
      * and amends the response builder with the results.
      */
-    private Uni<ServiceRegistrationResponse> performHealthCheck(ProcessRequest testRequest, ServiceRegistrationResponse.Builder responseBuilder) {
+    private Uni<ServiceRegistrationResponse> performHealthCheck(ModuleProcessRequest testRequest, ServiceRegistrationResponse.Builder responseBuilder) {
         return processData(testRequest)
                 .map(processResponse -> {
                     if (processResponse.getSuccess()) {
@@ -325,7 +325,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
     }
 
     @Override
-    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         LOG.info("TestProcessData called - executing test version of processing");
 
         // For test processing, create a test document if none provided
@@ -345,7 +345,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
             ProcessConfiguration testConfig = ProcessConfiguration.newBuilder()
                     .build();
 
-            request = ProcessRequest.newBuilder()
+            request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(testMetadata)
                     .setConfig(testConfig)
@@ -356,7 +356,7 @@ public class TestProcessorServiceImpl implements PipeStepProcessor {
         return processDataInternal(request)
                 .onItem().transform(response -> {
                     // Add test marker to logs
-                    ProcessResponse.Builder builder = response.toBuilder();
+                    ModuleProcessResponse.Builder builder = response.toBuilder();
                     for (int i = 0; i < builder.getProcessorLogsCount(); i++) {
                         builder.setProcessorLogs(i, "[TEST] " + builder.getProcessorLogs(i));
                     }

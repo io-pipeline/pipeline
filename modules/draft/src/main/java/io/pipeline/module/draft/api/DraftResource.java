@@ -93,7 +93,7 @@ public class DraftResource {
             }
             
             // Build the request
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(docBuilder.build())
                     .setConfig(ProcessConfiguration.newBuilder().build())
                     .setMetadata(ServiceMetadata.newBuilder()
@@ -264,7 +264,7 @@ public class DraftResource {
         }
         
         // Build the request with the test document
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(selectedStream.getDocument())
                 .setConfig(ProcessConfiguration.newBuilder().build())
                 .setMetadata(ServiceMetadata.newBuilder()
@@ -335,7 +335,7 @@ public class DraftResource {
             }
             
             // Build the request with the sample document
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(sampleDoc)
                     .setConfig(ProcessConfiguration.newBuilder().build())
                     .setMetadata(ServiceMetadata.newBuilder()

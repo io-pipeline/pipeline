@@ -137,7 +137,7 @@ class DynamicGrpcPerformanceIT {
         long firstCallTime = System.currentTimeMillis() - start;
         
         // Make a request to ensure channel is fully established
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
             .setDocument(PipeDoc.newBuilder()
                 .setId("test-doc")
                 .setBody("test")
@@ -217,10 +217,10 @@ class DynamicGrpcPerformanceIT {
         private final AtomicInteger requestCount = new AtomicInteger(0);
         
         @Override
-        public void processData(ProcessRequest request, StreamObserver<ProcessResponse> responseObserver) {
+        public void processData(ModuleProcessRequest request, StreamObserver<ModuleProcessResponse> responseObserver) {
             int count = requestCount.incrementAndGet();
             
-            ProcessResponse response = ProcessResponse.newBuilder()
+            ModuleProcessResponse response = ModuleProcessResponse.newBuilder()
                 .setSuccess(true)
                 .setOutputDoc(PipeDoc.newBuilder()
                     .setId(request.getDocument().getId())

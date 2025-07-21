@@ -810,7 +810,9 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
     }
 
     private String buildModuleKvKey(String moduleId) {
-        return config.consul().kvPrefix() + "/modules/global/" + moduleId;
+        // Extract service name from moduleId (e.g., "echo-localhost-39100" -> "echo")
+        String serviceName = moduleId.split("-")[0];
+        return config.consul().kvPrefix() + "/modules/global/" + serviceName;
     }
 
 

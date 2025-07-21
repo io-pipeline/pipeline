@@ -65,7 +65,7 @@ public class ProcessingBufferAccessTest {
                 .setBody("Testing buffer access and capture functionality in echo module")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("echo-buffer-test")
@@ -76,7 +76,7 @@ public class ProcessingBufferAccessTest {
 
         LOG.infof("Processing document to trigger buffer capture: %s", testDoc.getId());
 
-        ProcessResponse response = echoService.processData(request)
+        ModuleProcessResponse response = echoService.processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem()
                 .getItem();
@@ -130,7 +130,7 @@ public class ProcessingBufferAccessTest {
                     .setBody("Document " + i + " for echo statistics testing")
                     .build();
 
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(ServiceMetadata.newBuilder()
                             .setPipelineName("echo-stats-test")
@@ -138,7 +138,7 @@ public class ProcessingBufferAccessTest {
                             .build())
                     .build();
 
-            ProcessResponse response = echoService.processData(request)
+            ModuleProcessResponse response = echoService.processData(request)
                     .subscribe().withSubscriber(UniAssertSubscriber.create())
                     .awaitItem()
                     .getItem();
@@ -181,7 +181,7 @@ public class ProcessingBufferAccessTest {
                 .setBody("Testing save trigger functionality in echo module")
                 .build();
 
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("echo-save-trigger-test")
@@ -189,7 +189,7 @@ public class ProcessingBufferAccessTest {
                         .build())
                 .build();
 
-        ProcessResponse response = echoService.processData(request)
+        ModuleProcessResponse response = echoService.processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem()
                 .getItem();

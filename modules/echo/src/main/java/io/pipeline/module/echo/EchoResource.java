@@ -24,7 +24,6 @@ import org.jboss.logging.Logger;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Path("/api/echo")
 @Produces(MediaType.APPLICATION_JSON)
@@ -82,7 +81,7 @@ public class EchoResource {
             }
             
             // Build the request
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(docBuilder.build())
                     .setConfig(ProcessConfiguration.newBuilder().build())
                     .setMetadata(ServiceMetadata.newBuilder()
@@ -232,7 +231,7 @@ public class EchoResource {
         }
         
         // Build the request with the test document
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(selectedStream.getDocument())
                 .setConfig(ProcessConfiguration.newBuilder().build())
                 .setMetadata(ServiceMetadata.newBuilder()
@@ -297,7 +296,7 @@ public class EchoResource {
             }
             
             // Build the request with the sample document
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(sampleDoc)
                     .setConfig(ProcessConfiguration.newBuilder().build())
                     .setMetadata(ServiceMetadata.newBuilder()

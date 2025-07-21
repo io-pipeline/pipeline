@@ -20,7 +20,7 @@ public abstract class AbstractModuleRegistryService implements ModuleRegistrySer
      * Generate a unique module ID for registration
      */
     protected String generateModuleId(String moduleName, String implementationId) {
-        return moduleName + "-" + implementationId + "-" + UUID.randomUUID().toString().substring(0, 8);
+        return moduleName;
     }
 
     /**

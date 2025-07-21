@@ -70,10 +70,10 @@ public class TikaTestDataGenerationTest {
         for (PipeDoc requestDoc : requestDocs) {
             try {
                 // Create request
-                ProcessRequest request = createProcessRequest(requestDoc);
+                ModuleProcessRequest request = createProcessRequest(requestDoc);
 
                 // Process document
-                ProcessResponse response = parserService.processData(request)
+                ModuleProcessResponse response = parserService.processData(request)
                         .subscribe().withSubscriber(UniAssertSubscriber.create())
                         .awaitItem()
                         .getItem();
@@ -112,7 +112,7 @@ public class TikaTestDataGenerationTest {
         }
     }
 
-    private ProcessRequest createProcessRequest(PipeDoc doc) {
+    private ModuleProcessRequest createProcessRequest(PipeDoc doc) {
         // Create metadata
         ServiceMetadata metadata = ServiceMetadata.newBuilder()
                 .setPipelineName("test-data-generation")
@@ -127,7 +127,7 @@ public class TikaTestDataGenerationTest {
                 .build();
 
         // Create request
-        return ProcessRequest.newBuilder()
+        return ModuleProcessRequest.newBuilder()
                 .setDocument(doc)
                 .setMetadata(metadata)
                 .setConfig(config)

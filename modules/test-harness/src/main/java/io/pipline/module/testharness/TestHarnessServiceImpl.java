@@ -5,7 +5,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.Value;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.testing.harness.grpc.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Multi;
@@ -153,7 +153,7 @@ public class TestHarnessServiceImpl implements TestHarness {
     }
 
     private Multi<TestEvent> processDocumentCommand(String commandId, ProcessDocumentCommand cmd) {
-        ProcessRequest request = cmd.getRequest();
+        ModuleProcessRequest request = cmd.getRequest();
 
         return Multi.createFrom().emitter(emitter -> {
             // Emit document received event

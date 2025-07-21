@@ -9,7 +9,12 @@ import io.pipeline.api.validation.PipelineConfigValidator;
 import io.pipeline.api.validation.ValidationMode;
 import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.common.validation.ValidationResultFactory;
+import io.pipeline.api.service.ModuleRegistryService;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import java.util.*;
 
@@ -20,6 +25,8 @@ import java.util.*;
  */
 @ApplicationScoped
 public class StepReferenceValidator implements PipelineConfigValidator {
+    
+    private static final Logger LOG = Logger.getLogger(StepReferenceValidator.class);
     
     // TODO: Replace hardcoded ALLOWED_SERVICES with dynamic service discovery
     // TODO: Options:
@@ -47,6 +54,30 @@ public class StepReferenceValidator implements PipelineConfigValidator {
             "bean-step2",
             "service"
     );
+
+    // ModuleRegistryService for dynamic service discovery
+    @Inject
+    ModuleRegistryService moduleRegistryService;
+
+    /**
+     * Get the complete set of allowed services (hardcoded + dynamically registered in Consul)
+     */
+    private Uni<Set<String>> getAllowedServices() {
+        return moduleRegistryService.listRegisteredModules()
+            .map(registrations -> {
+                Set<String> allServices = new HashSet<>(ALLOWED_SERVICES);
+                // Add all services registered in Consul KV store
+                registrations.forEach(registration -> {
+                    allServices.add(registration.moduleName());
+                });
+                LOG.debugf("Allowed services: %s", allServices);
+                return allServices;
+            })
+            .onFailure().recoverWithItem(() -> {
+                LOG.warn("Failed to fetch registered modules from Consul, falling back to hardcoded list");
+                return new HashSet<>(ALLOWED_SERVICES);
+            });
+    }
     
     @Override
     public ValidationResult validate(PipelineConfigValidatable validatable) {
@@ -130,11 +161,14 @@ public class StepReferenceValidator implements PipelineConfigValidator {
      * @return true if the service is allowed, false otherwise
      */
     private boolean isAllowedService(String serviceName) {
-        // TODO: This should be replaced with actual service discovery logic:
-        // TODO: - Query Consul for healthy services
-        // TODO: - Or call Registration Service API for available modules
-        // TODO: - Consider caching strategy for performance
-        return ALLOWED_SERVICES.contains(serviceName);
+        // Get allowed services from Consul (with fallback to hardcoded list)
+        try {
+            Set<String> allowedServices = getAllowedServices().await().indefinitely();
+            return allowedServices.contains(serviceName);
+        } catch (Exception e) {
+            LOG.warnf("Error checking service %s, falling back to hardcoded list: %s", serviceName, e.getMessage());
+            return ALLOWED_SERVICES.contains(serviceName);
+        }
     }
     
     @Override

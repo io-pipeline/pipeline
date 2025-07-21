@@ -6,6 +6,7 @@ import io.pipeline.api.validation.ValidationResult;
 import io.pipeline.model.validation.validators.SchemaValidator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -16,6 +17,8 @@ import static org.hamcrest.Matchers.*;
 
 @QuarkusTest
 class SchemaValidatorTest {
+    
+    private static final Logger LOG = Logger.getLogger(SchemaValidatorTest.class);
     
     @Inject
     SchemaValidator validator;
@@ -170,8 +173,10 @@ class SchemaValidatorTest {
         
         assertThat(result.valid(), is(false));
         assertThat(result.errors(), hasItems(
-            "Pipeline must have at least one CONNECTOR step as entry point",
             "Step 'step1': Non-SINK steps must have at least one output in PRODUCTION mode"
+        ));
+        assertThat(result.warnings(), hasItems(
+            "Pipeline has no CONNECTOR step - ensure input comes from Kafka or external source"
         ));
     }
     

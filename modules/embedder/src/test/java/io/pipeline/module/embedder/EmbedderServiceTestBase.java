@@ -49,7 +49,7 @@ public abstract class EmbedderServiceTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .setConfig(config)
@@ -71,7 +71,7 @@ public abstract class EmbedderServiceTestBase {
     @Test
     void testProcessDataWithoutDocument() {
         // Test with no document - should still succeed but with error logs
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("test-pipeline")
                         .setPipeStepName("embedder-step")
@@ -114,7 +114,7 @@ public abstract class EmbedderServiceTestBase {
                 .setTitle("Health Check")
                 .build();
 
-        ProcessRequest processRequest = ProcessRequest.newBuilder()
+        ModuleProcessRequest processRequest = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName("health-check")
@@ -181,7 +181,7 @@ public abstract class EmbedderServiceTestBase {
                 .build();
 
         // Create request with chunker output document
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(chunkerOutputDoc)
                 .setMetadata(metadata)
                 .setConfig(config)

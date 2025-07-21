@@ -121,7 +121,7 @@ public class ChunkerResource {
             }
 
             // Build the request
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(docBuilder.build())
                     .setConfig(configBuilder.build())
                     .setMetadata(ServiceMetadata.newBuilder()

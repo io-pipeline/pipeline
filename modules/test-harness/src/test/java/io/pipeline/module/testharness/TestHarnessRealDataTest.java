@@ -2,7 +2,7 @@ package io.pipeline.module.testharness;
 
 import com.google.protobuf.Empty;
 import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.pipeline.data.util.proto.ProtobufTestDataHelper;
 import io.pipeline.testing.harness.grpc.*;
@@ -10,7 +10,6 @@ import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.helpers.test.AssertSubscriber;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -85,7 +84,7 @@ class TestHarnessRealDataTest {
 
         // Process a document
         PipeDoc doc = testDataHelper.getSamplePipeDocuments().iterator().next();
-        ProcessRequest processRequest = createProcessRequest(doc, "status-test");
+        ModuleProcessRequest processRequest = createProcessRequest(doc, "status-test");
 
         TestCommand command = TestCommand.newBuilder()
                 .setCommandId(UUID.randomUUID().toString())
@@ -119,7 +118,7 @@ class TestHarnessRealDataTest {
     @ParameterizedTest
     @MethodSource("sampleDocuments")
     void testProcessSampleDocuments(PipeDoc sampleDoc) {
-        ProcessRequest processRequest = createProcessRequest(sampleDoc, "sample-test");
+        ModuleProcessRequest processRequest = createProcessRequest(sampleDoc, "sample-test");
 
         TestCommand command = TestCommand.newBuilder()
                 .setCommandId(UUID.randomUUID().toString())
@@ -172,7 +171,7 @@ class TestHarnessRealDataTest {
     @ParameterizedTest
     @MethodSource("tikaDocuments")
     void testProcessTikaDocuments(PipeDoc tikaDoc) {
-        ProcessRequest processRequest = createProcessRequest(tikaDoc, "tika-test");
+        ModuleProcessRequest processRequest = createProcessRequest(tikaDoc, "tika-test");
 
         TestCommand command = TestCommand.newBuilder()
                 .setCommandId(UUID.randomUUID().toString())
@@ -224,7 +223,7 @@ class TestHarnessRealDataTest {
         for (PipeDoc doc : docs) {
             if (count++ >= 3) break; // Process first 3 documents
 
-            ProcessRequest processRequest = createProcessRequest(doc, "stream-test");
+            ModuleProcessRequest processRequest = createProcessRequest(doc, "stream-test");
             commands.add(TestCommand.newBuilder()
                     .setCommandId("process-" + count)
                     .setTimestamp(createTimestamp())
@@ -268,7 +267,7 @@ class TestHarnessRealDataTest {
     @Test
     void testSimulateSlowProcessing() {
         PipeDoc doc = testDataHelper.getSamplePipeDocuments().iterator().next();
-        ProcessRequest processRequest = createProcessRequest(doc, "slow-test");
+        ModuleProcessRequest processRequest = createProcessRequest(doc, "slow-test");
 
         // First, configure the module for slow processing
         TestCommand configCommand = TestCommand.newBuilder()
@@ -347,7 +346,7 @@ class TestHarnessRealDataTest {
         for (PipeDoc doc : docs) {
             if (processed++ >= 10) break;
 
-            ProcessRequest processRequest = createProcessRequest(doc, "failure-test");
+            ModuleProcessRequest processRequest = createProcessRequest(doc, "failure-test");
             TestCommand command = TestCommand.newBuilder()
                     .setCommandId("process-" + processed)
                     .setTimestamp(createTimestamp())
@@ -404,7 +403,7 @@ class TestHarnessRealDataTest {
         for (PipeDoc doc : docs) {
             if (count++ >= 50) break; // Process 50 documents
 
-            ProcessRequest processRequest = createProcessRequest(doc, "bulk-test");
+            ModuleProcessRequest processRequest = createProcessRequest(doc, "bulk-test");
             commands.add(TestCommand.newBuilder()
                     .setCommandId("bulk-" + count)
                     .setTimestamp(createTimestamp())
@@ -451,7 +450,7 @@ class TestHarnessRealDataTest {
         assertThat("Chunker documents should be available", chunkerDocs, is(not(empty())));
 
         PipeDoc chunkedDoc = chunkerDocs.iterator().next();
-        ProcessRequest processRequest = createProcessRequest(chunkedDoc, "chunker-test");
+        ModuleProcessRequest processRequest = createProcessRequest(chunkedDoc, "chunker-test");
 
         TestCommand command = TestCommand.newBuilder()
                 .setCommandId("chunker-test-1")
@@ -486,8 +485,8 @@ class TestHarnessRealDataTest {
 
     // Helper methods
 
-    private ProcessRequest createProcessRequest(PipeDoc doc, String pipelineName) {
-        return ProcessRequest.newBuilder()
+    private ModuleProcessRequest createProcessRequest(PipeDoc doc, String pipelineName) {
+        return ModuleProcessRequest.newBuilder()
                 .setDocument(doc)
                 .setMetadata(ServiceMetadata.newBuilder()
                         .setPipelineName(pipelineName)

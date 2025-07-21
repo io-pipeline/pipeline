@@ -4,7 +4,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.ProcessConfiguration;
-import io.pipeline.data.module.ProcessRequest;
+import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ServiceMetadata;
 
 import java.util.UUID;
@@ -129,8 +129,8 @@ public class TestProcessorHelper {
             return this;
         }
         
-        public ProcessRequest build() {
-            ProcessRequest.Builder builder = ProcessRequest.newBuilder();
+        public ModuleProcessRequest build() {
+            ModuleProcessRequest.Builder builder = ModuleProcessRequest.newBuilder();
             
             if (document != null) {
                 builder.setDocument(document);
@@ -211,7 +211,7 @@ public class TestProcessorHelper {
     /**
      * Creates a simple test request with a valid document.
      */
-    public static ProcessRequest createSimpleRequest() {
+    public static ModuleProcessRequest createSimpleRequest() {
         return requestBuilder()
                 .withDocument(createValidDocument())
                 .build();
@@ -220,7 +220,7 @@ public class TestProcessorHelper {
     /**
      * Creates a request configured for schema validation mode.
      */
-    public static ProcessRequest createSchemaValidationRequest(PipeDoc document) {
+    public static ModuleProcessRequest createSchemaValidationRequest(PipeDoc document) {
         return requestBuilder()
                 .withDocument(document)
                 .withMode(ProcessingMode.VALIDATE)
@@ -230,7 +230,7 @@ public class TestProcessorHelper {
     /**
      * Creates a request configured to simulate an error.
      */
-    public static ProcessRequest createErrorRequest() {
+    public static ModuleProcessRequest createErrorRequest() {
         return requestBuilder()
                 .withDocument(createValidDocument())
                 .withSimulateError(true)

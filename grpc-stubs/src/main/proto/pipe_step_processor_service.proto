@@ -17,11 +17,11 @@ import "google/protobuf/timestamp.proto";
 // This interface is implemented by developer-created gRPC modules/services.
 service PipeStepProcessor {
   // Processes a document according to the step's configuration and logic.
-  rpc ProcessData(ProcessRequest) returns (ProcessResponse);
+  rpc ProcessData(ModuleProcessRequest) returns (ModuleProcessResponse);
 
   // Test version of ProcessData that doesn't count as a legitimate call
   // but follows the same processing logic
-  rpc TestProcessData(ProcessRequest) returns (ProcessResponse);
+  rpc TestProcessData(ModuleProcessRequest) returns (ModuleProcessResponse);
 
   // Returns static registration information about this module with optional health check
   rpc GetServiceRegistration (RegistrationRequest) returns (ServiceRegistrationResponse);
@@ -30,7 +30,7 @@ service PipeStepProcessor {
 // Request for module registration, optionally includes test data for health check
 message RegistrationRequest {
   // Optional test data for validation - if provided, module will perform health check
-  optional ProcessRequest test_request = 1;
+  optional ModuleProcessRequest test_request = 1;
 }
 
 // Response containing module registration data and health status
@@ -114,7 +114,7 @@ message ProcessConfiguration {
 }
 
 // Request message for the ProcessData RPC.
-message ProcessRequest {
+message ModuleProcessRequest {
   // The primary document data to be processed.
   // The Blob is now expected to be within PipeDoc if used.
   PipeDoc document = 1;
@@ -128,8 +128,8 @@ message ProcessRequest {
 
 // Response message for the ProcessData RPC.
 // This is returned by the gRPC Service Implementation back to the engine.
-// This message can remain largely the same as your existing ProcessResponse.
-message ProcessResponse {
+// Renamed to avoid confusion with engine ProcessResponse.
+message ModuleProcessResponse {
   // Outcome: True if this step's processing was successful, false otherwise.
   bool success = 1;
 

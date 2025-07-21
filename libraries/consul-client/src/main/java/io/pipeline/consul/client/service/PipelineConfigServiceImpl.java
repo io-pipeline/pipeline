@@ -1,6 +1,7 @@
 package io.pipeline.consul.client.service;
 
 import io.pipeline.api.model.PipelineConfig;
+import io.pipeline.api.model.PipelineStepConfig;
 import io.pipeline.api.service.ClusterService;
 import io.pipeline.api.service.PipelineConfigService;
 import io.pipeline.model.validation.CompositeValidator;
@@ -159,7 +160,12 @@ public class PipelineConfigServiceImpl extends ConsulServiceBase implements Pipe
         
         return consulClient.getKeys(prefix)
                 .onItem().transformToUni(keys -> {
-                    LOG.debugf("Found %d keys under prefix %s", keys != null ? keys.size() : 0, prefix);
+                    LOG.debugf("DEBUG: Found %d keys under prefix %s", keys != null ? keys.size() : 0, prefix);
+                    if (keys != null) {
+                        for (String key : keys) {
+                            LOG.debugf("DEBUG: Found key: '%s'", key);
+                        }
+                    }
                     
                     if (keys == null || keys.isEmpty()) {
                         return Uni.createFrom().item(new HashMap<String, PipelineConfig>());
@@ -169,6 +175,7 @@ public class PipelineConfigServiceImpl extends ConsulServiceBase implements Pipe
                     
                     for (String key : keys) {
                         String pipelineId = extractPipelineIdFromKey(key);
+                        LOG.debugf("DEBUG: For key '%s', extracted pipelineId: '%s'", key, pipelineId);
                         if (pipelineId != null && key.endsWith("/config")) {
                             unis.add(
                                 getPipeline(clusterName, pipelineId)
@@ -262,10 +269,101 @@ public class PipelineConfigServiceImpl extends ConsulServiceBase implements Pipe
 
     private String extractPipelineIdFromKey(String key) {
         // Extract from: {kvPrefix}/clusters/{cluster}/pipelines/{pipelineId}/config
+        LOG.debugf("DEBUG: extractPipelineIdFromKey input key: '%s'", key);
         String[] parts = key.split("/");
+        LOG.debugf("DEBUG: split into %d parts: %s", parts.length, java.util.Arrays.toString(parts));
+        
+        if (parts.length >= 6) {
+            LOG.debugf("DEBUG: parts[3]='%s' (expecting 'pipelines'), parts[5]='%s' (expecting 'config')", 
+                      parts[3], parts[5]);
+        }
+        
         if (parts.length >= 6 && "pipelines".equals(parts[3]) && "config".equals(parts[5])) {
+            LOG.debugf("DEBUG: extracted pipelineId: '%s'", parts[4]);
             return parts[4];
         }
+        LOG.debugf("DEBUG: failed to extract pipelineId from key: '%s'", key);
         return null;
+    }
+
+    // Convenience methods for pipeline step access
+
+    /**
+     * Retrieves a specific step from a pipeline.
+     */
+    public Uni<Optional<PipelineStepConfig>> getPipeStep(String clusterName, String pipelineId, String stepId) {
+        LOG.debugf("Getting step '%s' from pipeline '%s' in cluster '%s'", stepId, pipelineId, clusterName);
+        
+        return getPipeline(clusterName, pipelineId)
+                .map(pipelineOpt -> {
+                    if (pipelineOpt.isEmpty()) {
+                        LOG.debugf("Pipeline '%s' not found in cluster '%s'", pipelineId, clusterName);
+                        return Optional.<PipelineStepConfig>empty();
+                    }
+                    
+                    PipelineConfig pipeline = pipelineOpt.get();
+                    if (pipeline.pipelineSteps() == null) {
+                        LOG.debugf("Pipeline '%s' has no steps", pipelineId);
+                        return Optional.<PipelineStepConfig>empty();
+                    }
+                    
+                    PipelineStepConfig step = pipeline.pipelineSteps().get(stepId);
+                    if (step != null) {
+                        LOG.debugf("Found step '%s' in pipeline '%s'", stepId, pipelineId);
+                        return Optional.of(step);
+                    } else {
+                        LOG.debugf("Step '%s' not found in pipeline '%s'", stepId, pipelineId);
+                        return Optional.<PipelineStepConfig>empty();
+                    }
+                });
+    }
+
+    /**
+     * Searches all pipelines in a cluster for a step with the given ID.
+     */
+    public Uni<Optional<PipelineStepConfig>> findPipeStep(String clusterName, String stepId) {
+        LOG.debugf("Searching for step '%s' across all pipelines in cluster '%s'", stepId, clusterName);
+        
+        return listPipelines(clusterName)
+                .map(pipelines -> {
+                    for (Map.Entry<String, PipelineConfig> entry : pipelines.entrySet()) {
+                        String pipelineId = entry.getKey();
+                        PipelineConfig pipeline = entry.getValue();
+                        
+                        if (pipeline.pipelineSteps() != null) {
+                            PipelineStepConfig step = pipeline.pipelineSteps().get(stepId);
+                            if (step != null) {
+                                LOG.debugf("Found step '%s' in pipeline '%s'", stepId, pipelineId);
+                                return Optional.of(step);
+                            }
+                        }
+                    }
+                    
+                    LOG.debugf("Step '%s' not found in any pipeline in cluster '%s'", stepId, clusterName);
+                    return Optional.<PipelineStepConfig>empty();
+                });
+    }
+
+    /**
+     * Finds which pipeline contains a step with the given ID.
+     */
+    public Uni<Optional<String>> getPipelineForStep(String clusterName, String stepId) {
+        LOG.debugf("Finding which pipeline contains step '%s' in cluster '%s'", stepId, clusterName);
+        
+        return listPipelines(clusterName)
+                .map(pipelines -> {
+                    for (Map.Entry<String, PipelineConfig> entry : pipelines.entrySet()) {
+                        String pipelineId = entry.getKey();
+                        PipelineConfig pipeline = entry.getValue();
+                        
+                        if (pipeline.pipelineSteps() != null && pipeline.pipelineSteps().containsKey(stepId)) {
+                            LOG.debugf("Step '%s' found in pipeline '%s'", stepId, pipelineId);
+                            return Optional.of(pipelineId);
+                        }
+                    }
+                    
+                    LOG.debugf("Step '%s' not found in any pipeline in cluster '%s'", stepId, clusterName);
+                    return Optional.<String>empty();
+                });
     }
 }

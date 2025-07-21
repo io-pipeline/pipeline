@@ -9,8 +9,6 @@ import io.pipeline.data.module.*;
 import io.pipeline.data.util.proto.ProtobufTestDataHelper;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
-import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
@@ -20,7 +18,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -99,13 +96,13 @@ public class EmbedderComprehensiveTest {
             PipeDoc doc = chunkedDocuments.get(i);
             
             try {
-                ProcessRequest request = createProcessRequest(doc, nomicConfigJson, "nomic");
+                ModuleProcessRequest request = createProcessRequest(doc, nomicConfigJson, "nomic");
                 
                 LOG.info("Processing document {}/{}: {} ({} chunks)", 
                         i + 1, docsToProcess, doc.getId(),
                         doc.getSemanticResultsCount() > 0 ? doc.getSemanticResults(0).getChunksCount() : 0);
                 
-                ProcessResponse response = embedderService.processData(request)
+                ModuleProcessResponse response = embedderService.processData(request)
                         .await().atMost(java.time.Duration.ofSeconds(60));
 
                 if (response != null && response.getSuccess() && response.hasOutputDoc()) {
@@ -185,13 +182,13 @@ public class EmbedderComprehensiveTest {
             PipeDoc doc = chunkedDocuments.get(i);
             
             try {
-                ProcessRequest request = createProcessRequest(doc, bgeConfigJson, "bge");
+                ModuleProcessRequest request = createProcessRequest(doc, bgeConfigJson, "bge");
                 
                 LOG.info("Processing document {}/{}: {} ({} chunks)", 
                         i + 1, docsToProcess, doc.getId(),
                         doc.getSemanticResultsCount() > 0 ? doc.getSemanticResults(0).getChunksCount() : 0);
                 
-                ProcessResponse response = embedderService.processData(request)
+                ModuleProcessResponse response = embedderService.processData(request)
                         .await().atMost(java.time.Duration.ofSeconds(60));
 
                 if (response != null && response.getSuccess() && response.hasOutputDoc()) {
@@ -224,7 +221,7 @@ public class EmbedderComprehensiveTest {
         LOG.info("✓ Saved {} documents to {}", outputBuffer.size(), outputDir);
     }
 
-    private ProcessRequest createProcessRequest(PipeDoc doc, String configJson, String configName) throws Exception {
+    private ModuleProcessRequest createProcessRequest(PipeDoc doc, String configJson, String configName) throws Exception {
         ServiceMetadata metadata = ServiceMetadata.newBuilder()
                 .setPipelineName("test-embedding-" + configName)
                 .setPipeStepName("embedder")
@@ -238,7 +235,7 @@ public class EmbedderComprehensiveTest {
                 .setCustomJsonConfig(structBuilder.build())
                 .build();
 
-        return ProcessRequest.newBuilder()
+        return ModuleProcessRequest.newBuilder()
                 .setDocument(doc)
                 .setMetadata(metadata)
                 .setConfig(config)

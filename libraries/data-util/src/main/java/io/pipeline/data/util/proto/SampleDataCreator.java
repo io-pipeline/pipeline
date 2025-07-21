@@ -3,7 +3,7 @@ package io.pipeline.data.util.proto;
 import com.google.protobuf.Timestamp;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.PipeStream;
-import io.pipeline.data.module.ProcessResponse;
+import io.pipeline.data.module.ModuleProcessResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.Instant;
@@ -105,8 +105,8 @@ public class SampleDataCreator {
      * @param success whether the processing was successful
      * @return a new ProcessResponse instance with the specified document and success status
      */
-    public ProcessResponse createSampleProcessResponse(PipeDoc document, boolean success) {
-        ProcessResponse.Builder builder = ProcessResponse.newBuilder()
+    public ModuleProcessResponse createSampleProcessResponse(PipeDoc document, boolean success) {
+        ModuleProcessResponse.Builder builder = ModuleProcessResponse.newBuilder()
                 .setSuccess(success);
 
         if (document != null) {

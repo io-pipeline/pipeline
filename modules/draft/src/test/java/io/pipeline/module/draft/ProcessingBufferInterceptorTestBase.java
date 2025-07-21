@@ -54,7 +54,7 @@ public abstract class ProcessingBufferInterceptorTestBase {
                 .build();
 
         // Create request
-        ProcessRequest request = ProcessRequest.newBuilder()
+        ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(metadata)
                 .build();
@@ -62,7 +62,7 @@ public abstract class ProcessingBufferInterceptorTestBase {
         LOG.infof("Processing document through draft service: %s", testDoc.getId());
 
         // Execute and verify the service processes normally
-        ProcessResponse response = getDraftService().processData(request)
+        ModuleProcessResponse response = getDraftService().processData(request)
                 .subscribe().withSubscriber(UniAssertSubscriber.create())
                 .awaitItem()
                 .getItem();
@@ -101,7 +101,7 @@ public abstract class ProcessingBufferInterceptorTestBase {
                     .setBody("Document " + i + " for testing interceptor accumulation")
                     .build();
 
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(ServiceMetadata.newBuilder()
                             .setPipelineName("multi-test-pipeline")
@@ -110,7 +110,7 @@ public abstract class ProcessingBufferInterceptorTestBase {
                             .build())
                     .build();
 
-            ProcessResponse response = getDraftService().processData(request)
+            ModuleProcessResponse response = getDraftService().processData(request)
                     .subscribe().withSubscriber(UniAssertSubscriber.create())
                     .awaitItem()
                     .getItem();

@@ -59,7 +59,7 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
     SchemaExtractorService schemaExtractorService;
 
     @Override
-    public Uni<ProcessResponse> processData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         if (request == null) {
             LOG.error("Received null request");
             return Uni.createFrom().item(createErrorResponse("Request cannot be null", null));
@@ -109,7 +109,7 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
 
 
     @Override
-    public Uni<ProcessResponse> testProcessData(ProcessRequest request) {
+    public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         LOG.info("TestProcessData called - executing test version of chunker processing");
 
         // For test processing, we use the same logic as processData but:
@@ -142,7 +142,7 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                     .build())
                 .build();
 
-            request = ProcessRequest.newBuilder()
+            request = ModuleProcessRequest.newBuilder()
                 .setDocument(testDoc)
                 .setMetadata(testMetadata)
                 .setConfig(testConfig)
@@ -153,7 +153,7 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
         return processDataInternal(request, true);
     }
 
-    private Uni<ProcessResponse> processDataInternal(ProcessRequest request, boolean isTest) {
+    private Uni<ModuleProcessResponse> processDataInternal(ModuleProcessRequest request, boolean isTest) {
         return Uni.createFrom().item(() -> {
             try {
                 // Same processing logic as processData
@@ -169,13 +169,13 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                     inputDoc != null && inputDoc.getId() != null ? inputDoc.getId() : "unknown", 
                     pipeStepName, streamId);
 
-                ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder();
+                ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder();
                 PipeDoc.Builder outputDocBuilder = inputDoc != null ? inputDoc.toBuilder() : PipeDoc.newBuilder();
 
                 // If there's no document in non-test mode, return success but with a log message
                 if (!isTest && !request.hasDocument()) {
                     LOG.info("No document provided in request");
-                    return ProcessResponse.newBuilder()
+                    return ModuleProcessResponse.newBuilder()
                             .setSuccess(true)
                             .addProcessorLogs("Chunker service: no document to process. Chunker service successfully processed request.")
                             .build();
@@ -298,8 +298,8 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
         });
     }
 
-    private ProcessResponse createErrorResponse(String errorMessage, Exception e) {
-        ProcessResponse.Builder responseBuilder = ProcessResponse.newBuilder();
+    private ModuleProcessResponse createErrorResponse(String errorMessage, Exception e) {
+        ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder();
         responseBuilder.setSuccess(false);
         responseBuilder.addProcessorLogs(errorMessage);
 

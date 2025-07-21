@@ -1,8 +1,8 @@
 package io.pipeline.module.draft.api;
 
 import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.module.ProcessRequest;
-import io.pipeline.data.module.ProcessResponse;
+import io.pipeline.data.module.ModuleProcessRequest;
+import io.pipeline.data.module.ModuleProcessResponse;
 import io.pipeline.data.module.RegistrationRequest;
 import io.pipeline.data.module.ServiceMetadata;
 import io.pipeline.module.draft.ExampleServiceImpl;
@@ -100,13 +100,13 @@ public class TestDebugResource {
                     .build();
             
             // Create request
-            ProcessRequest request = ProcessRequest.newBuilder()
+            ModuleProcessRequest request = ModuleProcessRequest.newBuilder()
                     .setDocument(testDoc)
                     .setMetadata(metadata)
                     .build();
             
             // Call the service
-            ProcessResponse response = draftService.processData(request)
+            ModuleProcessResponse response = draftService.processData(request)
                     .await().indefinitely();
             
             // Build result
