@@ -29,6 +29,7 @@ public class ModuleRegistrationService extends MutinyModuleRegistrationGrpc.Modu
                   request.getServiceName(), request.getHost(), request.getPort());
         
         // Create a dynamic channel to the module
+        //TODO: use the dynamic-grpc client to call the module
         ManagedChannel channel = io.grpc.ManagedChannelBuilder.forAddress(request.getHost(), request.getPort()).usePlaintext().build();
         var client = MutinyPipeStepProcessorGrpc.newMutinyStub(channel);
 

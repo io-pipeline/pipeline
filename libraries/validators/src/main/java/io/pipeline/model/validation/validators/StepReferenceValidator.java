@@ -21,6 +21,12 @@ import java.util.*;
 @ApplicationScoped
 public class StepReferenceValidator implements PipelineConfigValidator {
     
+    // TODO: Replace hardcoded ALLOWED_SERVICES with dynamic service discovery
+    // TODO: Options:
+    // TODO:   1. Direct Consul service discovery via ConsulClient injection
+    // TODO:   2. Registration service API to get list of available modules  
+    // TODO:   3. Configuration-based service list with startup validation
+    // TODO: For now hardcoded for demo purposes - needs dynamic solution
     // Hardcoded list of allowed services for testing
     // In a real-world scenario, this would be injected or retrieved from configuration
     private static final Set<String> ALLOWED_SERVICES = Set.of(
@@ -117,10 +123,17 @@ public class StepReferenceValidator implements PipelineConfigValidator {
     /**
      * Checks if a gRPC service name is in the allowed services list.
      * 
+     * TODO: Replace with dynamic service discovery implementation
+     * TODO: Should query actual running services from Consul or Registration Service
+     * 
      * @param serviceName The gRPC service name to check
      * @return true if the service is allowed, false otherwise
      */
     private boolean isAllowedService(String serviceName) {
+        // TODO: This should be replaced with actual service discovery logic:
+        // TODO: - Query Consul for healthy services
+        // TODO: - Or call Registration Service API for available modules
+        // TODO: - Consider caching strategy for performance
         return ALLOWED_SERVICES.contains(serviceName);
     }
     
