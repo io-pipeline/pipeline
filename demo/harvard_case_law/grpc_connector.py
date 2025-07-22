@@ -131,7 +131,10 @@ class CaseLawGrpcConnector:
                     tags=["legal", "case-law", "harvard", "demo"],
                     context_params={
                         "source": "harvard_case_law_demo",
-                        "demo_run": "true"
+                        "demo_run": "true",
+                        "cluster": "dev",
+                        "pipeline": "test-pipeline",
+                        "target_step": "parse-docs"
                     }
                 )
                 

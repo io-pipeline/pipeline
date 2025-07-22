@@ -30,10 +30,10 @@ public class OpenSearchClientProducer {
     @ConfigProperty(name = "opensearch.protocol", defaultValue = "https")
     String protocol;
     
-    @ConfigProperty(name = "opensearch.username")
+    @ConfigProperty(name = "opensearch.username", defaultValue = "")
     String username;
     
-    @ConfigProperty(name = "opensearch.password") 
+    @ConfigProperty(name = "opensearch.password", defaultValue = "") 
     String password;
     
     @ConfigProperty(name = "opensearch.ssl-verify", defaultValue = "true")

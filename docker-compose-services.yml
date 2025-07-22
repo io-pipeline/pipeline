@@ -1,0 +1,213 @@
+version: '3.8'
+
+services:
+  # Infrastructure services
+  consul:
+    image: hashicorp/consul:1.21
+    container_name: consul
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    command: agent -dev -ui -client=0.0.0.0
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: opensearch
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch
+      - discovery.seed_hosts=opensearch
+      - cluster.initial_cluster_manager_nodes=opensearch
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Registration Service
+  registration-service:
+    build:
+      context: .
+      dockerfile: docker/registration-service/Dockerfile
+    container_name: registration-service
+    depends_on:
+      consul:
+        condition: service_healthy
+    environment:
+      - QUARKUS_PROFILE=docker
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+    ports:
+      - "38001:38001"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:38001/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PipeStream Engine
+  pipestream-engine:
+    build:
+      context: .
+      dockerfile: docker/pipestream-engine/Dockerfile
+    container_name: pipestream-engine
+    depends_on:
+      consul:
+        condition: service_healthy
+      registration-service:
+        condition: service_healthy
+    environment:
+      - QUARKUS_PROFILE=docker
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - MODULE_HOST=pipestream-engine
+    ports:
+      - "38100:38100"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:38100/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Processing Modules
+  parser:
+    build:
+      context: .
+      dockerfile: docker/parser/Dockerfile
+    container_name: parser
+    depends_on:
+      consul:
+        condition: service_healthy
+      registration-service:
+        condition: service_healthy
+    environment:
+      - QUARKUS_PROFILE=docker
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - MODULE_HOST=parser
+    ports:
+      - "39101:39001"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:39001/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chunker:
+    build:
+      context: .
+      dockerfile: docker/chunker/Dockerfile
+    container_name: chunker
+    depends_on:
+      consul:
+        condition: service_healthy
+      registration-service:
+        condition: service_healthy
+    environment:
+      - QUARKUS_PROFILE=docker
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - MODULE_HOST=chunker
+    ports:
+      - "39102:39002"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:39002/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  embedder:
+    build:
+      context: .
+      dockerfile: docker/embedder/Dockerfile
+    container_name: embedder
+    depends_on:
+      consul:
+        condition: service_healthy
+      registration-service:
+        condition: service_healthy
+    environment:
+      - QUARKUS_PROFILE=docker
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - MODULE_HOST=embedder
+    ports:
+      - "39103:39003"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:39003/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  opensearch-sink:
+    build:
+      context: .
+      dockerfile: docker/opensearch-sink/Dockerfile
+    container_name: opensearch-sink
+    depends_on:
+      consul:
+        condition: service_healthy
+      registration-service:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      - QUARKUS_PROFILE=docker
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_USERNAME=""
+      - OPENSEARCH_PASSWORD=""
+      - MODULE_HOST=opensearch-sink
+    ports:
+      - "39104:39004"
+    networks:
+      - pipeline-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:39004/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  opensearch-data:
+
+networks:
+  pipeline-network:
+    driver: bridge
+    name: pipeline-network
