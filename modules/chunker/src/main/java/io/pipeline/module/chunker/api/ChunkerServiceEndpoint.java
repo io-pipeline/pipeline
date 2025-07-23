@@ -57,6 +57,9 @@ public class ChunkerServiceEndpoint {
     
     @Inject
     DemoDocumentService demoDocumentService;
+    
+    @Inject
+    io.pipeline.common.service.SchemaExtractorService schemaExtractorService;
 
     @POST
     @Path("/simple")
@@ -282,46 +285,37 @@ public class ChunkerServiceEndpoint {
 
     @GET
     @Path("/config")
-    @Operation(summary = "Get chunker configuration", description = "Retrieve configuration schema, defaults, and validation limits")
-    @APIResponse(responseCode = "200", description = "Configuration retrieved successfully")
+    @Operation(summary = "Get chunker configuration schema", description = "Retrieve the OpenAPI 3.1 JSON Schema for ChunkerConfig")
+    @APIResponse(
+        responseCode = "200", 
+        description = "OpenAPI 3.1 JSON Schema for ChunkerConfig",
+        content = @Content(
+            mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = ChunkerConfig.class)
+        )
+    )
     public Uni<Response> getConfig() {
-        LOG.debug("Configuration request received");
+        LOG.debug("Configuration schema request received");
         
         return Uni.createFrom().item(() -> {
-            Map<String, Object> response = new HashMap<>();
+            // Extract the real OpenAPI 3.1 schema using the same service as gRPC
+            Optional<String> schemaOptional = schemaExtractorService.extractChunkerConfigSchema();
             
-            // Default configuration instance with all defaults
-            ChunkerConfig defaultConfig = ChunkerConfig.createDefault();
-            response.put("defaultConfig", defaultConfig);
-            
-            // Configuration metadata
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("configClass", "ChunkerConfig");
-            metadata.put("version", "1.0.0");
-            metadata.put("description", "Text chunking configuration with auto-generated config_id");
-            response.put("metadata", metadata);
-            
-            // Validation limits (from schema annotations)
-            Map<String, Object> limits = new HashMap<>();
-            limits.put("chunkSize", Map.of("min", 50, "max", 10000));
-            limits.put("chunkOverlap", Map.of("min", 0, "max", 5000));
-            limits.put("maxTextLength", 40000000); // 40MB limit
-            response.put("limits", limits);
-            
-            // Available algorithms
-            Map<String, Object> algorithms = new HashMap<>();
-            algorithms.put("character", "Character-based chunking with sliding window");
-            algorithms.put("token", "Token-based chunking using tokenization (default)");
-            algorithms.put("sentence", "Sentence-boundary chunking using NLP");
-            algorithms.put("semantic", "Semantic chunking using AI (future)");
-            response.put("algorithms", algorithms);
-            
-            // Schema note - OpenAPI schema is auto-generated from ChunkerConfig record
-            response.put("schemaInfo", "JSON Schema auto-generated from ChunkerConfig Java record. Access via OpenAPI endpoint: /q/openapi");
-            
-            return response;
-        })
-        .map(response -> Response.ok(response).build());
+            if (schemaOptional.isPresent()) {
+                String schemaJson = schemaOptional.get();
+                LOG.debugf("Successfully returning ChunkerConfig schema (%d characters)", schemaJson.length());
+                
+                // Return the JSON string directly - Quarkus JAX-RS handles this perfectly
+                return Response.ok(schemaJson)
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+            } else {
+                LOG.warn("Could not extract ChunkerConfig schema from OpenAPI document");
+                return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity(Map.of("error", "Schema not available - check OpenAPI document generation"))
+                    .build();
+            }
+        });
     }
 
     @GET

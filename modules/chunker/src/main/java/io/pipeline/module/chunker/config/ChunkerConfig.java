@@ -2,8 +2,13 @@ package io.pipeline.module.chunker.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.pipeline.module.chunker.model.ChunkingAlgorithm;
+import io.pipeline.module.chunker.examples.SampleDocuments;
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * Configuration record for chunker service.
@@ -12,7 +17,15 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * This should generate
  */
 @RegisterForReflection
-@Schema(name = "ChunkerConfig", description = "Configuration for text chunking operations")
+@Schema(
+    name = "ChunkerConfig", 
+    description = "Configuration for text chunking operations with embedded sample documents for testing",
+    examples = {
+        SampleDocuments.US_CONSTITUTION_PREAMBLE,
+        SampleDocuments.TECHNICAL_DOCUMENTATION,
+        SampleDocuments.LITERARY_EXCERPT
+    }
+)
 public record ChunkerConfig(
     
     @JsonProperty("algorithm")
@@ -23,13 +36,14 @@ public record ChunkerConfig(
         required = true,
         examples = {"character", "sentence"}
     )
+    @NotNull
     ChunkingAlgorithm algorithm,
 
     @JsonProperty("sourceField")
     @Schema(
         description = "Document field to extract text from for chunking", 
         defaultValue = "body",
-        examples = {"body", "title", "metadata.summary"}
+        examples = {"body", "title", "metadata.summary", "content.text"}
     )
     String sourceField,
 
@@ -39,8 +53,10 @@ public record ChunkerConfig(
         minimum = "50", 
         maximum = "10000", 
         defaultValue = "500",
-        required = true
+        required = true,
+        examples = {"300", "500", "1000", "1500"}
     )
+    @NotNull @Min(50) @Max(10000)
     Integer chunkSize,
 
     @JsonProperty("chunkOverlap")
@@ -48,8 +64,10 @@ public record ChunkerConfig(
         description = "Amount of overlap between consecutive chunks (same units as chunkSize)", 
         minimum = "0", 
         maximum = "5000", 
-        defaultValue = "50"
+        defaultValue = "50",
+        examples = {"0", "25", "50", "100", "200"}
     )
+    @Min(0) @Max(5000)
     Integer chunkOverlap,
 
     @JsonProperty("preserveUrls")
@@ -70,7 +88,8 @@ public record ChunkerConfig(
     @Schema(
         description = "Auto-generated configuration identifier based on algorithm and parameters", 
         readOnly = true,
-        examples = {"character-body-500-50", "sentence-title-1000-100", "token-body-512-64"}
+        examples = {"character-body-500-50", "sentence-title-1000-100", "token-body-512-64"},
+        extensions = @Extension(name = "x-hidden", value = "true")
     )
     String configId
 ) {
@@ -182,6 +201,11 @@ public record ChunkerConfig(
     /**
      * Gets the chunk size with appropriate units based on algorithm.
      */
+    @Schema(
+        description = "Human-readable description of chunk size with appropriate units based on the selected algorithm",
+        readOnly = true,
+        examples = {"500 tokens", "1000 characters", "3 sentences"}
+    )
     public String getChunkSizeDescription() {
         return switch (algorithm) {
             case CHARACTER -> chunkSize + " characters";
@@ -194,6 +218,11 @@ public record ChunkerConfig(
     /**
      * Gets the overlap description with appropriate units based on algorithm.
      */
+    @Schema(
+        description = "Human-readable description of chunk overlap with appropriate units based on the selected algorithm",
+        readOnly = true,
+        examples = {"50 tokens", "100 characters", "1 sentence"}
+    )
     public String getChunkOverlapDescription() {
         return switch (algorithm) {
             case CHARACTER -> chunkOverlap + " characters";

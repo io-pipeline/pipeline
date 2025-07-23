@@ -298,58 +298,28 @@
         function loadModuleInfo() {
             fetch('api/chunker/service/config')
                 .then(response => response.json())
-                .then(data => {
+                .then(realSchema => {
+                    // Extract info from the real OpenAPI 3.1 schema
+                    const properties = realSchema.properties || {};
+                    const algorithmOptions = properties.algorithm?.enum || ['token'];
+                    const defaultAlgorithm = properties.algorithm?.examples?.[0] || 'token';
+                    
                     document.getElementById('moduleInfo').innerHTML = `
                         <strong>Module Name:</strong> chunker<br>
-                        <strong>Schema Type:</strong> OpenAPI Auto-Generated<br>
-                        <strong>Default Algorithm:</strong> ${data.defaultConfig?.algorithm || 'token'}<br>
-                        <strong>Config Class:</strong> ${data.metadata?.configClass || 'ChunkerConfig'}
+                        <strong>Schema Type:</strong> OpenAPI 3.1 Auto-Generated<br>
+                        <strong>Default Algorithm:</strong> ${defaultAlgorithm}<br>
+                        <strong>Schema Properties:</strong> ${Object.keys(properties).length}<br>
+                        <strong>Config Class:</strong> ChunkerConfig
                     `;
                     
-                    // Create a mock schema from the ChunkerConfig for the UI
-                    const mockSchema = {
-                        title: "ChunkerConfig",
-                        description: "Configuration for text chunking operations", 
-                        properties: {
-                            algorithm: {
-                                type: "string",
-                                enum: ["character", "token", "sentence", "semantic"],
-                                default: "token",
-                                description: "Chunking algorithm to use for splitting text"
-                            },
-                            sourceField: {
-                                type: "string", 
-                                default: "body",
-                                description: "Document field to extract text from for chunking"
-                            },
-                            chunkSize: {
-                                type: "integer",
-                                default: 500,
-                                minimum: 50,
-                                maximum: 10000,
-                                description: "Target size for each chunk (characters/tokens)"
-                            },
-                            chunkOverlap: {
-                                type: "integer",
-                                default: 50,
-                                minimum: 0,
-                                maximum: 5000,
-                                description: "Amount of overlap between consecutive chunks"
-                            },
-                            preserveUrls: {
-                                type: "boolean",
-                                default: true,
-                                description: "Whether to preserve URLs as atomic units"
-                            }
-                        }
-                    };
-                    
-                    moduleSchema = mockSchema;
-                    renderSchema(mockSchema);
+                    // Use the REAL schema from the /config endpoint
+                    moduleSchema = realSchema;
+                    renderSchema(realSchema);
                 })
                 .catch(error => {
+                    console.error('Error loading real schema:', error);
                     document.getElementById('moduleInfo').innerHTML = 
-                        '<span class="text-danger">Failed to load module info</span>';
+                        '<span class="text-danger">Failed to load module info: ' + error.message + '</span>';
                 });
         }
         
@@ -394,6 +364,11 @@
             let html = '';
             
             for (const [key, prop] of Object.entries(schema.properties)) {
+                // Skip fields marked as hidden with x-hidden extension or readOnly
+                if (prop['x-hidden'] === 'true' || prop['x-hidden'] === true || prop.readOnly === true) {
+                    continue;
+                }
+                
                 const inputId = `config_${key}`;
                 
                 if (prop.type === 'boolean') {
