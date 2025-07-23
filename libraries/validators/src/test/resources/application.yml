@@ -4,9 +4,13 @@ quarkus:
     test-port: 0
   application:
     name: engine-validators-test
-  generate-code:
-    grpc:
-      scan-for-proto: com.rokkon.pipeline:rokkon-protobuf,com.google.api.grpc:proto-google-common-protos
+  arc:
+    selected-alternatives: io.pipeline.test.support.InMemoryTestModuleRegistry
+  test:
+    profile: test
+#  generate-code:
+#    grpc:
+#      scan-for-proto: com.rokkon.pipeline:rokkon-protobuf,com.google.api.grpc:proto-google-common-protos
   log:
     level: INFO
     category:
