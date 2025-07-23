@@ -1,5 +1,6 @@
 package io.pipeline.consul.client.service.registry.consul;
 
+import io.pipeline.api.events.ServiceListUpdatedEvent;
 import io.pipeline.api.service.ModuleRegistryService;
 import io.pipeline.consul.client.service.registry.AbstractModuleRegistryService;
 import io.pipeline.consul.client.registry.validation.ModuleConnectionValidator;
@@ -9,9 +10,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+import io.quarkus.arc.DefaultBean;
 import io.quarkus.cache.CacheInvalidate;
 import io.quarkus.cache.CacheKey;
 import io.quarkus.cache.CacheResult;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.consul.Service;
 import io.vertx.ext.consul.ServiceOptions;
@@ -20,6 +23,8 @@ import io.vertx.ext.consul.CheckStatus;
 import io.vertx.ext.consul.ServiceEntry;
 import io.vertx.ext.consul.ServiceEntryList;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
@@ -44,14 +49,19 @@ import java.time.Duration;
  * Implementation of ModuleRegistryService that uses Consul for storage.
  * Modules are registered globally and can be referenced by clusters.
  */
+
 @ApplicationScoped
 @ConsulRegistry
+@DefaultBean
 public class ConsulModuleRegistryService extends ConsulServiceBase implements ModuleRegistryService {
 
     private static final Logger LOG = Logger.getLogger(ConsulModuleRegistryService.class);
 
     @Inject
     PipelineConsulConfig config;
+
+    @Inject
+    Event<ServiceListUpdatedEvent> serviceListUpdatedEvent;
     
     
     @ConfigProperty(name = "pipeline.consul.cleanup.interval", defaultValue = "30m")
@@ -76,6 +86,20 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
      */
     public ConsulModuleRegistryService() {
         // Default constructor for CDI
+    }
+
+    void onStart(@Observes StartupEvent ev) {
+        fireServiceListUpdatedEvent();
+    }
+
+    private void fireServiceListUpdatedEvent() {
+        listRegisteredModules().subscribe().with(modules -> {
+            Set<String> serviceNames = modules.stream()
+                    .map(ModuleRegistration::moduleName)
+                    .collect(Collectors.toSet());
+            serviceListUpdatedEvent.fire(new ServiceListUpdatedEvent(serviceNames));
+            LOG.infof("Fired ServiceListUpdatedEvent with %d services", serviceNames.size());
+        });
     }
     
     // Helper methods from AbstractModuleRegistryService
@@ -360,7 +384,10 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
                         ModuleStatus.REGISTERED  // Update status
                     );
                     return storeModuleMetadata(registeredModule)
-                        .onItem().transform(v -> registeredModule);
+                            .onItem().transform(v -> {
+                                fireServiceListUpdatedEvent();
+                                return registeredModule;
+                            });
                 } else if (elapsedTime >= timeoutMillis) {
                     // Timeout reached, mark as FAILED
                     LOG.errorf("Module %s health check timed out after %d ms", 
@@ -616,6 +643,7 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
         return consulClient.deregisterService(moduleId)
             .onItem().transformToUni(v -> {
                 LOG.infof("Module %s deregistered from Consul services, removing from KV.", moduleId);
+                fireServiceListUpdatedEvent();
                 // Also remove from KV store
                 return consulClient.deleteValue(buildModuleKvKey(moduleId));
             })

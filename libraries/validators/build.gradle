@@ -16,8 +16,10 @@ dependencies {
     implementation project(':libraries:pipeline-commons')
     implementation project(':libraries:data-util')
     implementation project(':grpc-stubs')
-    implementation project(':libraries:consul-client')
+    
     implementation 'io.quarkus:quarkus-jackson'
+    testImplementation project(':libraries:testing-commons')
+    integrationTestImplementation project(':libraries:testing-commons')
     implementation 'io.quarkus:quarkus-hibernate-validator'
     implementation 'jakarta.annotation:jakarta.annotation-api'
     implementation 'com.networknt:json-schema-validator:1.5.8'
