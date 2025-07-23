@@ -85,6 +85,63 @@ Key configuration files:
 - `modules/opensearch-sink/src/main/resources/application.properties`
 - `opensearch/.env` (OpenSearch credentials)
 
+## 🎨 Vue.js Dashboard Setup
+
+The Chunker module includes a modern Vue.js dashboard with OpenAPI-driven forms. Follow these steps to set it up on a new machine:
+
+### Prerequisites for Vue.js Development
+- **Node.js 18+** and **npm**
+- All Java prerequisites (above)
+
+### Quick Setup
+```bash
+# 1. Install Node.js dependencies
+cd modules/chunker/src/main/ui-vue
+npm install
+
+# 2. Build the project (includes Vue.js dashboard)
+cd ../../../../  # Back to project root
+./gradlew :modules:chunker:build
+
+# 3. Start the chunker service
+./gradlew :modules:chunker:quarkusDev
+```
+
+### Vue.js Dashboard Features
+- **Config Card**: Schema-driven configuration forms using JSON Schema Forms
+- **Demo Documents**: Interactive document browser with 5 sample documents
+- **Metadata Dashboard**: Real-time performance metrics and system monitoring
+
+### Development Mode
+For Vue.js frontend development with hot reload:
+```bash
+# Terminal 1: Start Quarkus backend
+./gradlew :modules:chunker:quarkusDev
+
+# Terminal 2: Start Vue.js dev server (optional - for hot reload)
+cd modules/chunker/src/main/ui-vue
+npm run dev
+```
+
+### Access Points
+- **Vue.js Dashboard**: http://localhost:39102/ (embedded in Quarkus)
+- **REST API**: http://localhost:39102/api/chunker/service/
+- **OpenAPI Docs**: http://localhost:39102/q/swagger-ui/
+
+### Vue.js Technology Stack
+- **Vue.js 3** with Composition API
+- **JSON Schema Forms** for dynamic form generation
+- **Vite** for fast development and building
+- **Axios** for REST API integration
+- **Quinoa** for Quarkus integration
+
+### Build Integration
+The Vue.js build is automatically integrated with Gradle via Quinoa:
+- `npm install` runs automatically during Gradle build
+- `npm run build` generates production assets
+- Vue.js assets are served by Quarkus at runtime
+- No separate deployment needed
+
 ## 📦 What's Included
 
 This deployment package includes:
@@ -95,3 +152,4 @@ This deployment package includes:
 - ✅ End-to-end testing and validation
 - ✅ Comprehensive documentation
 - ✅ Production-ready configuration examples
+- ✅ Modern Vue.js dashboard with OpenAPI integration

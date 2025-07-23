@@ -6,6 +6,7 @@ plugins {
 
 
 dependencies {
+    implementation 'io.quarkus:quarkus-container-image-docker'
     implementation 'io.quarkiverse.quinoa:quarkus-quinoa:2.5.5'
     implementation platform(project(':bom'))
     implementation 'io.quarkus:quarkus-grpc'
