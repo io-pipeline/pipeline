@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import io.quarkus.scheduler.Scheduled;
@@ -75,6 +76,9 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
 
     @Inject
     ModuleConnectionValidator connectionValidator;
+
+    // Track ongoing registrations to prevent concurrent registration of the same module
+    private final ConcurrentHashMap<String, Uni<ModuleRegistration>> ongoingRegistrations = new ConcurrentHashMap<>();
 
     @Inject
     HealthCheckConfigProvider healthConfig;
@@ -189,6 +193,14 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
 
         // Generate a unique service ID for this specific instance
         String serviceId = moduleName + "-" + host + "-" + port;
+        
+        // Check if registration is already in progress for this service ID to prevent race conditions
+        Uni<ModuleRegistration> existingRegistration = ongoingRegistrations.get(serviceId);
+        if (existingRegistration != null) {
+            LOG.infof("Registration already in progress for module %s with ID: %s, reusing existing registration", moduleName, serviceId);
+            return existingRegistration;
+        }
+        
         LOG.infof("Registering new instance of module %s with ID: %s", moduleName, serviceId);
         
         // First save to KV store with RECEIVED status
@@ -212,6 +224,43 @@ public class ConsulModuleRegistryService extends ConsulServiceBase implements Mo
             ModuleStatus.REGISTERING  // RECEIVED status
         );
         
+        // Create the registration chain and store it in the ongoing registrations map to prevent race conditions
+        Uni<ModuleRegistration> registrationChain = createRegistrationChain(
+            receivedRegistration, moduleName, implementationId, host, port, serviceType, version, 
+            metadata, engineHost, enginePort, jsonSchema, serviceId, containerId, containerName, hostname);
+        
+        // Use putIfAbsent to handle race condition where another thread might have started registration
+        Uni<ModuleRegistration> ongoingRegistration = ongoingRegistrations.putIfAbsent(serviceId, registrationChain);
+        if (ongoingRegistration != null) {
+            LOG.infof("Another thread started registration for module %s with ID: %s, reusing that registration", moduleName, serviceId);
+            return ongoingRegistration;
+        }
+        
+        // Add cleanup logic to remove from map when registration completes (success or failure)
+        return registrationChain
+            .onItemOrFailure().invoke((result, throwable) -> {
+                ongoingRegistrations.remove(serviceId);
+                if (throwable != null) {
+                    LOG.warnf("Registration failed for module %s with ID: %s, cleaned up from ongoing registrations: %s", 
+                              moduleName, serviceId, throwable.getMessage());
+                } else {
+                    LOG.debugf("Registration completed for module %s with ID: %s, cleaned up from ongoing registrations", 
+                               moduleName, serviceId);
+                }
+            });
+    }
+
+    /**
+     * Creates the complete registration chain for a module.
+     * This method contains the actual registration logic that was previously inline in registerModule.
+     */
+    private Uni<ModuleRegistration> createRegistrationChain(ModuleRegistration receivedRegistration, 
+                                                          String moduleName, String implementationId, 
+                                                          String host, int port, String serviceType, 
+                                                          String version, Map<String, String> metadata,
+                                                          String engineHost, int enginePort, String jsonSchema,
+                                                          String serviceId, String containerId, 
+                                                          String containerName, String hostname) {
         return saveModuleRegistration(receivedRegistration)
             .onItem().transformToUni(saved -> {
                 // Now register with Consul
