@@ -1,5 +1,5 @@
 plugins {
-    id 'java-library'
+    alias(libs.plugins.java.library)
     alias(libs.plugins.quarkus)
     alias(libs.plugins.jandex)
 }
@@ -7,9 +7,7 @@ plugins {
 group = 'io.pipeline'
 version = '1.0.0-SNAPSHOT'
 
-repositories {
-    mavenCentral()
-}
+
 
 dependencies {
     implementation platform(project(':bom'))

@@ -1,12 +1,9 @@
 plugins {
-    id 'java'
-    id 'io.quarkus'
+    alias(libs.plugins.java)
+    alias(libs.plugins.quarkus)
 }
 
-repositories {
-    mavenCentral()
-    mavenLocal()
-}
+
 
 dependencies {
     testImplementation 'io.quarkiverse.wiremock:quarkus-wiremock-test:1.5.1'

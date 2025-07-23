@@ -1,4 +1,4 @@
-r# Project Cleanup Plan
+# Project Cleanup Plan
 
 ## 1. Gradle Consolidation
 
@@ -501,3 +501,136 @@ The proxy's behavior for each upstream service needs to be configurable at runti
     *   Caching policies (e.g., TTL, cache key).
 2.  Implement a mechanism for the proxy to load this configuration dynamically. This could be from a designated key in the Consul KV store.
 3.  When a pipeline step is configured to use the proxy, it will pass a reference to the proxy's configuration, allowing the proxy to look up the correct set of rules to apply.
+
+## 15. Formalize REST APIs for Pipeline Designer and Admin Tools
+
+**Goal:** Evolve the existing demo REST APIs into a robust, secure, and well-documented API layer that can power a visual pipeline designer and administrative frontends.
+
+### Ticket 15.1: Refactor Existing Test APIs
+
+**Title:** Refactor: Formalize and secure existing test/demo REST endpoints
+
+**Description:**
+The current REST APIs used for testing and demos should be refactored into production-quality endpoints. This involves moving them to a proper API path, adding security, and improving error handling.
+
+**Tasks:**
+1.  Move all test-related endpoints under a consistent, versioned path, such as `/api/v1/admin/...` or `/api/v1/designer/...`.
+2.  Implement authentication and authorization for these endpoints to ensure only administrative users can access them.
+3.  Replace any "hacky" implementations with robust, production-ready code, including proper input validation and structured error responses.
+
+### Ticket 15.2: Implement REST APIs for Pipeline Lifecycle Management
+
+**Title:** Feature: Create REST APIs to manage pipelines through their lifecycle
+
+**Description:**
+To support a visual designer, a comprehensive set of REST APIs is needed to allow for the creation, configuration, and promotion of pipelines through the `DESIGN`, `TESTING`, and `PRODUCTION` stages.
+
+**Tasks:**
+1.  **Create/Update Pipeline:** Implement `POST /api/v1/pipelines` and `PUT /api/v1/pipelines/{pipelineId}` endpoints that accept a full pipeline configuration in JSON format.
+2.  **Get Pipeline:** Implement a `GET /api/v1/pipelines/{pipelineId}` endpoint to retrieve the current configuration of a pipeline.
+3.  **Promote Pipeline:** Implement a `POST /api/v1/pipelines/{pipelineId}/promote` endpoint. This endpoint will handle the logic of moving a pipeline from `DESIGN` to `TESTING`, or from `TESTING` to `PRODUCTION`, which may involve updating Consul configurations and activating services.
+4.  **List Pipelines:** Implement a `GET /api/v1/pipelines` endpoint to list all pipelines and their current status.
+
+### Ticket 15.3: Implement REST APIs for Operational Control
+
+**Title:** Feature: Create REST APIs for operational control of pipelines and listeners
+
+**Description:**
+To power the admin frontend, REST endpoints are needed to perform operational tasks like pausing and resuming services.
+
+**Tasks:**
+1.  Implement a `POST /api/v1/listeners/{listenerGroup}/_pause` endpoint to pause all Kafka listeners within a specific group.
+2.  Implement a `POST /api/v1/listeners/{listenerGroup}/_resume` endpoint to resume all Kafka listeners within a specific group.
+3.  Implement a `GET /api/v1/pipelines/{pipelineId}/status` endpoint to provide detailed monitoring information about a running pipeline.
+
+## 16. Implement Administrative and Designer Frontend
+
+**Goal:** Create a comprehensive web frontend using Quinoa and Vue that provides a visual pipeline designer and operational controls for administrators.
+
+### Ticket 16.1: Set Up Quinoa and Vue Frontend Project
+
+**Title:** Chore: Initialize the Quinoa and Vue.js frontend application
+
+**Description:**
+Set up the project structure for the new frontend application within the `pipestream-engine` or a new dedicated module.
+
+**Tasks:**
+1.  Add the Quarkus Quinoa extension to the project.
+2.  Configure Quinoa to use Vue.js as the frontend framework.
+3.  Establish the basic project structure, including component directories, routing, and state management (e.g., Pinia).
+
+### Ticket 16.2: Build the Visual Pipeline Designer
+
+**Title:** Feature: Create a visual, drag-and-drop pipeline designer
+
+**Description:**
+Develop the UI for creating and configuring pipelines. This will be the primary interface for users in `DESIGN` mode.
+
+**Tasks:**
+1.  Create a component that fetches the list of available modules (and their schemas) from the `/api/v1/modules` endpoint (from Ticket 13.1).
+2.  Implement a drag-and-drop interface where users can place modules onto a canvas to build a pipeline.
+3.  When a user adds a module to the pipeline, display a configuration panel where they can set the module's parameters and the pre/post-processing rules (`ProtoFieldMapper`).
+4.  Implement the logic to save the designed pipeline by calling the `POST /api/v1/pipelines` endpoint.
+
+### Ticket 16.3: Build the Administrative Dashboard
+
+**Title:** Feature: Create the administrative dashboard for pipeline operations
+
+**Description:**
+Develop the UI for administrators to monitor and control pipelines in `TESTING` and `PRODUCTION`.
+
+**Tasks:**
+1.  Create a dashboard view that lists all pipelines and their current status, using the `GET /api/v1/pipelines` endpoint.
+2.  For each pipeline, provide controls to view detailed status, logs, and metrics.
+3.  Implement the UI for pausing and resuming Kafka listener groups by calling the new operational REST APIs.
+4.  Add controls for promoting pipelines from one stage to the next.
+
+## 17. Implement Hybrid Development and Testing Strategy
+
+**Goal:** Implement the hybrid development and testing strategy as outlined in `docs/docker-strategy.md`, using a `compose-devservices.yml` file to manage backing services and leveraging Quarkus profiles to control application behavior.
+
+### Ticket 17.1: Create `compose-devservices.yml`
+
+**Title:** Chore: Create and configure `compose-devservices.yml` for local development
+
+**Description:**
+Create a `compose-devservices.yml` file in the root of the project to manage backing services like Consul and Kafka. This file will be used by Quarkus Dev Services to provide a consistent local development environment.
+
+**Tasks:**
+1.  Create a new file named `compose-devservices.yml` in the project root.
+2.  Add a service definition for Consul, using a specific version (e.g., `1.18.0`) and exposing the necessary ports.
+3.  Add a `healthcheck` to the Consul service definition to ensure that Quarkus waits for Consul to be fully ready before starting the application.
+4.  Add service definitions for any other backing services that are required for local development (e.g., Kafka, databases).
+
+### Ticket 17.2: Configure Application Profiles
+
+**Title:** Refactor: Configure application profiles to disable `consul-config` in dev and test
+
+**Description:**
+Use Quarkus configuration profiles to disable the `quarkus-config-consul` extension in the `dev` and `test` profiles. This will prevent the startup paradox and allow the application to start successfully when using Dev Services.
+
+**Tasks:**
+1.  In the `application.properties` file, add the following configuration:
+    ```properties
+    # Disable consul-config in dev and test modes
+    %dev,test.quarkus.consul-config.enabled=false
+    ```
+2.  Ensure that any configuration that would normally come from Consul is provided locally in the `application.properties` file for the `dev` and `test` profiles.
+3.  The production environment will enable the `consul-config` extension by setting the `QUARKUS_CONSUL_CONFIG_ENABLED=true` environment variable.
+
+### Ticket 17.3: Configure Stork for Service Discovery
+
+**Title:** Chore: Configure Stork to use Consul for service discovery
+
+**Description:**
+Configure SmallRye Stork to use Consul for service discovery. In the `dev` and `test` profiles, Stork will automatically connect to the Consul instance provided by Dev Services.
+
+**Tasks:**
+1.  In the `application.properties` file, add the necessary Stork configuration for each service that needs to be discovered. For example:
+    ```properties
+    # Configure Stork to use Consul for discovering 'my-other-service'.
+    # In dev/test profiles, Quarkus Dev Services will automatically configure
+    # the consul-host and consul-port for Stork.
+    quarkus.stork.my-other-service.service-discovery.type=consul
+    ```
+2.  Ensure that the production configuration for Stork points to the correct Consul instance.

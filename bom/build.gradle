@@ -1,6 +1,6 @@
 plugins {
-    id 'java-platform'
-    id 'maven-publish'
+    alias(libs.plugins.java.platform)
+    alias(libs.plugins.maven.publish)
 }
 
 description = 'Pipeline BOM - Bill of Materials'

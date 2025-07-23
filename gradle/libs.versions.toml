@@ -42,6 +42,10 @@ rest-assured = { module = "io.rest-assured:rest-assured" }
 [plugins]
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }
 jandex = { id = "org.kordamp.gradle.jandex", version.ref = "jandex-plugin" }
+java = { id = "java" }
+java-library = { id = "java-library" }
+java-platform = { id = "java-platform" }
+maven-publish = { id = "maven-publish" }
 
 [bundles]
 # Common Quarkus dependencies

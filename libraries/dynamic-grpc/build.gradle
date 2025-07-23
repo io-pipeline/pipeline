@@ -1,15 +1,13 @@
 plugins {
-    id 'java-library'
-    id 'io.quarkus'
-    id 'org.kordamp.gradle.jandex' version '2.2.0-SNAPSHOT'
+    alias(libs.plugins.java.library)
+    alias(libs.plugins.quarkus)
+    alias(libs.plugins.jandex)
 }
 
 group = 'io.pipeline'
 version = '1.0.0-SNAPSHOT'
 
-repositories {
-    mavenCentral()
-}
+
 
 dependencies {
     implementation 'io.quarkus:quarkus-grpc'
