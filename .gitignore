@@ -33,6 +33,8 @@ replay_pid*
 temp_archive
 
 .quarkus
+.claude
+reference-code
 
 CLAUDE.md
 ## the testing suite output doc
