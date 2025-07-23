@@ -304,8 +304,10 @@ public class OverlapChunker {
         // Branch based on algorithm
         if (algorithm == ChunkingAlgorithm.SENTENCE) {
             return createSentenceBasedChunks(textToProcess, placeholderToUrlMap, options, config, streamId, pipeStepName, documentId);
+        } else if (algorithm == ChunkingAlgorithm.CHARACTER) {
+            return createCharacterBasedChunks(textToProcess, placeholderToUrlMap, options, config, streamId, pipeStepName, documentId, textFieldPath);
         } else {
-            // Default to token-based chunking (CHARACTER and SEMANTIC not implemented yet)
+            // Default to token-based chunking (TOKEN algorithm, SEMANTIC not implemented yet)
             return createTokenBasedChunks(textToProcess, placeholderToUrlMap, options, config, streamId, pipeStepName, documentId, textFieldPath);
         }
     }
@@ -471,6 +473,99 @@ public class OverlapChunker {
 
         LOG.debugf("Created %d token-based chunks from %d total tokens (target: %d tokens per chunk, overlap: %d tokens) for document part from field '%s'. streamId: %s, pipeStepName: %s",
                 chunks.size(), tokens.length, targetTokensPerChunk, tokenOverlap, textFieldPath, streamId, pipeStepName);
+        
+        return new ChunkingResult(chunks, placeholderToUrlMap);
+    }
+
+    /**
+     * Creates chunks using character-based algorithm with proper character counting for size and overlap.
+     * 
+     * @param textToProcess Text that has been preprocessed (URL placeholders if enabled)
+     * @param placeholderToUrlMap Map of URL placeholders to original URLs
+     * @param options Chunking configuration options (chunkSize = character count, chunkOverlap = character count)
+     * @param config ChunkerConfig for ID generation (can be null)
+     * @param streamId Stream ID for logging and chunk IDs
+     * @param pipeStepName Pipeline step name for logging
+     * @param documentId Document ID for chunk ID generation
+     * @param textFieldPath Field path being chunked (for logging)
+     * @return ChunkingResult containing chunks and URL placeholder mappings
+     */
+    private ChunkingResult createCharacterBasedChunks(String textToProcess, Map<String, String> placeholderToUrlMap,
+                                                     ChunkerOptions options, ChunkerConfig config, String streamId,
+                                                     String pipeStepName, String documentId, String textFieldPath) {
+        
+        LOG.debugf("Creating chunks with target character size: %d, character overlap: %d, for document ID: %s, streamId: %s, pipeStepName: %s",
+                options.chunkSize(), options.chunkOverlap(), documentId, streamId, pipeStepName);
+
+        if (textToProcess.isEmpty()) {
+            LOG.debugf("No text to process. Returning empty chunks. streamId: %s, pipeStepName: %s", streamId, pipeStepName);
+            return new ChunkingResult(Collections.emptyList(), placeholderToUrlMap);
+        }
+
+        List<Chunk> chunks = new ArrayList<>();
+        int chunkIndex = 0;
+        int currentCharStartIndex = 0;
+        int targetCharsPerChunk = options.chunkSize(); // This is character count
+        int charOverlap = options.chunkOverlap(); // This is character count
+        int textLength = textToProcess.length();
+
+        while (currentCharStartIndex < textLength) {
+            // Determine how many characters to include in this chunk
+            int charsInThisChunk = Math.min(targetCharsPerChunk, textLength - currentCharStartIndex);
+            int currentCharEndIndex = currentCharStartIndex + charsInThisChunk;
+
+            // Extract the chunk text
+            String chunkTextWithPlaceholders = textToProcess.substring(currentCharStartIndex, currentCharEndIndex);
+            
+            if (chunkTextWithPlaceholders.isEmpty()) {
+                break; // No more content to process
+            }
+
+            // Restore URLs from placeholders if needed
+            String finalChunkText = chunkTextWithPlaceholders;
+            if (options.preserveUrls() != null && options.preserveUrls()) {
+                finalChunkText = restorePlaceholdersInChunk(chunkTextWithPlaceholders, placeholderToUrlMap);
+            }
+
+            // Character offsets are straightforward for character chunking
+            int originalStartOffset = currentCharStartIndex;
+            int originalEndOffset = currentCharEndIndex - 1;
+
+            if (options.preserveUrls() != null && options.preserveUrls() && !placeholderToUrlMap.isEmpty()) {
+                LOG.debugf("URL preservation is active, original character offsets for chunks might be approximate " +
+                         "due to placeholder substitutions. StreamID: %s, DocID: %s", streamId, documentId);
+            }
+
+            // Generate clean, semantic chunk ID
+            String chunkId;
+            if (config != null) {
+                // Use ChunkerConfig for clean IDs: {configId}-{shortDocId}-{chunkIndex}
+                String shortDocId = extractShortDocumentId(documentId);
+                chunkId = String.format("%s-%s-%04d", config.configId(), shortDocId, chunkIndex++);
+            } else {
+                // Fallback to template-based ID generation
+                chunkId = String.format(options.chunkIdTemplate(), streamId, documentId, chunkIndex++);
+            }
+            
+            chunks.add(new Chunk(chunkId, finalChunkText, originalStartOffset, originalEndOffset));
+
+            // Calculate next starting position with character-based overlap
+            if (currentCharEndIndex >= textLength) {
+                break; // No more characters to process
+            }
+
+            // Move forward by (charsInThisChunk - charOverlap) to create proper character overlap
+            int advancement = Math.max(1, charsInThisChunk - charOverlap);
+            currentCharStartIndex += advancement;
+            
+            // Ensure we don't go beyond available text
+            if (currentCharStartIndex >= textLength) {
+                break;
+            }
+        }
+
+        LOG.debugf("Created %d character-based chunks from %d total characters (target: %d characters per chunk, overlap: %d characters) for document part from field '%s'. streamId: %s, pipeStepName: %s",
+                chunks.size(), textLength, targetCharsPerChunk, charOverlap, textFieldPath, streamId, pipeStepName);
         
         return new ChunkingResult(chunks, placeholderToUrlMap);
     }

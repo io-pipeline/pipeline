@@ -13,7 +13,7 @@ import io.pipeline.data.model.SemanticProcessingResult;
 import io.pipeline.data.module.*;
 import io.pipeline.module.chunker.config.ChunkerConfig;
 import io.pipeline.module.chunker.model.Chunk;
-import io.pipeline.module.chunker.model.ChunkerOptions;
+import io.pipeline.module.chunker.model.ChunkingAlgorithm;
 import io.pipeline.module.chunker.model.ChunkingResult;
 import io.pipeline.module.chunker.service.*;
 import io.quarkus.grpc.GrpcService;
@@ -181,35 +181,25 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                             .build();
                 }
 
-                // Parse chunker config - prefer ChunkerConfig over legacy ChunkerOptions
+                // Parse chunker config - only support ChunkerConfig format
                 ChunkerConfig chunkerConfig;
                 Struct customJsonConfig = config.getCustomJsonConfig();
                 if (customJsonConfig != null && customJsonConfig.getFieldsCount() > 0) {
+                    String jsonStr = JsonFormat.printer().print(customJsonConfig);
+                    LOG.debugf("Parsing JSON config: %s", jsonStr);
                     try {
-                        // Try to parse as ChunkerConfig first
-                        chunkerConfig = objectMapper.readValue(
-                                JsonFormat.printer().print(customJsonConfig),
-                                ChunkerConfig.class
-                        );
+                        chunkerConfig = objectMapper.readValue(jsonStr, ChunkerConfig.class);
+                        LOG.debugf("Successfully parsed as ChunkerConfig: configId=%s", chunkerConfig.configId());
                     } catch (Exception e) {
-                        LOG.warnf("Failed to parse as ChunkerConfig, falling back to ChunkerOptions: %s", e.getMessage());
-                        // Fallback to ChunkerOptions for backward compatibility
-                        ChunkerOptions legacyOptions = objectMapper.readValue(
-                                JsonFormat.printer().print(customJsonConfig),
-                                ChunkerOptions.class
-                        );
-                        // Convert ChunkerOptions to ChunkerConfig
-                        chunkerConfig = ChunkerConfig.create(
-                            ChunkerConfig.DEFAULT_ALGORITHM, // Use default algorithm
-                            legacyOptions.sourceField(),
-                            legacyOptions.chunkSize(),
-                            legacyOptions.chunkOverlap(),
-                            legacyOptions.preserveUrls()
-                        );
+                        LOG.errorf("Failed to parse JSON config as ChunkerConfig: %s", e.getMessage());
+                        throw new RuntimeException("Invalid configuration format. Expected ChunkerConfig structure.", e);
                     }
                 } else {
                     chunkerConfig = ChunkerConfig.createDefault();
+                    LOG.debugf("Using default ChunkerConfig: configId=%s", chunkerConfig.configId());
                 }
+                
+                LOG.debugf("Final ChunkerConfig: algorithm=%s, configId=%s", chunkerConfig.algorithm(), chunkerConfig.configId());
 
                 if (chunkerConfig.sourceField() == null || chunkerConfig.sourceField().isEmpty()) {
                     return createErrorResponse("Missing 'sourceField' in ChunkerConfig", null);

@@ -1,6 +1,8 @@
 package io.pipeline.module.chunker.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import io.pipeline.module.chunker.model.ChunkingAlgorithm;
 import io.pipeline.module.chunker.examples.SampleDocuments;
 import io.quarkus.runtime.annotations.RegisterForReflection;
@@ -85,6 +87,7 @@ public record ChunkerConfig(
     Boolean cleanText,
 
     @JsonProperty("config_id")
+    @JsonAlias({"configId"})
     @Schema(
         description = "Auto-generated configuration identifier based on algorithm and parameters", 
         readOnly = true,
@@ -101,6 +104,41 @@ public record ChunkerConfig(
     public static final Integer DEFAULT_CHUNK_OVERLAP = 50;
     public static final Boolean DEFAULT_PRESERVE_URLS = true;
     public static final Boolean DEFAULT_CLEAN_TEXT = true;
+
+    /**
+     * Jackson deserialization constructor - auto-generates configId when missing.
+     * This ensures that JSON without configId field will still create valid objects.
+     */
+    @JsonCreator
+    public static ChunkerConfig create(
+            @JsonProperty("algorithm") ChunkingAlgorithm algorithm,
+            @JsonProperty("sourceField") String sourceField,
+            @JsonProperty("chunkSize") Integer chunkSize,
+            @JsonProperty("chunkOverlap") Integer chunkOverlap,
+            @JsonProperty("preserveUrls") Boolean preserveUrls,
+            @JsonProperty("cleanText") Boolean cleanText,
+            @JsonProperty("config_id") @JsonAlias({"configId"}) String configId) {
+        
+        // If configId is provided, use it; otherwise auto-generate
+        String finalConfigId = (configId != null && !configId.trim().isEmpty()) ? 
+            configId : 
+            generateConfigId(
+                algorithm != null ? algorithm : DEFAULT_ALGORITHM,
+                sourceField != null ? sourceField : DEFAULT_SOURCE_FIELD,
+                chunkSize != null ? chunkSize : DEFAULT_CHUNK_SIZE,
+                chunkOverlap != null ? chunkOverlap : DEFAULT_CHUNK_OVERLAP
+            );
+            
+        return new ChunkerConfig(
+            algorithm != null ? algorithm : DEFAULT_ALGORITHM,
+            sourceField != null ? sourceField : DEFAULT_SOURCE_FIELD,
+            chunkSize != null ? chunkSize : DEFAULT_CHUNK_SIZE,
+            chunkOverlap != null ? chunkOverlap : DEFAULT_CHUNK_OVERLAP,
+            preserveUrls != null ? preserveUrls : DEFAULT_PRESERVE_URLS,
+            cleanText != null ? cleanText : DEFAULT_CLEAN_TEXT,
+            finalConfigId
+        );
+    }
 
     /**
      * Constructor with defaults and automatic config_id generation.

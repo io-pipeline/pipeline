@@ -1,5 +1,36 @@
 # Project Cleanup Plan
 
+## 0. Jackson/JSON Naming Convention Strategy
+
+**Goal:** Establish a consistent approach to handling JSON naming conventions across the API to support both camelCase (Java/JavaScript) and snake_case (Python) clients.
+
+### Ticket 0.1: Standardize JSON Property Naming Strategy
+
+**Title:** Technical Debt: Establish consistent JSON naming convention handling across all APIs
+
+**Description:**
+Currently, the project has mixed approaches to JSON property naming. The centralized ObjectMapper uses `LOWER_CAMEL_CASE`, but some records like ChunkerConfig use `@JsonProperty` annotations to force snake_case. This creates inconsistency and requires workarounds like `@JsonAlias` to support both naming conventions.
+
+**Current State:**
+- ChunkerConfig uses `@JsonProperty("configId")` with `@JsonAlias({"config_id"})` to support both naming conventions
+- ChunkerConfig uses `@JsonCreator` to auto-generate configId when missing from JSON
+- Some Python clients expect snake_case while Java/JavaScript clients expect camelCase
+
+**Recommended Long-term Strategy:**
+1. **Default to camelCase**: Maintain the existing `LOWER_CAMEL_CASE` strategy in ObjectMapperFactory
+2. **Support snake_case selectively**: Use `@JsonAlias` only where needed for critical Python integrations
+3. **Document naming expectations**: Clear API documentation about which endpoints support which naming conventions
+4. **Consider API versioning**: Future major API versions could standardize on one convention
+
+**Tasks:**
+1. Audit all `@JsonProperty` usage across the codebase to identify inconsistencies
+2. Document the current naming convention support in API documentation
+3. Create guidelines for when to use `@JsonAlias` vs. sticking to camelCase
+4. Consider implementing a custom PropertyNamingStrategy that can handle both conventions based on request headers or endpoint paths
+5. Remove the `@JsonCreator` workaround once JSON property mapping is consistent
+
+**Priority:** Medium (Technical debt that affects API usability but has working solutions)
+
 ## 1. Gradle Consolidation
 
 **Goal:** Centralize Gradle configuration to simplify maintenance and ensure consistency across all modules.

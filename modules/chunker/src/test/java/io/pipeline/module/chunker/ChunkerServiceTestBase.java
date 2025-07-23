@@ -147,13 +147,13 @@ public abstract class ChunkerServiceTestBase {
                 .setStreamId(UUID.randomUUID().toString())
                 .build();
 
-        // Create configuration with smaller chunk size
+        // Create configuration with smaller chunk size (30 tokens > 20 overlap, but < 58 total tokens)
         ProcessConfiguration config = ProcessConfiguration.newBuilder()
                 .setCustomJsonConfig(Struct.newBuilder()
                         .putFields("algorithm", Value.newBuilder().setStringValue("token").build())
                         .putFields("sourceField", Value.newBuilder().setStringValue("body").build())
-                        .putFields("chunkSize", Value.newBuilder().setNumberValue(100).build())
-                        .putFields("chunkOverlap", Value.newBuilder().setNumberValue(20).build())
+                        .putFields("chunkSize", Value.newBuilder().setNumberValue(30).build())
+                        .putFields("chunkOverlap", Value.newBuilder().setNumberValue(10).build())
                         .putFields("config_id", Value.newBuilder().setStringValue("test_small_chunks").build())
                         .build())
                 .build();
@@ -176,7 +176,7 @@ public abstract class ChunkerServiceTestBase {
         assertThat("Should create semantic results with custom config", response.getOutputDoc().getSemanticResultsCount(), is(greaterThan(0)));
         assertThat("Should preserve original document metadata", response.getOutputDoc().getId(), is(equalTo(testDoc.getId())));
 
-        // With a small chunk size (100), we should get multiple chunks from the long text
+        // With a small chunk size (30 tokens), we should get multiple chunks from the long text (58+ tokens)
         var result = response.getOutputDoc().getSemanticResults(0);
         assertThat("Small chunk size should create multiple chunks", result.getChunksCount(), is(greaterThan(1)));
         assertThat("Should use custom chunk configuration ID", result.getChunkConfigId(), is(equalTo("test_small_chunks")));
@@ -185,7 +185,8 @@ public abstract class ChunkerServiceTestBase {
         for (int i = 0; i < result.getChunksCount(); i++) {
             var chunk = result.getChunks(i);
             assertThat(String.format("Chunk %d should have content", i), chunk.getEmbeddingInfo().getTextContent(), is(not(emptyString())));
-            assertThat(String.format("Chunk %d should respect size limit", i), chunk.getEmbeddingInfo().getTextContent().length(), is(lessThanOrEqualTo(150))); // Allow some flexibility
+            // For token chunking, chunks will be much shorter than character chunks
+            assertThat(String.format("Chunk %d should be reasonable token-based size", i), chunk.getEmbeddingInfo().getTextContent().length(), is(lessThanOrEqualTo(200))); // Allow flexibility for token reconstruction
         }
     }
 
