@@ -6,9 +6,11 @@ import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
+import io.pipeline.common.service.SchemaExtractorService;
 import io.quarkus.arc.Arc;
 import io.quarkus.smallrye.openapi.runtime.OpenApiDocumentService;
 import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
 import io.smallrye.openapi.runtime.io.Format;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
@@ -31,6 +33,9 @@ import static org.hamcrest.Matchers.*;
 public class OpenApiSchemaExtractionTest {
 
     private static final Logger LOG = Logger.getLogger(OpenApiSchemaExtractionTest.class);
+    
+    @Inject
+    SchemaExtractorService schemaExtractorService;
 
     /**
      * TEST 1: Extract ChunkerConfig schema from the dynamically generated OpenAPI document
@@ -156,8 +161,9 @@ public class OpenApiSchemaExtractionTest {
     public void test3_validateSchemaPassesJsonSchemaV7Validation() {
         LOG.info("=== TEST 3: Validate schema passes JSON Schema v7 validation ===");
         
-        // Extract the schema
-        String chunkerConfigSchema = extractChunkerConfigSchema();
+        // Extract the schema cleaned for JSON Schema v7 validation
+        String chunkerConfigSchema = schemaExtractorService.extractChunkerConfigSchemaForValidation()
+                .orElseThrow(() -> new AssertionError("Failed to extract ChunkerConfig schema for validation"));
         
         try {
             // Use the same JSON Schema v7 validation that ConsulModuleRegistryService uses

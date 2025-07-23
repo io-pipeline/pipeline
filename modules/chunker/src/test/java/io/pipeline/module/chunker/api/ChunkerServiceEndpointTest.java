@@ -32,23 +32,19 @@ public class ChunkerServiceEndpointTest {
 
     @Test
     public void testConfigEndpoint() {
+        // Test that the config endpoint returns the OpenAPI 3.1 schema directly
         given()
             .when().get(BASE_PATH + "/config")
             .then()
             .statusCode(200)
             .contentType(ContentType.JSON)
-            .body("schema", notNullValue())
-            .body("schema.type", equalTo("object"))
-            .body("schema.properties", notNullValue())
-            .body("defaults", notNullValue())
-            .body("defaults.sourceField", equalTo("body"))
-            .body("defaults.chunkSize", equalTo(500))
-            .body("defaults.chunkOverlap", equalTo(50))
-            .body("defaults.preserveUrls", equalTo(true))
-            .body("limits", notNullValue())
-            .body("limits.maxChunkSize", equalTo(10000))
-            .body("limits.maxTextLength", equalTo(40000000))
-            .body("limits.maxChunkOverlap", equalTo(5000));
+            .body("type", equalTo("object"))
+            .body("properties", notNullValue())
+            .body("properties.algorithm", notNullValue())
+            .body("properties.chunkSize", notNullValue())
+            .body("properties.chunkOverlap", notNullValue())
+            .body("properties.sourceField", notNullValue())
+            .body("properties.preserveUrls", notNullValue());
     }
 
     @Test

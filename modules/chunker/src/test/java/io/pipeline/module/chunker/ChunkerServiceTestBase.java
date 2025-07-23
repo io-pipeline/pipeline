@@ -41,9 +41,10 @@ public abstract class ChunkerServiceTestBase {
         // Create configuration
         ProcessConfiguration config = ProcessConfiguration.newBuilder()
                 .setCustomJsonConfig(Struct.newBuilder()
-                        .putFields("source_field", Value.newBuilder().setStringValue("body").build())
-                        .putFields("chunk_size", Value.newBuilder().setNumberValue(500).build())
-                        .putFields("chunk_overlap", Value.newBuilder().setNumberValue(50).build())
+                        .putFields("algorithm", Value.newBuilder().setStringValue("token").build())
+                        .putFields("sourceField", Value.newBuilder().setStringValue("body").build())
+                        .putFields("chunkSize", Value.newBuilder().setNumberValue(500).build())
+                        .putFields("chunkOverlap", Value.newBuilder().setNumberValue(50).build())
                         .build())
                 .putConfigParams("mode", "chunker")
                 .build();
@@ -149,10 +150,11 @@ public abstract class ChunkerServiceTestBase {
         // Create configuration with smaller chunk size
         ProcessConfiguration config = ProcessConfiguration.newBuilder()
                 .setCustomJsonConfig(Struct.newBuilder()
-                        .putFields("source_field", Value.newBuilder().setStringValue("body").build())
-                        .putFields("chunk_size", Value.newBuilder().setNumberValue(100).build())
-                        .putFields("chunk_overlap", Value.newBuilder().setNumberValue(20).build())
-                        .putFields("chunk_config_id", Value.newBuilder().setStringValue("test_small_chunks").build())
+                        .putFields("algorithm", Value.newBuilder().setStringValue("token").build())
+                        .putFields("sourceField", Value.newBuilder().setStringValue("body").build())
+                        .putFields("chunkSize", Value.newBuilder().setNumberValue(100).build())
+                        .putFields("chunkOverlap", Value.newBuilder().setNumberValue(20).build())
+                        .putFields("config_id", Value.newBuilder().setStringValue("test_small_chunks").build())
                         .build())
                 .build();
 
@@ -207,10 +209,11 @@ public abstract class ChunkerServiceTestBase {
         // Create configuration with URL preservation enabled
         ProcessConfiguration config = ProcessConfiguration.newBuilder()
                 .setCustomJsonConfig(Struct.newBuilder()
-                        .putFields("source_field", Value.newBuilder().setStringValue("body").build())
-                        .putFields("chunk_size", Value.newBuilder().setNumberValue(100).build())
-                        .putFields("chunk_overlap", Value.newBuilder().setNumberValue(20).build())
-                        .putFields("preserve_urls", Value.newBuilder().setBoolValue(true).build())
+                        .putFields("algorithm", Value.newBuilder().setStringValue("token").build())
+                        .putFields("sourceField", Value.newBuilder().setStringValue("body").build())
+                        .putFields("chunkSize", Value.newBuilder().setNumberValue(100).build())
+                        .putFields("chunkOverlap", Value.newBuilder().setNumberValue(20).build())
+                        .putFields("preserveUrls", Value.newBuilder().setBoolValue(true).build())
                         .build())
                 .build();
 
@@ -277,8 +280,8 @@ public abstract class ChunkerServiceTestBase {
 
         assertThat("Service should identify itself as chunker module", registration.getModuleName(), is(equalTo("chunker")));
         assertThat("Registration should include configuration schema for clients", registration.hasJsonConfigSchema(), is(true));
-        assertThat("Schema should reference ChunkerOptions for configuration validation", 
-            registration.getJsonConfigSchema(), containsString("ChunkerOptions"));
+        assertThat("Schema should contain text chunking configuration description", 
+            registration.getJsonConfigSchema(), containsString("Configuration for text chunking operations"));
         assertThat("Schema should be valid JSON structure", 
             registration.getJsonConfigSchema().length(), is(greaterThan(10)));
     }

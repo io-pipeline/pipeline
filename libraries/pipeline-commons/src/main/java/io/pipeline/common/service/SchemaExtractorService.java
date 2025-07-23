@@ -4,9 +4,7 @@ import io.quarkus.arc.Arc;
 import io.quarkus.smallrye.openapi.runtime.OpenApiDocumentService;
 import io.smallrye.openapi.runtime.io.Format;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
-import jakarta.json.JsonReader;
+import jakarta.json.*;
 import org.jboss.logging.Logger;
 
 import java.io.StringReader;
@@ -96,6 +94,68 @@ public class SchemaExtractorService {
      */
     public Optional<String> extractChunkerConfigSchema() {
         return extractSchemaByName("ChunkerConfig");
+    }
+
+    /**
+     * Extracts ChunkerConfig schema and cleans it for JSON Schema v7 validation.
+     * Removes OpenAPI-specific elements like $ref and x-hidden extensions.
+     * 
+     * @return Optional containing JSON Schema v7 compatible schema
+     */
+    public Optional<String> extractChunkerConfigSchemaForValidation() {
+        return extractSchemaByName("ChunkerConfig").map(this::cleanSchemaForJsonSchemaV7);
+    }
+
+    /**
+     * Cleans an OpenAPI schema to make it compatible with JSON Schema v7 validation.
+     * Removes $ref references and x-* extensions that aren't valid in JSON Schema.
+     */
+    private String cleanSchemaForJsonSchemaV7(String openApiSchema) {
+        try (JsonReader reader = Json.createReader(new StringReader(openApiSchema))) {
+            JsonObject schema = reader.readObject();
+            return cleanJsonObjectForValidation(schema).toString();
+        } catch (Exception e) {
+            LOG.warnf(e, "Failed to clean schema for JSON Schema v7 validation, returning original");
+            return openApiSchema;
+        }
+    }
+
+    /**
+     * Recursively cleans a JsonObject by removing OpenAPI-specific elements.
+     */
+    private JsonObject cleanJsonObjectForValidation(JsonObject obj) {
+        var builder = Json.createObjectBuilder();
+        
+        obj.forEach((key, value) -> {
+            // Skip OpenAPI-specific extensions
+            if (key.startsWith("x-")) {
+                return;
+            }
+            
+            // Skip $ref as we want inline schemas for validation
+            if ("$ref".equals(key)) {
+                return;
+            }
+            
+            // Recursively clean nested objects and arrays
+            if (value instanceof JsonObject) {
+                builder.add(key, cleanJsonObjectForValidation((JsonObject) value));
+            } else if (value instanceof JsonArray) {
+                JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
+                ((JsonArray) value).forEach(arrayValue -> {
+                    if (arrayValue instanceof JsonObject) {
+                        arrayBuilder.add(cleanJsonObjectForValidation((JsonObject) arrayValue));
+                    } else {
+                        arrayBuilder.add(arrayValue);
+                    }
+                });
+                builder.add(key, arrayBuilder.build());
+            } else {
+                builder.add(key, value);
+            }
+        });
+        
+        return builder.build();
     }
 
     /**

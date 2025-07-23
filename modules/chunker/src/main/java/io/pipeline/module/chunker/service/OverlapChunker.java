@@ -357,11 +357,11 @@ public class OverlapChunker {
     }
 
     /**
-     * Creates chunks using token-based algorithm with sophisticated spacing and overlap handling.
+     * Creates chunks using token-based algorithm with proper token counting for size and overlap.
      * 
      * @param textToProcess Text that has been preprocessed (URL placeholders if enabled)
      * @param placeholderToUrlMap Map of URL placeholders to original URLs
-     * @param options Chunking configuration options
+     * @param options Chunking configuration options (chunkSize = token count, chunkOverlap = token count)
      * @param config ChunkerConfig for ID generation (can be null)
      * @param streamId Stream ID for logging and chunk IDs
      * @param pipeStepName Pipeline step name for logging
@@ -373,7 +373,7 @@ public class OverlapChunker {
                                                   ChunkerOptions options, ChunkerConfig config, String streamId,
                                                   String pipeStepName, String documentId, String textFieldPath) {
         
-        LOG.debugf("Creating chunks with target character size: %d, character overlap: %d, for document ID: %s, streamId: %s, pipeStepName: %s",
+        LOG.debugf("Creating chunks with target token size: %d, token overlap: %d, for document ID: %s, streamId: %s, pipeStepName: %s",
                 options.chunkSize(), options.chunkOverlap(), documentId, streamId, pipeStepName);
 
         // Tokenize the text to get both tokens and their positions
@@ -388,86 +388,55 @@ public class OverlapChunker {
         List<Chunk> chunks = new ArrayList<>();
         int chunkIndex = 0;
         int currentTokenStartIndex = 0;
+        int targetTokensPerChunk = options.chunkSize(); // This is now token count, not characters
+        int tokenOverlap = options.chunkOverlap(); // This is now token count, not characters
 
         while (currentTokenStartIndex < tokens.length) {
-            int currentTokenEndIndex = currentTokenStartIndex;
             StringBuilder currentChunkTextBuilder = new StringBuilder();
+            
+            // Determine how many tokens to include in this chunk
+            int tokensInThisChunk = Math.min(targetTokensPerChunk, tokens.length - currentTokenStartIndex);
+            int currentTokenEndIndex = currentTokenStartIndex + tokensInThisChunk;
 
-            // Determine the actual start character offset of the first token in this chunk
-            int chunkStartCharOffsetInProcessedText = tokenSpans[currentTokenStartIndex].getStart();
-
-            boolean firstTokenInChunk = true; // Flag to avoid leading space
-
-            while (currentTokenEndIndex < tokens.length) {
-                String tokenText = tokens[currentTokenEndIndex];
-                int tokenCharLength = tokenText.length();
-                boolean isPlaceholder = tokenText.startsWith(URL_PLACEHOLDER_PREFIX) && tokenText.endsWith(URL_PLACEHOLDER_SUFFIX);
-
-                int potentialLength = currentChunkTextBuilder.length() + (currentChunkTextBuilder.length() > 0 ? 1 : 0) + tokenCharLength;
-                if (isPlaceholder && (options.preserveUrls() != null && options.preserveUrls())) {
-                    String originalUrl = placeholderToUrlMap.get(tokenText);
-                    if (originalUrl != null) {
-                        potentialLength = currentChunkTextBuilder.length() + (currentChunkTextBuilder.length() > 0 ? 1 : 0) + originalUrl.length();
-                    }
-                }
-
-                if (!firstTokenInChunk && potentialLength > options.chunkSize()) { // Check length before adding if not the first token
-                    break;
-                }
-
-                if (!firstTokenInChunk) {
-                    // Smart spacing: Don't add a space if the current token is punctuation
-                    // that typically doesn't have a preceding space, or if the previous token
-                    // was an opening bracket, etc.
+            // Build the chunk text from tokens
+            for (int i = currentTokenStartIndex; i < currentTokenEndIndex; i++) {
+                String tokenText = tokens[i];
+                
+                // Add spacing between tokens (smart spacing logic)
+                if (i > currentTokenStartIndex) {
+                    // Don't add a space if the current token is punctuation that doesn't need preceding space
                     if (!(tokenText.length() == 1 && ".?!,:;)]}".contains(tokenText))) {
                         // Also, don't add a space if the previous token ended with something like an opening quote or bracket
                         if (currentChunkTextBuilder.length() > 0) {
-                            char lastCharOfPrevious = currentChunkTextBuilder.charAt(currentChunkTextBuilder.length() - 1);
-                            if (!"([{".contains(String.valueOf(lastCharOfPrevious))) {
+                            char lastChar = currentChunkTextBuilder.charAt(currentChunkTextBuilder.length() - 1);
+                            if (!"([{\"'".contains(String.valueOf(lastChar))) {
                                 currentChunkTextBuilder.append(" ");
                             }
-                        } else {
-                            currentChunkTextBuilder.append(" "); // Should not happen if firstTokenInChunk is true
                         }
                     }
                 }
                 currentChunkTextBuilder.append(tokenText);
-                firstTokenInChunk = false; // No longer the first token after one is appended
-                currentTokenEndIndex++;
-            }
-
-            if (currentChunkTextBuilder.length() == 0 && currentTokenEndIndex < tokens.length) {
-                // Handle cases where a single token might be larger than chunk_size
-                // or if we are at the very end with a small remaining token.
-                // For now, we'll just take the single token if the builder is empty.
-                currentChunkTextBuilder.append(tokens[currentTokenStartIndex]);
-                currentTokenEndIndex = currentTokenStartIndex + 1;
             }
 
             String chunkTextWithPlaceholders = currentChunkTextBuilder.toString().trim();
             if (chunkTextWithPlaceholders.isEmpty()) {
-                if (currentTokenEndIndex >= tokens.length) break; // No more tokens to process
-                currentTokenStartIndex = currentTokenEndIndex; // Skip empty formation and advance
-                continue;
+                break; // No more content to process
             }
 
-            // Determine the actual end character offset of the last token in this chunk
-            int chunkEndCharOffsetInProcessedText = tokenSpans[currentTokenEndIndex - 1].getEnd();
-
+            // Restore URLs from placeholders if needed
             String finalChunkText = chunkTextWithPlaceholders;
             if (options.preserveUrls() != null && options.preserveUrls()) {
                 finalChunkText = restorePlaceholdersInChunk(chunkTextWithPlaceholders, placeholderToUrlMap);
             }
 
-            // Calculate Original Offsets
-            int originalStartOffset = chunkStartCharOffsetInProcessedText;
-            int originalEndOffset = chunkEndCharOffsetInProcessedText - 1; // Span.getEnd() is exclusive
+            // Calculate character offsets for this chunk
+            int chunkStartCharOffset = tokenSpans[currentTokenStartIndex].getStart();
+            int chunkEndCharOffset = tokenSpans[currentTokenEndIndex - 1].getEnd();
+            
+            int originalStartOffset = chunkStartCharOffset;
+            int originalEndOffset = chunkEndCharOffset - 1; // Span.getEnd() is exclusive
 
             if (options.preserveUrls() != null && options.preserveUrls() && !placeholderToUrlMap.isEmpty()) {
-                // Placeholder for accurate offset recalculation logic
-                // This would involve iterating through originalUrlSpans and adjusting offsets
-                // based on whether the chunk's span in processedText overlaps with placeholder spans.
-                // For now, we'll use the processed text offsets, which will be inaccurate if URLs were replaced.
                 LOG.debugf("URL preservation is active, original character offsets for chunks might be approximate " +
                          "due to placeholder substitutions. StreamID: %s, DocID: %s", streamId, documentId);
             }
@@ -482,37 +451,26 @@ public class OverlapChunker {
                 // Fallback to template-based ID generation
                 chunkId = String.format(options.chunkIdTemplate(), streamId, documentId, chunkIndex++);
             }
+            
             chunks.add(new Chunk(chunkId, finalChunkText, originalStartOffset, originalEndOffset));
 
-            // Determine next starting token for overlap
+            // Calculate next starting position with token-based overlap
             if (currentTokenEndIndex >= tokens.length) {
-                break; // Reached the end of tokens
+                break; // No more tokens to process
             }
 
-            // Calculate overlap in terms of characters and find a suitable token to start next chunk
-            int desiredOverlapChars = options.chunkOverlap();
-            int currentChunkLengthChars = chunkEndCharOffsetInProcessedText - chunkStartCharOffsetInProcessedText;
-            int stepBackChars = Math.max(0, currentChunkLengthChars - desiredOverlapChars);
-
-            int nextTokenStartCharTarget = chunkStartCharOffsetInProcessedText + stepBackChars;
-
-            int nextTokenCandidate = currentTokenStartIndex; // Start searching from the beginning of the current chunk
-            for (int i = currentTokenStartIndex; i < currentTokenEndIndex; i++) {
-                if (tokenSpans[i].getStart() >= nextTokenStartCharTarget) {
-                    nextTokenCandidate = i;
-                    break;
-                }
-                // If no token starts exactly at/after target, the last token before it is the best bet
-                // or simply the one that makes the overlap closest to desired.
-                nextTokenCandidate = i;
+            // Move forward by (tokensInThisChunk - tokenOverlap) to create proper token overlap
+            int advancement = Math.max(1, tokensInThisChunk - tokenOverlap);
+            currentTokenStartIndex += advancement;
+            
+            // Ensure we don't go beyond available tokens
+            if (currentTokenStartIndex >= tokens.length) {
+                break;
             }
-            // Ensure progress: if the overlap is too large or chunks too small,
-            // we must advance at least one token.
-            currentTokenStartIndex = Math.max(currentTokenStartIndex + 1, nextTokenCandidate);
         }
 
-        LOG.debugf("Created %d token-based chunks for document part from field '%s'. streamId: %s, pipeStepName: %s",
-                chunks.size(), textFieldPath, streamId, pipeStepName);
+        LOG.debugf("Created %d token-based chunks from %d total tokens (target: %d tokens per chunk, overlap: %d tokens) for document part from field '%s'. streamId: %s, pipeStepName: %s",
+                chunks.size(), tokens.length, targetTokensPerChunk, tokenOverlap, textFieldPath, streamId, pipeStepName);
         
         return new ChunkingResult(chunks, placeholderToUrlMap);
     }

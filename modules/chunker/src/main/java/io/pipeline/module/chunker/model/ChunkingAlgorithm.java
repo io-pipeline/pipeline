@@ -1,5 +1,8 @@
 package io.pipeline.module.chunker.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 /**
  * Enumeration of available chunking algorithms.
  * This enum defines the core chunking strategies that determine
@@ -36,6 +39,7 @@ public enum ChunkingAlgorithm {
         this.value = value;
     }
     
+    @JsonValue
     public String getValue() {
         return value;
     }
@@ -46,6 +50,7 @@ public enum ChunkingAlgorithm {
      * @return The corresponding algorithm
      * @throws IllegalArgumentException if value is not recognized
      */
+    @JsonCreator
     public static ChunkingAlgorithm fromValue(String value) {
         for (ChunkingAlgorithm algorithm : ChunkingAlgorithm.values()) {
             if (algorithm.value.equals(value)) {

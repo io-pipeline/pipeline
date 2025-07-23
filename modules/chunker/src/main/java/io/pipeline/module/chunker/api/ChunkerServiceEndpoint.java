@@ -298,8 +298,8 @@ public class ChunkerServiceEndpoint {
         LOG.debug("Configuration schema request received");
         
         return Uni.createFrom().item(() -> {
-            // Extract the real OpenAPI 3.1 schema using the same service as gRPC
-            Optional<String> schemaOptional = schemaExtractorService.extractChunkerConfigSchema();
+            // Extract the cleaned schema for frontend validation (removes $ref and x-* extensions)
+            Optional<String> schemaOptional = schemaExtractorService.extractChunkerConfigSchemaForValidation();
             
             if (schemaOptional.isPresent()) {
                 String schemaJson = schemaOptional.get();
