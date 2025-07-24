@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.pipeline.data.model.PipeDoc;
+import io.pipeline.module.parser.config.ParserConfig;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -33,6 +34,7 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Utility class for parsing documents using Apache Tika.
@@ -56,7 +58,31 @@ public class DocumentParser {
     }
 
     /**
-     * Parses a document and returns a PipeDoc with the parsed content.
+     * Parses a document and returns a PipeDoc with the parsed content using ParserConfig.
+     *
+     * @param content The content of the document to parse.
+     * @param config The parser configuration.
+     * @param filename Optional filename for content type detection and EMF parser logic.
+     * @return A PipeDoc object containing the parsed title, body, and metadata.
+     * @throws IOException if an I/O error occurs while parsing the document.
+     * @throws SAXException if a SAX error occurs while parsing the document.
+     * @throws TikaException if a Tika error occurs while parsing the document.
+     */
+    public static PipeDoc parseDocument(ByteString content, ParserConfig config, String filename)
+            throws IOException, SAXException, TikaException {
+        
+        LOG.debugf("Parsing document with filename: %s, content size: %d bytes, config ID: %s", 
+                  filename, content.size(), config.configId());
+        
+        // Convert ParserConfig to Map for compatibility with existing methods
+        Map<String, String> configMap = convertConfigToMap(config);
+        
+        // Use existing implementation
+        return parseDocument(content, configMap, filename);
+    }
+
+    /**
+     * Parses a document and returns a PipeDoc with the parsed content using legacy Map config.
      *
      * @param content The content of the document to parse.
      * @param configMap The configuration map for the parser.
@@ -488,6 +514,10 @@ public class DocumentParser {
     
     /**
      * Determines if EMF parser should be disabled for a specific file.
+     * 
+     * NOTE: EMF parser in Apache POI/Tika has known issues with certain PowerPoint and Word files
+     * that contain embedded EMF graphics. This causes AssertionError in HemfPlusRecordIterator.
+     * For production stability, we default to disabling EMF parser for potentially problematic files.
      */
     private static boolean shouldDisableEmfParserForFile(Map<String, String> configMap, String filename) {
         // Check if EMF parser is explicitly disabled
@@ -505,8 +535,88 @@ public class DocumentParser {
                 lowerFilename.contains("corrupted")) {
                 return true;
             }
+            
+            // CRITICAL: Disable EMF parser for older Office formats known to cause AssertionError
+            // These formats often contain embedded EMF graphics that trigger POI bugs
+            if (lowerFilename.endsWith(".ppt") ||     // PowerPoint 97-2003
+                lowerFilename.endsWith(".doc")) {     // Word 97-2003  
+                LOG.debugf("Disabling EMF parser for potentially problematic file: %s", filename);
+                return true;
+            }
         }
         
         return false;
+    }
+    
+    /**
+     * Converts ParserConfig record to Map<String, String> for compatibility with existing code.
+     */
+    private static Map<String, String> convertConfigToMap(ParserConfig config) {
+        Map<String, String> configMap = new TreeMap<>();
+        
+        // Parsing options
+        if (config.parsingOptions() != null) {
+            var options = config.parsingOptions();
+            if (options.maxContentLength() != null) {
+                configMap.put("maxContentLength", options.maxContentLength().toString());
+            }
+            if (options.extractMetadata() != null) {
+                configMap.put("extractMetadata", options.extractMetadata().toString());
+            }
+            if (options.maxMetadataValueLength() != null) {
+                configMap.put("maxMetadataValueLength", options.maxMetadataValueLength().toString());
+            }
+            if (options.parseTimeoutSeconds() != null) {
+                configMap.put("parseTimeoutSeconds", options.parseTimeoutSeconds().toString());
+            }
+        }
+        
+        // Advanced options
+        if (config.advancedOptions() != null) {
+            var advanced = config.advancedOptions();
+            if (advanced.enableGeoTopicParser() != null) {
+                configMap.put("enableGeoTopicParser", advanced.enableGeoTopicParser().toString());
+            }
+            if (advanced.disableEmfParser() != null) {
+                configMap.put("disableEmfParser", advanced.disableEmfParser().toString());
+            }
+            if (advanced.extractEmbeddedDocs() != null) {
+                configMap.put("extractEmbeddedDocs", advanced.extractEmbeddedDocs().toString());  
+            }
+            if (advanced.maxRecursionDepth() != null) {
+                configMap.put("maxRecursionDepth", advanced.maxRecursionDepth().toString());
+            }
+        }
+        
+        // Content type handling
+        if (config.contentTypeHandling() != null) {
+            var contentType = config.contentTypeHandling();
+            if (contentType.enableTitleExtraction() != null) {
+                configMap.put("enableTitleExtraction", contentType.enableTitleExtraction().toString());
+            }
+            if (contentType.fallbackToFilename() != null) {
+                configMap.put("fallbackToFilename", contentType.fallbackToFilename().toString());
+            }
+            if (contentType.supportedMimeTypes() != null && !contentType.supportedMimeTypes().isEmpty()) {
+                configMap.put("supportedMimeTypes", String.join(",", contentType.supportedMimeTypes()));
+            }
+        }
+        
+        // Error handling
+        if (config.errorHandling() != null) {
+            var errorHandling = config.errorHandling();
+            if (errorHandling.ignoreTikaException() != null) {
+                configMap.put("ignoreTikaException", errorHandling.ignoreTikaException().toString());
+            }
+            if (errorHandling.fallbackToPlainText() != null) {
+                configMap.put("fallbackToPlainText", errorHandling.fallbackToPlainText().toString());
+            }
+            if (errorHandling.logParsingErrors() != null) {
+                configMap.put("logParsingErrors", errorHandling.logParsingErrors().toString());
+            }
+        }
+        
+        LOG.debugf("Converted ParserConfig to Map with %d entries", configMap.size());
+        return configMap;
     }
 }
