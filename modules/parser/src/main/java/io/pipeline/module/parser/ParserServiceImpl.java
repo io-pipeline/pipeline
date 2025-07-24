@@ -1,11 +1,14 @@
 package io.pipeline.module.parser;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
+import com.google.protobuf.util.JsonFormat;
 import io.pipeline.api.annotation.PipelineAutoRegister;
+import io.pipeline.common.service.SchemaExtractorService;
 import io.pipeline.common.util.ProcessingBuffer;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
+import io.pipeline.module.parser.config.ParserConfig;
 import io.pipeline.module.parser.util.DocumentParser;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
@@ -14,8 +17,9 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
 
 @GrpcService // Marks this as a gRPC service that Quarkus will expose
 @Singleton // Ensures only one instance is created
@@ -31,6 +35,12 @@ public class ParserServiceImpl implements PipeStepProcessor {
     @Inject
     @Named("parserOutputBuffer")
     ProcessingBuffer<PipeDoc> outputBuffer;
+    
+    @Inject
+    ObjectMapper objectMapper;
+
+    @Inject
+    SchemaExtractorService schemaExtractorService;
 
     @Override
     public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
@@ -44,7 +54,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
 
                 if (request.hasDocument()) {
                     // Extract configuration from request
-                    Map<String, String> config = extractConfiguration(request);
+                    ParserConfig config = extractConfiguration(request);
 
                     // Check if document has blob data to parse
                     if (request.getDocument().hasBlob() && request.getDocument().getBlob().getData().size() > 0) {
@@ -54,8 +64,8 @@ public class ParserServiceImpl implements PipeStepProcessor {
                             filename = request.getDocument().getBlob().getFilename();
                         }
 
-                        LOG.debugf("Processing document with filename: %s, config keys: %s", 
-                                 filename, config.keySet());
+                        LOG.debugf("Processing document with filename: %s, config ID: %s", 
+                                 filename, config.configId());
 
                         // Parse the document using Tika
                         PipeDoc parsedDoc = DocumentParser.parseDocument(
@@ -135,18 +145,19 @@ public class ParserServiceImpl implements PipeStepProcessor {
         ServiceRegistrationResponse.Builder responseBuilder = ServiceRegistrationResponse.newBuilder()
                 .setModuleName("parser");
 
-        try {
-            // Load the JSON schema from resources
-            String schema = loadSchemaFromResources();
-            responseBuilder.setJsonConfigSchema(schema);
-            LOG.debug("Loaded parser schema successfully");
-        } catch (Exception e) {
-            LOG.error("Failed to load parser schema: " + e.getMessage(), e);
-            // Return registration without schema but mark as unhealthy
-            return Uni.createFrom().item(responseBuilder
-                .setHealthCheckPassed(false)
-                .setHealthCheckMessage("Failed to load module schema: " + e.getMessage())
-                .build());
+        // Use SchemaExtractorService to get the dynamically generated ParserConfig schema
+        Optional<String> schemaOptional = schemaExtractorService.extractParserConfigSchema();
+        
+        if (schemaOptional.isPresent()) {
+            String jsonSchema = schemaOptional.get();
+            responseBuilder.setJsonConfigSchema(jsonSchema);
+            LOG.debugf("Successfully extracted ParserConfig schema (%d characters) using SchemaExtractorService", 
+                     jsonSchema.length());
+        } else {
+            responseBuilder.setHealthCheckPassed(false);
+            responseBuilder.setHealthCheckMessage("Failed to extract ParserConfig schema from OpenAPI document");
+            LOG.error("SchemaExtractorService could not extract ParserConfig schema");
+            return Uni.createFrom().item(responseBuilder.build());
         }
 
         // If test request is provided, perform health check
@@ -188,64 +199,38 @@ public class ParserServiceImpl implements PipeStepProcessor {
         return processData(request);
     }
 
-    /**
-     * Loads the parser configuration schema from resources.
-     */
-    private String loadSchemaFromResources() throws Exception {
-        try (var inputStream = getClass().getResourceAsStream("/schemas/parser-config-schema.json")) {
-            if (inputStream == null) {
-                throw new IllegalStateException("Parser schema file not found: /schemas/parser-config-schema.json");
-            }
-
-            return new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        }
-    }
 
     /**
      * Extracts configuration parameters from the process request.
      */
-    private Map<String, String> extractConfiguration(ModuleProcessRequest request) {
-        Map<String, String> config = new HashMap<>();
-
-        // Extract from config params if available
-        if (request.hasConfig()) {
-            config.putAll(request.getConfig().getConfigParamsMap());
-
-            // Extract from custom JSON config if available
-            if (request.getConfig().hasCustomJsonConfig()) {
+    private ParserConfig extractConfiguration(ModuleProcessRequest request) {
+        // Try to extract from custom JSON config first
+        if (request.hasConfig() && request.getConfig().hasCustomJsonConfig()) {
+            try {
                 Struct jsonConfig = request.getConfig().getCustomJsonConfig();
-                extractConfigFromStruct(jsonConfig, config, "");
+                String jsonString = structToJsonString(jsonConfig);
+                LOG.debugf("Parsing ParserConfig from JSON: %s", jsonString);
+                
+                return objectMapper.readValue(jsonString, ParserConfig.class);
+            } catch (Exception e) {
+                LOG.warnf("Failed to parse ParserConfig from JSON, using fallback: %s", e.getMessage());
             }
         }
-
-        return config;
+        
+        // Fallback to config params with defaults
+        Map<String, String> configParams = new TreeMap<>();
+        if (request.hasConfig()) {
+            configParams.putAll(request.getConfig().getConfigParamsMap());
+        }
+        
+        LOG.debugf("Using default ParserConfig with config params: %s", configParams.keySet());
+        return ParserConfig.defaultConfig();
     }
-
+    
     /**
-     * Recursively extracts configuration from Protobuf Struct.
+     * Converts a Protobuf Struct to JSON string using Google's JsonFormat utility.
      */
-    private void extractConfigFromStruct(Struct struct, Map<String, String> config, String prefix) {
-        for (Map.Entry<String, Value> entry : struct.getFieldsMap().entrySet()) {
-            String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
-            Value value = entry.getValue();
-
-            switch (value.getKindCase()) {
-                case STRING_VALUE:
-                    config.put(key, value.getStringValue());
-                    break;
-                case NUMBER_VALUE:
-                    config.put(key, String.valueOf(value.getNumberValue()));
-                    break;
-                case BOOL_VALUE:
-                    config.put(key, String.valueOf(value.getBoolValue()));
-                    break;
-                case STRUCT_VALUE:
-                    extractConfigFromStruct(value.getStructValue(), config, key);
-                    break;
-                default:
-                    // Skip other value types for now
-                    break;
-            }
-        }
+    private String structToJsonString(Struct struct) throws Exception {
+        return JsonFormat.printer().print(struct);
     }
 }
