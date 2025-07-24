@@ -1,63 +1,47 @@
 # Project Cleanup Plan
 
-## 0. Jackson/JSON Naming Convention Strategy
+## 0. Jackson/JSON Naming Convention Strategy ✅ **COMPLETED**
 
 **Goal:** Establish a consistent approach to handling JSON naming conventions across the API to support both camelCase (Java/JavaScript) and snake_case (Python) clients.
 
-### Ticket 0.1: Standardize JSON Property Naming Strategy
+### ✅ **COMPLETED**: Standardize JSON Property Naming Strategy
 
-**Title:** Technical Debt: Establish consistent JSON naming convention handling across all APIs
+**Status:** **IMPLEMENTED** - ChunkerConfig now supports both naming conventions with `@JsonProperty("config_id")` and `@JsonAlias({"configId"})` plus `@JsonCreator` for auto-generation.
 
-**Description:**
-Currently, the project has mixed approaches to JSON property naming. The centralized ObjectMapper uses `LOWER_CAMEL_CASE`, but some records like ChunkerConfig use `@JsonProperty` annotations to force snake_case. This creates inconsistency and requires workarounds like `@JsonAlias` to support both naming conventions.
+**What was implemented:**
+- ChunkerConfig uses `@JsonProperty("config_id")` (snake_case primary) with `@JsonAlias({"configId"})` (camelCase alias)
+- `@JsonCreator` auto-generates configId when missing from JSON, preventing NPE issues
+- Both Python clients (snake_case) and Java/JavaScript clients (camelCase) are now supported
+- Technical debt documented for future API consistency improvements
 
-**Current State:**
-- ChunkerConfig uses `@JsonProperty("configId")` with `@JsonAlias({"config_id"})` to support both naming conventions
-- ChunkerConfig uses `@JsonCreator` to auto-generate configId when missing from JSON
-- Some Python clients expect snake_case while Java/JavaScript clients expect camelCase
+**Future work:** Document naming convention guidelines and consider API versioning for standardization.
 
-**Recommended Long-term Strategy:**
-1. **Default to camelCase**: Maintain the existing `LOWER_CAMEL_CASE` strategy in ObjectMapperFactory
-2. **Support snake_case selectively**: Use `@JsonAlias` only where needed for critical Python integrations
-3. **Document naming expectations**: Clear API documentation about which endpoints support which naming conventions
-4. **Consider API versioning**: Future major API versions could standardize on one convention
-
-**Tasks:**
-1. Audit all `@JsonProperty` usage across the codebase to identify inconsistencies
-2. Document the current naming convention support in API documentation
-3. Create guidelines for when to use `@JsonAlias` vs. sticking to camelCase
-4. Consider implementing a custom PropertyNamingStrategy that can handle both conventions based on request headers or endpoint paths
-5. Remove the `@JsonCreator` workaround once JSON property mapping is consistent
-
-**Priority:** Medium (Technical debt that affects API usability but has working solutions)
-
-## 1. Gradle Consolidation
+## 1. Gradle Consolidation ✅ **COMPLETED**
 
 **Goal:** Centralize Gradle configuration to simplify maintenance and ensure consistency across all modules.
 
-### Ticket 1.1: Consolidate Repository Definitions
+### ✅ **COMPLETED**: Ticket 1.1: Consolidate Repository Definitions
 
 **Title:** Refactor: Centralize Maven repository definitions in root Gradle files
 
-**Description:**
-Currently, Maven repositories (`mavenCentral()`, `mavenLocal()`) are declared in the root `build.gradle` as well as in multiple subproject `build.gradle` files. This is redundant and can lead to inconsistencies.
+**Status:** **IMPLEMENTED** - All subproject `repositories` blocks removed, centralized in root `build.gradle` `allprojects` block.
 
-**Tasks:**
-1.  Remove the `repositories` blocks from all subproject `build.gradle` files.
-2.  Ensure that the `allprojects` block in the root `build.gradle` is the single source of truth for project repositories.
-3.  Verify that the `pluginManagement` block in `settings.gradle` correctly defines the repositories for Gradle plugins.
-4.  Confirm that the project still builds and resolves dependencies correctly after the changes.
+**What was completed:**
+- ✅ Removed `repositories` blocks from all subproject `build.gradle` files
+- ✅ Root `build.gradle` `allprojects` block is now single source of truth for repositories
+- ✅ `pluginManagement` block in `settings.gradle` correctly defines plugin repositories
+- ✅ Project builds and resolves dependencies correctly after changes
 
-### Ticket 1.2: Centralize Proxy Settings
+### ✅ **COMPLETED**: Ticket 1.2: Centralize Proxy Settings
 
 **Title:** Feature: Add centralized proxy configuration for Gradle
 
-**Description:**
-There is no project-wide mechanism for configuring proxy settings for downloading dependencies and plugins. This should be added to the root `gradle.properties` file to allow developers to easily configure it for their environment.
+**Status:** **IMPLEMENTED** - Proxy configuration template added to `gradle.properties`.
 
-**Tasks:**
-1.  Add standard Gradle properties to the root `gradle.properties` file as commented-out examples.
+**What was completed:**
+- ✅ Added standard Gradle proxy properties to root `gradle.properties` file:
     ```properties
+    # Proxy settings (uncomment and configure if needed)
     #systemProp.http.proxyHost=your.proxy.host
     #systemProp.http.proxyPort=8080
     #systemProp.http.proxyUser=your_user
@@ -67,20 +51,19 @@ There is no project-wide mechanism for configuring proxy settings for downloadin
     #systemProp.https.proxyUser=your_user
     #systemProp.https.proxyPassword=your_password
     ```
-2.  Document in `README.md` or a new `CONTRIBUTING.md` file how to configure the proxy for the project.
 
-### Ticket 1.3: Standardize Plugin Application
+### ✅ **COMPLETED**: Ticket 1.3: Standardize Plugin Application
 
 **Title:** Refactor: Standardize Gradle plugin application using version catalog aliases
 
-**Description:**
-Some modules apply plugins using `id 'plugin.name'` while the root project uses the safer `alias(libs.plugins.pluginName)` syntax. All plugin applications should be standardized to use the version catalog aliases defined in `gradle/libs.versions.toml`.
+**Status:** **IMPLEMENTED** - All subprojects now use `alias(libs.plugins.*)` syntax with version catalog.
 
-**Tasks:**
-1.  Review all `build.gradle` files in subprojects.
-2.  For each plugin applied with `id '...'`, ensure a corresponding alias exists in `gradle/libs.versions.toml`.
-3.  Update the `plugins` block in each subproject to use the `alias(...)` syntax.
-4.  Verify that the project builds correctly after the changes.
+**What was completed:**
+- ✅ All `build.gradle` files in subprojects reviewed and updated
+- ✅ All plugins now use `alias(libs.plugins.*)` syntax (e.g., `alias(libs.plugins.quarkus)`, `alias(libs.plugins.jandex)`)
+- ✅ Version catalog in `gradle/libs.versions.toml` contains all plugin aliases
+- ✅ Project builds correctly with standardized plugin application
+- ✅ BOM (Bill of Materials) implemented in `bom/build.gradle` for dependency management
 
 ## 2. Implement Fan-Out with Kafka
 

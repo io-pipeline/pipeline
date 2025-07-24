@@ -116,12 +116,24 @@ public class EmbedderComprehensiveTest {
                     LOG.info("✓ Successfully created {} embeddings", embeddingCount);
                 } else {
                     failCount++;
-                    LOG.warn("✗ Failed to embed document: {}", 
+                    LOG.warn("✗ [EMBEDDER-NOMIC] Failed to embed document {}: {}", doc.getId(),
                             response != null ? response.getProcessorLogsList() : "null response");
                 }
             } catch (Exception e) {
                 failCount++;
-                LOG.error("✗ Error processing document {}: {}", doc.getId(), e.getMessage());
+                LOG.error("✗ [EMBEDDER-NOMIC] Error processing document {} (chunks: {}): {} - Exception Type: {} - Cause: {}", 
+                    doc.getId(), 
+                    doc.getSemanticResultsCount() > 0 ? doc.getSemanticResults(0).getChunksCount() : 0,
+                    e.getMessage(), 
+                    e.getClass().getSimpleName(),
+                    e.getCause() != null ? e.getCause().getMessage() : "None");
+                
+                // Log the first few stack trace elements for debugging
+                if (e.getStackTrace().length > 0) {
+                    LOG.error("✗ [EMBEDDER-NOMIC] Stack trace origin: {} at line {}", 
+                        e.getStackTrace()[0].getClassName() + "." + e.getStackTrace()[0].getMethodName(),
+                        e.getStackTrace()[0].getLineNumber());
+                }
             }
         }
 
@@ -202,12 +214,24 @@ public class EmbedderComprehensiveTest {
                     LOG.info("✓ Successfully created {} embeddings", embeddingCount);
                 } else {
                     failCount++;
-                    LOG.warn("✗ Failed to embed document: {}", 
+                    LOG.warn("✗ [EMBEDDER-BGE] Failed to embed document {}: {}", doc.getId(),
                             response != null ? response.getProcessorLogsList() : "null response");
                 }
             } catch (Exception e) {
                 failCount++;
-                LOG.error("✗ Error processing document {}: {}", doc.getId(), e.getMessage());
+                LOG.error("✗ [EMBEDDER-BGE] Error processing document {} (chunks: {}): {} - Exception Type: {} - Cause: {}", 
+                    doc.getId(), 
+                    doc.getSemanticResultsCount() > 0 ? doc.getSemanticResults(0).getChunksCount() : 0,
+                    e.getMessage(), 
+                    e.getClass().getSimpleName(),
+                    e.getCause() != null ? e.getCause().getMessage() : "None");
+                
+                // Log the first few stack trace elements for debugging
+                if (e.getStackTrace().length > 0) {
+                    LOG.error("✗ [EMBEDDER-BGE] Stack trace origin: {} at line {}", 
+                        e.getStackTrace()[0].getClassName() + "." + e.getStackTrace()[0].getMethodName(),
+                        e.getStackTrace()[0].getLineNumber());
+                }
             }
         }
 
