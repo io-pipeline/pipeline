@@ -1,0 +1,34 @@
+storage: /verdaccio/storage
+
+auth:
+  htpasswd:
+    file: /verdaccio/conf/htpasswd
+    # Allow all users to register
+    max_users: -1
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    timeout: 30s
+
+packages:
+  '@*/*':
+    access: $all
+    publish: $all
+    unpublish: $all
+    proxy: npmjs
+
+  '**':
+    access: $all
+    publish: $all
+    unpublish: $all
+    proxy: npmjs
+
+server:
+  keepAliveTimeout: 60
+
+middlewares:
+  audit:
+    enabled: true
+
+logs: { type: stdout, format: pretty, level: http }

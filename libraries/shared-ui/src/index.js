@@ -1,0 +1,1 @@
+export { default as UniversalConfigCard } from './components/UniversalConfigCard.vue'

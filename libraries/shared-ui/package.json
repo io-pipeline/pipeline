@@ -1,0 +1,36 @@
+{
+  "name": "@pipeline/shared-ui",
+  "version": "1.0.1",
+  "description": "Shared Vue.js components for Pipeline Engine modules",
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "dev:publish": "npm run dev & npm run watch:publish",
+    "watch:publish": "nodemon --watch dist --exec 'npm publish'"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@jsonforms/vue": "^3.3.0",
+    "@jsonforms/vue-vanilla": "^3.3.0",
+    "axios": "^1.7.2"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.3",
+    "vite": "^6.2.6",
+    "nodemon": "^3.0.0"
+  }
+}

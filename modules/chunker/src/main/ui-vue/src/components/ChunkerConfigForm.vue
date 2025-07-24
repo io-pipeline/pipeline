@@ -36,57 +36,17 @@
       <div class="tab-content">
         <!-- Config Card Tab -->
         <div v-if="activeTab === 'config'" class="tab-pane">
-          <!-- Schema Info -->
-          <div class="schema-info">
-            <h3>OpenAPI 3.1 Auto-Generated Schema</h3>
-            <p><strong>Properties:</strong> {{ filteredSchema ? Object.keys(filteredSchema.properties || {}).length : 0 }}</p>
-            <p><strong>Source:</strong> ChunkerConfig.java annotations</p>
-          </div>
-
-          <!-- Example Document Selection (Generic - from schema) -->
-          <div v-if="availableExamples.length > 0" class="example-selection">
-            <h4>Sample Documents</h4>
-            <select v-model="selectedExampleIndex" @change="selectExample" class="example-dropdown">
-              <option v-for="(example, index) in availableExamples" :key="index" :value="index">
-                {{ getExampleTitle(example, index) }}
-              </option>
-            </select>
-            <div class="example-preview">
-              <strong>Preview:</strong> {{ getExamplePreview(sampleText) }}
-            </div>
-          </div>
-
-          <!-- JSON Forms Integration -->
-          <div class="form-container">
-            <JsonForms
-              :schema="filteredSchema"
-              :data="formData"
-              :renderers="renderers"
-              @change="handleFormChange"
-            />
-          </div>
-
-          <!-- Form Actions -->
-          <div class="form-actions">
-            <button @click="submitForm" :disabled="submitting" class="submit-btn">
-              {{ submitting ? 'Processing...' : 'Chunk Text' }}
-            </button>
-            <button @click="resetForm" class="reset-btn">Reset</button>
-          </div>
-
-          <!-- Results -->
-          <div v-if="result" class="result">
-            <h3>Chunking Result</h3>
-            <div class="result-stats">
-              <p><strong>Chunks Generated:</strong> {{ result.chunks?.length || 0 }}</p>
-              <p><strong>Processing Time:</strong> {{ result.metadata?.processingTimeMs || 0 }}ms</p>
-              <p><strong>Success:</strong> {{ result.success ? 'Yes' : 'No' }}</p>
-            </div>
-            <details>
-              <summary>Full Response</summary>
-              <pre>{{ JSON.stringify(result, null, 2) }}</pre>
-            </details>
-          </div>
+          <UniversalConfigCard
+            module-name="Chunker"
+            schema-endpoint="/api/chunker/service/config"
+            processing-endpoint="/api/chunker/service/process-json"
+            submit-button-text="Chunk Text"
+            text-placeholder="Enter text to chunk into smaller pieces..."
+            :debug-mode="false"
+            @result="handleConfigResult"
+            @error="handleConfigError"
+            @form-change="handleConfigFormChange"
+          />
         </div>
 
         <!-- Demo Documents Tab -->
@@ -418,11 +378,13 @@ import { JsonForms } from '@jsonforms/vue'
 import { vanillaRenderers } from '@jsonforms/vue-vanilla'
 import { markRaw } from 'vue'
 import axios from 'axios'
+import UniversalConfigCard from '@pipeline/shared-ui/components/UniversalConfigCard.vue'
 
 export default {
   name: 'ChunkerConfigForm',
   components: {
-    JsonForms
+    JsonForms,
+    UniversalConfigCard
   },
   data() {
     return {
@@ -555,20 +517,26 @@ export default {
 
         console.log('Submitting form with data:', this.formData)
 
-        // Use the simple-form endpoint with form data
-        const formData = new URLSearchParams()
-        formData.append('text', this.sampleText)
-        formData.append('algorithm', this.formData.algorithm || 'token')
-        formData.append('chunkSize', this.formData.chunkSize || 500)
-        formData.append('chunkOverlap', this.formData.chunkOverlap || 50)
-        formData.append('preserveUrls', this.formData.preserveUrls !== false)
+        // Create pure JSON request matching OpenAPI schema
+        const jsonRequest = {
+          text: this.sampleText,
+          config: {
+            configId: `config-${Date.now()}`,
+            algorithm: this.formData.algorithm || 'token',
+            sourceField: this.formData.sourceField || 'body',
+            chunkSize: this.formData.chunkSize || 500,
+            chunkOverlap: this.formData.chunkOverlap || 50,
+            preserveUrls: this.formData.preserveUrls !== false,
+            cleanText: this.formData.cleanText !== false
+          }
+        }
 
-        console.log('Sending request to /api/chunker/service/simple-form')
-        console.log('Form data:', Object.fromEntries(formData))
+        console.log('Sending JSON request to /api/chunker/service/process-json')
+        console.log('JSON data:', JSON.stringify(jsonRequest, null, 2))
 
-        const response = await axios.post('/api/chunker/service/simple-form', formData, {
+        const response = await axios.post('/api/chunker/service/process-json', jsonRequest, {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/json'
           }
         })
 
@@ -577,7 +545,7 @@ export default {
         
         // Update metrics and activity
         this.updatePerformanceMetrics(response.data)
-        this.addActivity('Config Form Chunking', `Processed text with ${this.formData.algorithm} algorithm`)
+        this.addActivity('Config Card Processing', `Processed text with pure JSON config using ${this.formData.algorithm} algorithm`)
 
       } catch (err) {
         this.error = `Chunking failed: ${err.message}`
@@ -744,6 +712,24 @@ export default {
       if (this.recentActivity.length > 10) {
         this.recentActivity = this.recentActivity.slice(0, 10)
       }
+    },
+
+    // UniversalConfigCard event handlers
+    handleConfigResult(result) {
+      this.result = result
+      this.updatePerformanceMetrics(result)
+      this.addActivity('Universal Config Card', 'Processed text using schema-driven chunking form')
+    },
+
+    handleConfigError(error) {
+      this.error = error
+      console.error('Config card error:', error)
+    },
+
+    handleConfigFormChange(formData) {
+      console.log('Config form data changed:', formData)
+      // Store the form data if needed for integration with other tabs (avoid reactive loops)
+      Object.assign(this.formData, formData)
     }
   }
 }

@@ -14,10 +14,10 @@ export default defineConfig({
     assetsDir: 'assets'
   },
   server: {
-    port: 5173, // Chunker uses default Vite port
+    port: 5174, // Different port from chunker (5173)
     proxy: {
       '/api': {
-        target: 'http://localhost:39102',
+        target: 'http://localhost:39101',
         changeOrigin: true
       }
     }

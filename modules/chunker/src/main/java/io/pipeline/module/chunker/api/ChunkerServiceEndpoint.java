@@ -26,6 +26,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +61,9 @@ public class ChunkerServiceEndpoint {
     
     @Inject
     io.pipeline.common.service.SchemaExtractorService schemaExtractorService;
+    
+    @Inject
+    ObjectMapper objectMapper;
 
     @POST
     @Path("/simple")
@@ -712,5 +716,88 @@ public class ChunkerServiceEndpoint {
             default:
                 return 0;
         }
+    }
+
+    @POST
+    @Path("/process-json")
+    @Operation(summary = "Process with JSON config", description = "Chunk text using complete ChunkerConfig JSON - perfect for JSONForms and Config Card")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @APIResponse(responseCode = "200", description = "Chunking successful", 
+                 content = @Content(schema = @Schema(implementation = ChunkResponse.class)))
+    @APIResponse(responseCode = "400", description = "Invalid input")
+    @APIResponse(responseCode = "500", description = "Internal server error")
+    public Uni<Response> processWithJsonConfig(
+            @Schema(description = "Complete chunking request with ChunkerConfig and text content")
+            Map<String, Object> request) {
+        
+        LOG.debugf("JSON-based chunking request received");
+        
+        return Uni.createFrom().item(() -> {
+            try {
+                // Extract text from request
+                String text = (String) request.get("text");
+                if (text == null || text.trim().isEmpty()) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ChunkResponse(false, "Text field is required"))
+                        .build();
+                }
+                
+                // Extract config from request - if not provided, use defaults
+                ChunkerConfig config;
+                if (request.containsKey("config")) {
+                    // Convert config map to ChunkerConfig using Jackson ObjectMapper
+                    config = objectMapper.convertValue(request.get("config"), ChunkerConfig.class);
+                } else {
+                    // Use default config
+                    config = ChunkerConfig.createDefault();
+                }
+                
+                LOG.debugf("Chunking with config ID: %s, text length: %d", config.configId(), text.length());
+                
+                // Create PipeDoc for chunking
+                PipeDoc document = PipeDoc.newBuilder()
+                    .setId(UUID.randomUUID().toString())
+                    .setBody(text)
+                    .build();
+
+                // Perform chunking using ChunkerConfig directly (same as createChunks method)
+                long startTime = System.currentTimeMillis();
+                String streamId = "json-stream-" + UUID.randomUUID().toString();
+                ChunkingResult chunkingResult = overlapChunker.createChunks(document, config, streamId, "json-chunker");
+                long processingTime = System.currentTimeMillis() - startTime;
+
+                // Convert to DTOs (same as other endpoints)
+                List<ChunkResponse.ChunkDto> chunkDtos = chunkingResult.chunks().stream()
+                    .map(chunk -> new ChunkResponse.ChunkDto(
+                        chunk.id(),
+                        chunk.text(),
+                        chunk.originalIndexStart(),
+                        chunk.originalIndexEnd()
+                    ))
+                    .collect(Collectors.toList());
+                
+                // Calculate original text length
+                int originalTextLength = getTextLengthFromDocument(document, config.sourceField());
+                
+                ChunkResponse.ChunkingMetadata metadata = new ChunkResponse.ChunkingMetadata(
+                    chunkDtos.size(),
+                    processingTime,
+                    originalTextLength,
+                    getTokenizerType(),
+                    getSentenceDetectorType()
+                );
+
+                ChunkResponse response = new ChunkResponse(true, chunkDtos, metadata);
+                LOG.debugf("JSON-based chunking completed - generated %d chunks in %dms", chunkDtos.size(), processingTime);
+                
+                return Response.ok(response).build();
+                
+            } catch (Exception e) {
+                LOG.error("Error during JSON-based chunking", e);
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new ChunkResponse(false, "JSON chunking failed: " + e.getMessage()))
+                    .build();
+            }
+        });
     }
 }
