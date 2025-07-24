@@ -23,5 +23,18 @@ fi
 echo "📂 Working directory: $PWD"
 echo "🏗️  Building and starting embedder module..."
 
+# Java proxy settings for DJL model downloads (uncomment and configure as needed)
+# export JAVA_OPTS="$JAVA_OPTS -Dhttp.proxyHost=your-proxy-host"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttp.proxyPort=8080"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttp.proxyUser=username"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttp.proxyPassword=password"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttps.proxyHost=your-proxy-host"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttps.proxyPort=8080"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttps.proxyUser=username"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttps.proxyPassword=password"
+# export JAVA_OPTS="$JAVA_OPTS -Dhttp.nonProxyHosts=localhost|127.0.0.1|*.internal.com|*.local"
+
+echo "🌐 Java proxy settings: ${JAVA_OPTS:-'None configured (direct connection)'}"
+
 # Start the embedder in dev mode
 ./gradlew :modules:embedder:quarkusDev
