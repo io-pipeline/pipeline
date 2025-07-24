@@ -7,7 +7,6 @@ import io.pipeline.data.model.Blob;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcClient;
-import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
@@ -24,8 +23,7 @@ public class ParserServiceRegistrationTest {
 
     private static final Logger LOG = Logger.getLogger(ParserServiceRegistrationTest.class);
 
-    @InjectMock
-    @GrpcClient
+    @GrpcClient("parser")
     PipeStepProcessor parserService;
 
     @Test
@@ -61,10 +59,10 @@ public class ParserServiceRegistrationTest {
             assertThat(String.format("Schema should contain configuration key '%s'", expectedKey), schema, containsString(expectedKey));
         }
 
-        // Verify JSON schema structure
-        assertThat("Schema should contain '$schema' field", schema, containsString("$schema"));
+        // Verify JSON schema structure (matching chunker expectations)
         assertThat("Schema should contain 'properties' field", schema, containsString("properties"));
         assertThat("Schema should contain 'type' field", schema, containsString("type"));
+        assertThat("Schema should contain parser description", schema, containsString("Configuration for document parsing operations"));
 
         LOG.info("✅ Parser service registration test without health check passed!");
     }
@@ -93,6 +91,7 @@ public class ParserServiceRegistrationTest {
                         .build())
                 .setConfig(ProcessConfiguration.newBuilder()
                         .putConfigParams("extractMetadata", "true")
+                        .putConfigParams("disableEmfParser", "true")  // Disable EMF parser to avoid known POI issues
                         .build())
                 .build();
 
@@ -131,10 +130,10 @@ public class ParserServiceRegistrationTest {
         assertThat("JSON config schema should not be empty after trimming", schema.trim(), is(not(emptyString())));
         assertThat(String.format("Schema should be comprehensive (>500 chars), but was: %d", schema.length()), schema.length(), is(greaterThan(500)));
 
-        // Verify schema structure
-        assertThat("Schema should contain '$schema' field", schema, containsString("$schema"));
+        // Verify schema structure (matching chunker expectations)
         assertThat("Schema should contain 'properties' field", schema, containsString("properties"));
         assertThat("Schema should contain 'type' field", schema, containsString("type"));
+        assertThat("Schema should contain parser description", schema, containsString("Configuration for document parsing operations"));
 
         // Verify specific parser configuration options are in schema
         assertThat("Schema should contain 'extractMetadata' configuration", schema, containsString("extractMetadata"));
@@ -142,14 +141,12 @@ public class ParserServiceRegistrationTest {
         assertThat("Schema should contain 'enableTitleExtraction' configuration", schema, containsString("enableTitleExtraction"));
         assertThat("Schema should contain 'enableGeoTopicParser' configuration", schema, containsString("enableGeoTopicParser"));
 
-        // Validate the schema is valid JSON
+        // Validate the schema is valid JSON (OpenAPI component schema, not standalone JSON Schema)
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode schemaNode = objectMapper.readTree(schema);
             
-            // Verify it's a valid JSON Schema
-            assertThat("Schema should have '$schema' field", schemaNode.has("$schema"), is(true));
-            assertThat("Schema should reference json-schema.org", schemaNode.get("$schema").asText(), containsString("json-schema.org"));
+            // Verify it's a valid OpenAPI schema component
             assertThat("Schema should have 'properties' field", schemaNode.has("properties"), is(true));
             assertThat("Schema should have 'type' field", schemaNode.has("type"), is(true));
             assertThat("Schema type should be 'object'", schemaNode.get("type").asText(), is(equalTo("object")));
@@ -161,7 +158,7 @@ public class ParserServiceRegistrationTest {
             assertThat("Properties should contain 'contentTypeHandling' section", properties.has("contentTypeHandling"), is(true));
             assertThat("Properties should contain 'errorHandling' section", properties.has("errorHandling"), is(true));
 
-            LOG.info("Schema is valid JSON and contains expected structure");
+            LOG.info("Schema is valid OpenAPI component and contains expected structure");
         } catch (Exception e) {
             throw new AssertionError("Schema should be valid JSON but failed to parse: " + e.getMessage(), e);
         }
