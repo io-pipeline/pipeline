@@ -107,6 +107,25 @@ public class SchemaExtractorService {
     }
 
     /**
+     * Convenience method to extract the ParserConfig schema specifically.
+     * 
+     * @return Optional containing ParserConfig schema as JSON string if found
+     */
+    public Optional<String> extractParserConfigSchema() {
+        return extractSchemaByName("ParserConfig");
+    }
+
+    /**
+     * Extracts ParserConfig schema and cleans it for JSON Schema v7 validation.
+     * Removes OpenAPI-specific elements like $ref and x-hidden extensions.
+     * 
+     * @return Optional containing JSON Schema v7 compatible schema
+     */
+    public Optional<String> extractParserConfigSchemaForValidation() {
+        return extractSchemaByName("ParserConfig").map(this::cleanSchemaForJsonSchemaV7);
+    }
+
+    /**
      * Cleans an OpenAPI schema to make it compatible with JSON Schema v7 validation.
      * Removes $ref references and x-* extensions that aren't valid in JSON Schema.
      */
