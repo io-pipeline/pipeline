@@ -378,7 +378,7 @@ import { JsonForms } from '@jsonforms/vue'
 import { vanillaRenderers } from '@jsonforms/vue-vanilla'
 import { markRaw } from 'vue'
 import axios from 'axios'
-import UniversalConfigCard from '@pipeline/shared-ui/components/UniversalConfigCard.vue'
+import UniversalConfigCard from './UniversalConfigCard.vue'
 
 export default {
   name: 'ChunkerConfigForm',

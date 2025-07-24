@@ -4,11 +4,6 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
-  resolve: {
-    alias: {
-      '@pipeline/shared-ui': resolve(__dirname, '../../../../../libraries/shared-ui/src')
-    }
-  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets'

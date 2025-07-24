@@ -12,7 +12,6 @@
     "@jsonforms/core": "^3.3.0",
     "@jsonforms/vue": "^3.3.0",
     "@jsonforms/vue-vanilla": "^3.3.0",
-    "@pipeline/shared-ui": "^1.0.0",
     "axios": "^1.7.2"
   },
   "devDependencies": {
