@@ -1,0 +1,40 @@
+{
+  "name": "module-tester",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "rimraf dist && tsc && copyfiles -u 1 \"src/generated/**/*.js\" dist",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "proto:gen": "npx buf generate proto",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@bufbuild/buf": "^1.55.1",
+    "@bufbuild/protobuf": "^2.6.2",
+    "@bufbuild/protoc-gen-connect-es": "^0.13.0",
+    "@bufbuild/protoc-gen-es": "^1.10.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.1.0",
+    "copyfiles": "^2.4.1",
+    "nodemon": "^3.1.10",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@connectrpc/connect": "^2.0.3",
+    "@connectrpc/connect-node": "^2.0.3",
+    "@grpc/grpc-js": "^1.13.4",
+    "@improbable-eng/grpc-web-node-http-transport": "^0.15.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "grpc-web": "^1.5.0"
+  }
+}

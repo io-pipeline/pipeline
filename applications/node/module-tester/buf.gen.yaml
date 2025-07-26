@@ -1,0 +1,13 @@
+# buf.gen.yaml
+version: v1
+plugins:
+  # This generates the message and service definitions as TypeScript files
+  - plugin: es
+    opt:
+      - target=ts
+    out: src/generated
+  # This generates a modern, promise-based gRPC-Connect client
+  - plugin: connect-es
+    opt:
+      - target=ts
+    out: src/generated

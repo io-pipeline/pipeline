@@ -1,9 +1,9 @@
 [versions]
-quarkus = "3.24.4"
-jandex-plugin = "2.2.0-SNAPSHOT"
+quarkus = "3.24.5"
+jandex-plugin = "2.2.0"
 commons-lang3 = "3.18.0"
-opennlp-tools = "2.5.4"
-jackson-module-jsonschema = "2.18.2"
+opennlp-tools = "2.5.5"
+jackson-module-jsonschema = "2.19.2"
 
 [libraries]
 # Quarkus BOM
