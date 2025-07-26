@@ -1,0 +1,37 @@
+/* Markdown preview styles */
+.markdown-preview-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.markdown-preview-container pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: hidden;
+}
+
+.markdown-preview-container code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.markdown-preview-container p,
+.markdown-preview-container li,
+.markdown-preview-container h1,
+.markdown-preview-container h2,
+.markdown-preview-container h3,
+.markdown-preview-container h4,
+.markdown-preview-container h5,
+.markdown-preview-container h6 {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+
+/* Tables should also wrap when needed */
+.markdown-preview-container table {
+  table-layout: fixed;
+  width: 100%;
+  overflow-wrap: break-word;
+}
