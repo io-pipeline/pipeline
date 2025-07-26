@@ -4,6 +4,10 @@
 # Ignore Gradle build output directory
 build
 
+# Node.js dependencies - don't lock until central repo strategy is finalized
+package-lock.json
+**/package-lock.json
+
 .idea
 # Compiled class file
 *.class

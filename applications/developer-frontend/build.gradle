@@ -1,0 +1,70 @@
+plugins {
+    alias(libs.plugins.java)
+    alias(libs.plugins.quarkus)
+}
+
+// Configuration for accessing proto source files
+configurations {
+    protoSources
+}
+
+dependencies {
+    implementation platform(project(':bom'))
+    implementation 'io.quarkiverse.quinoa:quarkus-quinoa:2.5.5'
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-smallrye-health'
+    
+    // REST API dependencies for basic endpoints if needed
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.rest-assured:rest-assured'
+    
+    // Proto sources for Node.js gRPC client generation (not compiled Java stubs)
+    protoSources project(path: ':grpc-stubs', configuration: 'archives')
+}
+
+group 'io.pipeline.application'
+version '1.0.0-SNAPSHOT'
+
+// Task to extract proto files for Node.js gRPC client generation
+tasks.register('extractProtos', Copy) {
+    dependsOn ':grpc-stubs:protoSourcesJar'
+    
+    from {
+        configurations.protoSources.filter { it.name.contains('proto-sources') }.collect { zipTree(it) }
+    }
+    into 'src/main/webui/proto'
+    
+    doFirst {
+        println "Extracting proto files to src/main/webui/proto for Node.js gRPC client generation"
+    }
+}
+
+// Ensure proto extraction happens before Quinoa build
+tasks.named('quarkusBuild') {
+    dependsOn 'extractProtos'
+}
+
+// Also extract for dev mode
+tasks.named('quarkusDev') {
+    dependsOn 'extractProtos'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+}
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}

@@ -63,14 +63,31 @@ test {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
 }
 
+// Create sources jar with proto files for Node.js clients
+tasks.register('protoSourcesJar', Jar) {
+    archiveClassifier = 'proto-sources'
+    from 'src/main/proto'
+    include '**/*.proto'
+    
+    destinationDirectory = file("$buildDir/libs")
+}
+
+// Ensure proto sources jar is built
+artifacts {
+    archives protoSourcesJar
+}
+
 publishing {
     publications {
         maven(MavenPublication) {
             from components.java
             
+            // Include proto sources jar
+            artifact protoSourcesJar
+            
             pom {
                 name = 'gRPC Stubs'
-                description = 'Generated gRPC stubs with Mutiny support'
+                description = 'Generated gRPC stubs with Mutiny support and proto sources'
             }
         }
     }
