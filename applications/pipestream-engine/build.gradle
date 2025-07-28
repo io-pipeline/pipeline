@@ -34,6 +34,8 @@ dependencies {
     implementation project(':libraries:pipeline-commons')
     implementation project(':libraries:pipeline-api')
     implementation project(':libraries:data-util')
+    runtimeOnly libs.quarkus.logging.manager
+
 }
 
 group 'io.pipeline.application'

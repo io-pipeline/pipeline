@@ -4,6 +4,7 @@ jandex-plugin = "2.2.0"
 commons-lang3 = "3.18.0"
 opennlp-tools = "2.5.5"
 jackson-module-jsonschema = "2.19.2"
+logging-manager = "3.3.5"
 
 [libraries]
 # Quarkus BOM
@@ -16,6 +17,7 @@ quarkus-arc = { module = "io.quarkus:quarkus-arc" }
 quarkus-rest = { module = "io.quarkus:quarkus-rest" }
 quarkus-rest-jackson = { module = "io.quarkus:quarkus-rest-jackson" }
 quarkus-jackson = { module = "io.quarkus:quarkus-jackson" }
+quarkus-logging-manager = { module = "io.quarkiverse.loggingmanager:quarkus-logging-manager", version.ref = "logging-manager"}
 quarkus-consul-config = { module = "io.quarkus:quarkus-consul-config" }
 quarkus-micrometer = { module = "io.quarkus:quarkus-micrometer" }
 quarkus-micrometer-registry-prometheus = { module = "io.quarkus:quarkus-micrometer-registry-prometheus" }

@@ -146,13 +146,14 @@ public class ParserServiceImpl implements PipeStepProcessor {
                 .setModuleName("parser");
 
         // Use SchemaExtractorService to get the dynamically generated ParserConfig schema
-        Optional<String> schemaOptional = schemaExtractorService.extractParserConfigSchema();
+        Optional<String> schemaOptional = schemaExtractorService.getFullOpenApiDocument();
         
         if (schemaOptional.isPresent()) {
             String jsonSchema = schemaOptional.get();
             responseBuilder.setJsonConfigSchema(jsonSchema);
-            LOG.debugf("Successfully extracted ParserConfig schema (%d characters) using SchemaExtractorService", 
+            LOG.debugf("Successfully extracted full OpenAPI schema (%d characters) using SchemaExtractorService", 
                      jsonSchema.length());
+            LOG.info("Returning raw OpenAPI schema for parser module.");
         } else {
             responseBuilder.setHealthCheckPassed(false);
             responseBuilder.setHealthCheckMessage("Failed to extract ParserConfig schema from OpenAPI document");

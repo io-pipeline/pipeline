@@ -122,8 +122,8 @@ public class PipelineAutoRegistrationBean {
             // Scan for beans annotated with @PipelineAutoRegister
             registerAnnotatedProcessors();
             
-            // Also register the module itself if configured
-            if (moduleType.isPresent() || moduleMetadata.isPresent()) {
+            // Also register the module itself if configured, but only if no annotated processors were found
+            if ((moduleType.isPresent() || moduleMetadata.isPresent()) && processors.stream().noneMatch(p -> p.getClass().isAnnotationPresent(PipelineAutoRegister.class) || (p.getClass().getSuperclass() != null && p.getClass().getSuperclass().isAnnotationPresent(PipelineAutoRegister.class)))) {
                 registerSelf();
             }
         } catch (Exception e) {

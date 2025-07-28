@@ -41,6 +41,8 @@ dependencies {
     // Apache Tika dependencies - use standard package which includes most parsers
     implementation("org.apache.tika:tika-core:3.2.1")
     implementation("org.apache.tika:tika-parsers-standard-package:3.2.1")
+    runtimeOnly libs.quarkus.logging.manager
+
 
 }
 
