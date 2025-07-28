@@ -6,11 +6,7 @@ echo "🔄 Regenerating gRPC stubs..."
 
 # Clean the grpc-stubs project
 echo "🧹 Cleaning grpc-stubs project..."
-./gradlew :grpc-stubs:clean
-
-# Force regeneration of stubs
-echo "⚡ Forcing gRPC code generation..."
-./gradlew :grpc-stubs:generateGrpcStubs
+./gradlew :grpc-stubs:clean :grpc-stubs:build
 
 # Publish to local maven repo
 echo "📦 Publishing stubs to local repository..."
