@@ -85,7 +85,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Vue.js build outputs
-dist/
 dist-ssr/
 *.local
 

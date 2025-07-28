@@ -14,7 +14,7 @@ import java.util.Optional;
 /**
  * Service for extracting OpenAPI schema components from the dynamically generated OpenAPI document.
  * This service provides a centralized way to access schema definitions for validation and registration.
- * 
+ * <p>
  * Pattern established for chunker module and designed to be reused across all modules and services.
  */
 @ApplicationScoped
