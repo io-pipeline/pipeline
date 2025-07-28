@@ -22,7 +22,7 @@ The current implementation fails for modules with complex, nested configuration 
 
 ## The Proposal: A Hybrid Transformation Model
 
-This proposal shifts the responsibility of schema transformation from individual modules to the central Pipeline Engine and a new, reusable library.
+This proposal shifts the responsibility of schema transformation from individual modules to the central Pipeline Engine and a new developer tool. The developer tool will also produce a shared UI component for use in the engine.
 
 ### 1. The Module Developer Contract (The "Golden Rule")
 
@@ -34,51 +34,50 @@ The contract for a module developer, regardless of language, is simplified to it
 
 This is the **only** schema-related requirement for a module.
 
-### 2. The New Shared Library: `pipeline-schema-utils`
+### 2. The New Developer Tool & Shared Component
 
-A new, reusable Java library will be created to encapsulate all schema transformation logic.
+A new, standalone developer tool will be created to provide an immediate, zero-effort way for developers to test their modules. This tool will be responsible for developing and hardening a reusable Vue component that can render a configuration UI from a schema.
 
-*   **Name:** `io.pipeline:pipeline-schema-utils`
-*   **Framework:** It will be a Quarkus-aware library to seamlessly integrate with our existing tools, tests, and dependency injection framework.
-*   **Core API:** It will provide a `SchemaTransformer` service with two primary methods:
-    *   `public String toRenderingSchema(String rawOpenApiSchema)`: Resolves all `$ref`s and prepares the schema for JSONForms.
-    *   `public String toValidationSchema(String rawOpenApiSchema)`: Cleans the schema for JSON Schema v7 validation.
+#### Technology Stack
 
-### 3. Component Responsibilities & Architectural Flow
+*   **Backend:** Node.js with Express.js, using TypeScript.
+*   **Frontend:** Vue 3 with TypeScript.
+*   **gRPC Communication:** The backend will use `@grpc/grpc-js` to communicate with the target module. The frontend will use gRPC-Web (`@protobuf-ts/grpcweb-transport`) to communicate with the backend.
+*   **Schema Processing:** The Node.js backend will use `@apidevtools/json-schema-ref-parser` to resolve `$ref`s in the OpenAPI schema.
+*   **Form Rendering:** The frontend will use `@jsonforms/vue` to render the configuration UI from the resolved schema.
 
-#### For Our Internal Java Modules (e.g., Parser, Chunker)
+#### Architectural Flow
 
-*   Our Java-based modules will include `pipeline-schema-utils` as a dependency.
-*   They will expose a local REST endpoint (e.g., `/ui/rendering-schema`) for their self-contained test pages.
-*   This endpoint will use the injected `SchemaTransformer` to process its own raw schema and serve the render-ready version to its local UI. This ensures our modules are self-contained and independently testable.
+1.  **Developer Input:** The user provides their module's gRPC address (e.g., `localhost:8080`) in the Vue UI.
+2.  **Frontend to Backend:** The Vue app sends this address to a REST endpoint on the Node.js backend.
+3.  **Backend to Module:** The Node.js backend acts as a gRPC-Web proxy. It calls the `GetServiceRegistration` method on the target module using standard gRPC.
+4.  **Schema Resolution:** The backend receives the raw OpenAPI schema and uses `@apidevtools/json-schema-ref-parser` to create a single, fully-resolved schema.
+5.  **Backend to Frontend:** The resolved schema is sent back to the Vue app.
+6.  **UI Rendering:** The Vue app passes the schema to the shared JSON Forms component, which renders the interactive configuration form.
 
-#### For External/Non-Java Modules
+### 3. Component Responsibilities
 
-*   External developers are **not required** to use the `proxy-module`. They can choose to implement everything themselves if they wish.
-*   However, we will provide the `proxy-module` as a powerful, **optional, standalone testing tool**.
+#### The Developer Tool (The "Free Lunch")
 
-#### The `proxy-module` (The "Free Lunch")
+The primary goal of this application is to provide a powerful, optional, standalone testing tool for module developers. By pointing the tool at their gRPC endpoint, a developer gets an instant, interactive test page that shows exactly how their configuration card will render in the main Pipeline Engine.
 
-*   The `proxy-module` will be a standalone Quarkus application that includes the `pipeline-schema-utils` library.
-*   A non-Java developer can run it and point it at their module's gRPC endpoint.
-*   The proxy will automatically:
-    1.  Proxy all standard `PipeStepProcessor` calls to their module.
-    2.  Wrap their module with Quarkus features like metrics, logging, and tracing.
-    3.  Expose a local web server with a test page.
-    4.  This test page will use a REST endpoint on the proxy (`/ui/rendering-schema`) which, in turn, uses the `SchemaTransformer` to provide a fully rendered, interactive configuration form for the non-Java module.
+This tool also serves as the development and hardening environment for the shared form-rendering Vue component.
 
-This provides an immediate, zero-effort way for external developers to test their module and see exactly how its configuration card will render in the main Pipeline Engine UI.
+#### The Shared UI Component
+
+The schema-rendering Vue component, once matured within the developer tool, will be packaged and published as a reusable NPM library.
 
 #### The Pipeline Engine
 
-*   For rendering configuration cards in the main administrative UI, the Engine will call the `GetServiceRegistration` gRPC endpoint of the target module.
-*   It will retrieve the raw, unresolved OpenAPI 3.1 schema from the `json_config_schema` field.
-*   It will use its own instance of the `SchemaTransformer` (from the shared `pipeline-schema-utils` library) to convert the raw schema into the final rendering schema required by the `UniversalConfigCard`.
+*   For rendering configuration cards in the main administrative UI, the Engine will consume the shared Vue component library.
+*   It will call the `GetServiceRegistration` gRPC endpoint of the target module to retrieve the raw schema.
+*   It will then use a schema transformation service (which can be built using the same Node.js logic as the developer tool) to resolve the schema before passing it to the Vue component for rendering.
 
 ## Benefits
 
-*   **Simplicity for Module Developers:** The contract is dead simple, lowering the barrier to entry for creating new modules.
+*   **Simplicity for Module Developers:** The contract remains dead simple, lowering the barrier to entry.
 *   **No Engine Dependency for Testing:** Modules can be developed and tested in a completely standalone manner.
-*   **Maximum Code Reuse:** The complex transformation logic is written once in a shared, Quarkus-aware library and used by all our Java components.
-*   **Powerful Tooling:** The `proxy-module` becomes a high-value, optional tool that provides a "free" test UI and other enterprise-grade features to developers in any language.
-*   **Centralized Control:** The Engine maintains control over the final rendering in the main UI, ensuring consistency and allowing for future enhancements.
+*   **Maximum Code Reuse:** The complex UI rendering logic is written once in a shared Vue component and used by both the developer tool and the main engine.
+*   **Powerful Tooling:** The developer tool becomes a high-value, optional utility that provides a "free" test UI for developers in any language.
+*   **Leverages Modern Web Ecosystem:** Builds on the robust and popular Node.js and Vue ecosystems.
+*   **Centralized Control:** The Engine maintains control over the final rendering in the main UI by owning the schema transformation and integration of the shared component.
