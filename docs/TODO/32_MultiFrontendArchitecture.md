@@ -69,33 +69,47 @@ This RFC outlines a comprehensive multi-frontend architecture that supports both
 #### Deliverables
 1. **Standalone Node.js Project**
    ```
-   frontends/developer-frontend/
-   ├── package.json
-   ├── src/
-   │   ├── components/
-   │   │   └── UniversalConfigCard.vue
-   │   ├── grpc/
-   │   │   └── client.js
-   │   └── main.js
+   applications/node/dev-tools/
+   ├── backend/
+   │   ├── src/
+   │   │   ├── grpc/
+   │   │   │   └── client.ts
+   │   │   ├── transformers/
+   │   │   │   └── schemaTransformer.ts
+   │   │   ├── routes/
+   │   │   │   └── moduleRoutes.ts
+   │   │   └── server.ts
+   │   ├── package.json
+   │   └── tsconfig.json
+   ├── frontend/
+   │   ├── src/
+   │   │   ├── components/
+   │   │   │   └── UniversalConfigCard.vue
+   │   │   └── App.vue
+   │   ├── package.json
+   │   └── vite.config.ts
    └── sample-data/
        ├── tika-requests.proto.bin
        └── tika-responses.proto.bin
    ```
 
 2. **Direct gRPC Integration**
-   - Connect to Tika parser at `localhost:39104` (or configurable)
-   - Schema extraction via gRPC call
-   - Request/response testing with sample protobufs
+   - Node.js backend connects to modules via native gRPC (HTTP/2)
+   - Schema extraction via `GetServiceRegistration` gRPC call
+   - Schema transformation pipeline in TypeScript
+   - REST API for Vue frontend (HTTP/1.1)
 
 3. **UniversalConfigCard Implementation**
    - Pure Vue.js component (no Quarkus dependencies)
    - JSONForms integration for schema rendering
-   - Identical rendering logic to production
+   - Receives transformed schema from Node.js backend
+   - Identical rendering across all environments
 
-4. **Sample Data Package**
-   - Pre-built protobuf request binaries for common document types
-   - Expected response examples
-   - Developer can immediately test without creating test data
+4. **Schema Transformation Pipeline**
+   - Resolve `$ref` references using `@apidevtools/json-schema-ref-parser`
+   - Apply UI enhancements (widgets, layout, help text)
+   - Fix JSONForms compatibility issues
+   - Maintain OpenAPI 3.1 validity
 
 #### Success Criteria
 - [ ] External developer can run `npm start` and see Tika schema rendered
@@ -259,11 +273,11 @@ class ModuleClient {
 ### Development Workflow
 
 #### For External Developers
-1. **Setup**: `git clone frontend-template && npm install`
-2. **Development**: Point to module at `localhost:port`
-3. **Testing**: Use provided sample protobufs
-4. **Validation**: See exact production rendering
-5. **Deployment**: Module runs standalone or via Proxy-Module
+1. **Setup**: Clone dev-tools and run `npm install` in both backend and frontend
+2. **Development**: Start Node.js backend, then Vue frontend
+3. **Connect**: Enter module address (e.g., `localhost:39104`) in UI
+4. **Test**: View rendered configuration form with live schema
+5. **Validate**: Same rendering as production Pipeline Engine
 
 #### For Internal Development
 1. **Module Creation**: Copy existing module template

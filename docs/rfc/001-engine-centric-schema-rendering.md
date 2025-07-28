@@ -42,18 +42,19 @@ A new, standalone developer tool will be created to provide an immediate, zero-e
 
 *   **Backend:** Node.js with Express.js, using TypeScript.
 *   **Frontend:** Vue 3 with TypeScript.
-*   **gRPC Communication:** The backend will use `@grpc/grpc-js` to communicate with the target module. The frontend will use gRPC-Web (`@protobuf-ts/grpcweb-transport`) to communicate with the backend.
-*   **Schema Processing:** The Node.js backend will use `@apidevtools/json-schema-ref-parser` to resolve `$ref`s in the OpenAPI schema.
-*   **Form Rendering:** The frontend will use `@jsonforms/vue` to render the configuration UI from the resolved schema.
+*   **gRPC Communication:** The backend will use `@grpc/grpc-js` to communicate directly with the target module using native gRPC over HTTP/2.
+*   **Schema Processing:** The Node.js backend will use `@apidevtools/json-schema-ref-parser` to resolve `$ref`s in the OpenAPI schema and apply UI-specific transformations.
+*   **Form Rendering:** The frontend will use `@jsonforms/vue` to render the configuration UI from the transformed schema configuration.
 
 #### Architectural Flow
 
 1.  **Developer Input:** The user provides their module's gRPC address (e.g., `localhost:8080`) in the Vue UI.
 2.  **Frontend to Backend:** The Vue app sends this address to a REST endpoint on the Node.js backend.
-3.  **Backend to Module:** The Node.js backend acts as a gRPC-Web proxy. It calls the `GetServiceRegistration` method on the target module using standard gRPC.
-4.  **Schema Resolution:** The backend receives the raw OpenAPI schema and uses `@apidevtools/json-schema-ref-parser` to create a single, fully-resolved schema.
-5.  **Backend to Frontend:** The resolved schema is sent back to the Vue app.
-6.  **UI Rendering:** The Vue app passes the schema to the shared JSON Forms component, which renders the interactive configuration form.
+3.  **Backend to Module:** The Node.js backend makes a direct gRPC call to the `GetServiceRegistration` method on the target module using native gRPC over HTTP/2.
+4.  **Schema Resolution:** The backend receives the raw OpenAPI 3.1 schema and uses `@apidevtools/json-schema-ref-parser` to create a single, fully-resolved schema.
+5.  **Schema Transformation:** The backend applies UI-specific transformations to enhance the schema with rendering hints, layout instructions, and fixes for common JSONForms compatibility issues.
+6.  **Backend to Frontend:** The transformed schema configuration is sent back to the Vue app via HTTP/1.1.
+7.  **UI Rendering:** The Vue app passes the configuration to the shared JSON Forms component, which renders the interactive configuration form.
 
 ### 3. Component Responsibilities
 
@@ -71,7 +72,23 @@ The schema-rendering Vue component, once matured within the developer tool, will
 
 *   For rendering configuration cards in the main administrative UI, the Engine will consume the shared Vue component library.
 *   It will call the `GetServiceRegistration` gRPC endpoint of the target module to retrieve the raw schema.
-*   It will then use a schema transformation service (which can be built using the same Node.js logic as the developer tool) to resolve the schema before passing it to the Vue component for rendering.
+*   It will then use a schema transformation service (which can be built using the same Node.js logic as the developer tool) to resolve and transform the schema before passing it to the Vue component for rendering.
+
+## Schema Transformation Pipeline
+
+The Node.js backend implements a transformation pipeline that:
+
+1.  **Accepts:** Valid OpenAPI 3.1 schemas from modules (the module contract remains simple)
+2.  **Resolves:** All `$ref` references to create a complete schema
+3.  **Transforms:** Applies UI-specific enhancements without breaking schema validity:
+    *   Adds UI widget hints (e.g., `x-ui-widget: "switch"` for booleans)
+    *   Specifies display ordering (e.g., `x-ui-order: 1`)
+    *   Includes help text and examples
+    *   Groups related fields for better layout
+    *   Fixes common JSONForms compatibility issues
+4.  **Outputs:** An enhanced schema configuration optimized for JSONForms rendering
+
+This transformation layer ensures modules only need to provide valid OpenAPI 3.1 schemas while the developer tool handles all UI-specific concerns.
 
 ## Benefits
 

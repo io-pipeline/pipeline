@@ -109,68 +109,63 @@ After cleaning for JSON Schema v7:
 
 ## Proposed Architecture
 
-### 1. Dual Schema Extraction Strategy
+### 1. Simplified Module Contract
 
-**Current (Broken):**
-```java
-// Single method serves both needs - fails for complex schemas
-public Optional<String> extractConfigSchemaForValidation() {
-    return extractSchemaByName("ConfigName").map(this::cleanSchemaForJsonSchemaV7);
-}
+**Module Responsibility (Simple):**
+- Modules provide ONE schema via gRPC: a valid OpenAPI 3.1 schema
+- No rendering concerns in module code
+- No dual extraction methods needed
+
+**Developer Tool Responsibility (Complex):**
+- Node.js backend handles ALL schema transformation
+- Resolves `$ref` references
+- Applies UI-specific enhancements
+- Fixes JSONForms compatibility issues
+
+This approach moves all complexity to the developer tool, keeping modules simple.
+
+### 2. Schema Transformation in Node.js
+
+**Developer Tool Architecture:**
+```
+Module (gRPC) → Node.js Backend → Vue Frontend
+                     ↓
+              - Schema resolution
+              - UI transformations
+              - JSONForms config
 ```
 
-**Proposed (Fixed):**
-```java
-// Two methods, different processing strategies
-public Optional<String> extractSchemaForValidation() {
-    return extractSchemaByName("ConfigName").map(this::cleanForJsonSchemaV7);
-}
+**Transformation Pipeline:**
+1. Receive OpenAPI 3.1 schema from module
+2. Resolve all `$ref` references
+3. Apply UI enhancements (widgets, layout, help text)
+4. Fix JSONForms compatibility issues
+5. Output optimized configuration for rendering
 
-public Optional<String> extractSchemaForRendering() {
-    return extractSchemaByName("ConfigName").map(this::resolveReferencesForRendering);
-}
-```
+### 3. Reference Resolution in Node.js
 
-### 2. gRPC-to-REST Proxy Pattern
+**Implementation using TypeScript:**
+```typescript
+// In the Node.js backend
+import RefParser from '@apidevtools/json-schema-ref-parser';
 
-**Current (Wrong):**
-```java
-// REST endpoint calls SchemaExtractorService directly
-@GET @Path("/config")
-public Response getConfig() {
-    String schema = schemaExtractorService.extractConfigSchemaForValidation();
-    return Response.ok(schema).build();
-}
-```
-
-**Proposed (Right):**
-```java
-// REST endpoint proxies to gRPC
-@GET @Path("/config") 
-public Response getConfig() {
-    String schema = grpcClient.extractSchema(); // Call gRPC method
-    return Response.ok(schema).build();
-}
-```
-
-### 3. Reference Resolution Algorithm
-
-**Implementation Strategy:**
-```java
-private String resolveReferencesForRendering(String openApiSchema) {
-    JsonObject schema = parseJson(openApiSchema);
-    JsonObject fullDocument = getFullOpenApiDocument();
+async function transformSchemaForUI(rawSchema: string): Promise<object> {
+    // Step 1: Parse and resolve references
+    const parsed = JSON.parse(rawSchema);
+    const resolved = await RefParser.dereference(parsed);
     
-    return resolveReferences(schema, fullDocument, "/components/schemas");
+    // Step 2: Apply UI transformations
+    const enhanced = applyUIEnhancements(resolved);
+    
+    // Step 3: Fix JSONForms compatibility
+    const compatible = ensureJSONFormsCompatibility(enhanced);
+    
+    return compatible;
 }
 
-private JsonObject resolveReferences(JsonObject schema, JsonObject document, String basePath) {
-    // 1. Find all $ref properties
-    // 2. Look up referenced schemas in document
-    // 3. Inline the properties recursively
-    // 4. Remove $ref property
-    // 5. Preserve OpenAPI extensions (x-*)
-    // 6. Return fully resolved schema
+function applyUIEnhancements(schema: any): any {
+    // Add UI hints, layout, widget types, etc.
+    // Without breaking OpenAPI 3.1 validity
 }
 ```
 
@@ -178,36 +173,35 @@ private JsonObject resolveReferences(JsonObject schema, JsonObject document, Str
 
 ```mermaid
 graph TD
-    A[Java Config Class] --> B[OpenAPI Generation]
-    B --> C[SchemaExtractorService]
-    C --> D{Purpose?}
-    D -->|Validation| E[Clean for JSON Schema v7]
-    D -->|Rendering| F[Resolve $ref + Preserve Extensions]
-    E --> G[REST Validation]
-    F --> H[JSONForms Rendering]
+    A[Module gRPC Service] --> B[Provides OpenAPI 3.1 Schema]
+    B --> C[Node.js Backend]
+    C --> D[Schema Resolution]
+    D --> E[UI Transformations]
+    E --> F[JSONForms Config]
+    F --> G[Vue Frontend Rendering]
 ```
 
 ## Implementation Plan
 
-### Phase 1: Architecture Foundation
-1. **Add gRPC schema extraction methods** to all module services
-2. **Update REST endpoints** to proxy gRPC calls instead of direct extraction
-3. **Create reference resolution utility** in SchemaExtractorService
+### Phase 1: Developer Tool Foundation
+1. **Set up Node.js/Express backend** with TypeScript in `applications/node/dev-tools`
+2. **Implement gRPC client** to connect to modules
+3. **Create schema transformation pipeline** with reference resolution
 
-### Phase 2: Schema Resolution
-1. **Implement resolveReferencesForRendering()** method
-2. **Add extractSchemaForRendering()** to service interface  
-3. **Update UniversalConfigCard** to use rendering endpoint
+### Phase 2: Frontend Development
+1. **Build Vue 3 frontend** with module connection UI
+2. **Implement shared JSONForms component**
+3. **Test with various module schemas** (parser, chunker, etc.)
 
-### Phase 3: Validation Compatibility
-1. **Ensure JSON Schema v7 validation** still works for REST
-2. **Add schema validation tests** for both rendering and validation modes
-3. **Performance optimization** for schema resolution
+### Phase 3: Component Packaging
+1. **Extract reusable Vue component** as NPM package
+2. **Document component API** and usage
+3. **Integrate with Quarkus modules** via Quinoa
 
-### Phase 4: Production Readiness
-1. **Add caching** for resolved schemas
-2. **Error handling** for malformed schemas
-3. **Monitoring and metrics** for schema extraction
+### Phase 4: Production Integration
+1. **Deploy to Pipeline Engine** with shared component
+2. **Update Proxy-Module** to use shared component
+3. **Ensure consistent rendering** across all environments
 
 ## Success Criteria
 

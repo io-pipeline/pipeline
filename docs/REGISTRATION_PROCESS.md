@@ -200,7 +200,7 @@ curl -s http://localhost:8500/v1/health/service/echo
 
 **Example Problem**:
 - Service binds to `localhost:39100` (127.0.0.1)
-- Service advertises as `krick:39100` (127.0.1.1) 
+- Service advertises as `my.external.dns.name:39100` (127.0.1.1) 
 - Other services can't connect because they try to reach the advertised address
 
 **Solution - Bind to All Interfaces**:
@@ -225,11 +225,11 @@ module.registration.host=localhost
 **Debug Commands**:
 ```bash
 # Test if hostname resolves and service is reachable
-curl -v http://krick:39100/health
+curl -v http://my.external.dns.name:39100/health
 curl -v http://localhost:39100/health
 
 # Test gRPC connectivity  
-grpcurl -plaintext krick:39100 grpc.health.v1.Health/Check
+grpcurl -plaintext my.external.dns.name:39100 grpc.health.v1.Health/Check
 grpcurl -plaintext localhost:39100 grpc.health.v1.Health/Check
 
 # Check what addresses services registered with
@@ -258,7 +258,7 @@ curl -s http://localhost:8500/v1/health/service/echo | jq '.[] | {ServiceID: .Se
 | `"service-registration-service-38001"` | Profile detection failing | Use `@ConfigProperty(name = "quarkus.profile")` |
 | `"UNAVAILABLE: io exception"` | Registration service not found | Verify registration service is healthy in Consul |
 | `"deregister interval below minimum"` | Timeout too low | Use minimum `"1m"` for deregister timeout |
-| `"Connection refused: krick:38001"` | Hostname binding mismatch | Use `quarkus.http.host=0.0.0.0` |
+| `"Connection refused: my.external.dns.name:38001"` | Hostname binding mismatch | Use `quarkus.http.host=0.0.0.0` |
 | `"Cannot connect to advertised address"` | Service binds to localhost only | Bind to all interfaces with `0.0.0.0` |
 
 ## Summary
