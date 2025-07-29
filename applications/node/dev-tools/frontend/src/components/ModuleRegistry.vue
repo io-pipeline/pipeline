@@ -62,9 +62,6 @@
         <button @click="quickConnect('localhost:39101')" class="quick-button">
           Parser (39101)
         </button>
-        <button @click="quickConnect('localhost:39100')" class="quick-button">
-          Echo (39100)
-        </button>
         <button @click="quickConnect('localhost:39102')" class="quick-button">
           Chunker (39102)
         </button>
