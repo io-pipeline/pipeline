@@ -1,5 +1,6 @@
 <template>
-  <div class="app">
+  <v-app>
+    <div class="app">
     <header class="app-header">
       <div class="header-content">
         <div class="header-left">
@@ -145,8 +146,38 @@
           </div>
         </div>
       </div>
+      
+      <!-- Admin Tab -->
+      <div v-if="activeTab === 'admin'" class="tab-content">
+        <h2>Admin Tools</h2>
+        <p>Administrative functions and debugging tools</p>
+        
+        <div class="admin-section">
+          <h3>Local Storage Management</h3>
+          <p>Clear locally stored data to reset the application state.</p>
+          
+          <div class="admin-actions">
+            <button @click="clearAllStorage" class="danger-button">
+              Clear All Storage
+            </button>
+            
+            <button @click="clearModuleStorage" class="warning-button">
+              Clear Module Storage Only
+            </button>
+            
+            <button @click="clearConfigStorage" class="warning-button">
+              Clear Config Storage Only
+            </button>
+          </div>
+          
+          <div v-if="storageCleared" class="success-message">
+            {{ storageCleared }}
+          </div>
+        </div>
+      </div>
     </main>
   </div>
+  </v-app>
 </template>
 
 <script setup lang="ts">
@@ -181,14 +212,8 @@ const currentRequest = ref<any>(null)
 const currentConfig = ref<any>({})
 const currentConfigId = ref<string>('')
 const configSelectorRef = ref<any>(null)
+const storageCleared = ref<string>('')
 
-// Debug logging
-watch(activeModule, (newModule) => {
-  console.log('Active module changed:', newModule)
-  if (newModule) {
-    console.log('Module has schema:', !!newModule.schema)
-  }
-}, { immediate: true })
 
 // Tab management
 const activeTab = ref('registry')
@@ -196,13 +221,13 @@ const tabs = [
   { id: 'registry', label: 'Module Registry' },
   { id: 'config', label: 'Module Config' },
   { id: 'data', label: 'Data Seeding' },
-  { id: 'pipeline', label: 'Pipeline' }
+  { id: 'pipeline', label: 'Pipeline' },
+  { id: 'admin', label: 'Admin' }
 ]
 
 // Handle config selection
 const handleConfigSelected = (config: any) => {
   currentConfig.value = config
-  console.log('Config selected:', config)
 }
 
 const handleConfigIdChanged = (configId: string) => {
@@ -215,7 +240,6 @@ const handleConfigChange = (data: any) => {
   if (configSelectorRef.value) {
     configSelectorRef.value.updateCurrentConfig(data)
   }
-  console.log('Config changed:', data)
 }
 
 const handleRequestCreated = (request: any) => {
@@ -256,6 +280,31 @@ const getStatusClass = (healthStatus?: string) => {
     default:
       return 'status-unknown'
   }
+}
+
+// Admin functions
+const clearAllStorage = () => {
+  localStorage.clear()
+  storageCleared.value = 'All local storage cleared. Reloading page...'
+  setTimeout(() => {
+    window.location.reload()
+  }, 1500)
+}
+
+const clearModuleStorage = () => {
+  localStorage.removeItem('pipeline-dev-tools-state')
+  storageCleared.value = 'Module storage cleared. Reloading page...'
+  setTimeout(() => {
+    window.location.reload()
+  }, 1500)
+}
+
+const clearConfigStorage = () => {
+  localStorage.removeItem('pipeline-module-configs')
+  storageCleared.value = 'Config storage cleared.'
+  setTimeout(() => {
+    storageCleared.value = ''
+  }, 3000)
 }
 </script>
 
@@ -480,5 +529,71 @@ main {
 
 .prev-button:hover {
   background: #e8e8e8;
+}
+
+/* Admin section */
+.admin-section {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-top: 1.5rem;
+}
+
+.admin-section h3 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.admin-section p {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  padding: 0.75rem 1.5rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.danger-button:hover {
+  background: #c82333;
+}
+
+.warning-button {
+  padding: 0.75rem 1.5rem;
+  background: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.warning-button:hover {
+  background: #e0a800;
+}
+
+.success-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  color: #155724;
 }
 </style>

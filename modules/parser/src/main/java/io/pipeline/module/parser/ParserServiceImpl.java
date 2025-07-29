@@ -10,6 +10,7 @@ import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.*;
 import io.pipeline.module.parser.config.ParserConfig;
 import io.pipeline.module.parser.util.DocumentParser;
+import io.pipeline.module.parser.schema.SchemaEnhancer;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -41,6 +42,9 @@ public class ParserServiceImpl implements PipeStepProcessor {
 
     @Inject
     SchemaExtractorService schemaExtractorService;
+    
+    @Inject
+    SchemaEnhancer schemaEnhancer;
 
     @Override
     public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
@@ -150,10 +154,12 @@ public class ParserServiceImpl implements PipeStepProcessor {
         
         if (schemaOptional.isPresent()) {
             String jsonSchema = schemaOptional.get();
-            responseBuilder.setJsonConfigSchema(jsonSchema);
-            LOG.debugf("Successfully extracted full OpenAPI schema (%d characters) using SchemaExtractorService", 
-                     jsonSchema.length());
-            LOG.info("Returning raw OpenAPI schema for parser module.");
+            // Enhance the schema with dynamic runtime information like Tika MIME types
+            String enhancedSchema = schemaEnhancer.enhanceSchema(jsonSchema);
+            responseBuilder.setJsonConfigSchema(enhancedSchema);
+            LOG.debugf("Successfully extracted and enhanced full OpenAPI schema (%d characters) using SchemaExtractorService", 
+                     enhancedSchema.length());
+            LOG.info("Returning enhanced OpenAPI schema for parser module with Tika MIME type suggestions.");
         } else {
             responseBuilder.setHealthCheckPassed(false);
             responseBuilder.setHealthCheckMessage("Failed to extract ParserConfig schema from OpenAPI document");

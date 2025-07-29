@@ -9,6 +9,9 @@ export default defineConfig({
       '@': resolve(__dirname, 'src')
     }
   },
+  optimizeDeps: {
+    include: ['@jsonforms/vue', '@jsonforms/core', '@jsonforms/vue-vanilla', '@jsonforms/vue-vuetify']
+  },
   server: {
     port: 5173,
     proxy: {

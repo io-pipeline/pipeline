@@ -22,19 +22,7 @@
       {{ control.description }}
     </div>
     
-    <div v-if="items.length === 0" class="empty-state">
-      <p>No items added yet</p>
-      <button 
-        type="button" 
-        class="add-first-button"
-        @click="addItem"
-        :disabled="!control.enabled"
-      >
-        Add first item
-      </button>
-    </div>
-    
-    <div v-else class="array-items">
+    <div v-if="items.length > 0" class="array-items">
       <div 
         v-for="(item, index) in items" 
         :key="`${control.path}-${index}`"
@@ -87,22 +75,6 @@
       </div>
     </div>
     
-    <!-- Suggestions for string arrays (like MIME types) -->
-    <div v-if="isStringArray && suggestions.length > 0" class="suggestions">
-      <div class="suggestions-header">Common values:</div>
-      <div class="suggestion-chips">
-        <button
-          v-for="suggestion in suggestions"
-          :key="suggestion"
-          type="button"
-          class="suggestion-chip"
-          @click="addSuggestion(suggestion)"
-          :disabled="items.includes(suggestion)"
-        >
-          {{ suggestion }}
-        </button>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -119,9 +91,6 @@ export default defineComponent({
   props: rendererProps<ArrayControlProps>(),
   setup(props) {
     const arrayControl = useJsonFormsArrayControl(props)
-    
-    // Log to see what's actually available
-    console.log('Array control hook result:', arrayControl)
 
     const control = computed(() => arrayControl.control.value)
     const dragIndex = ref(-1)
@@ -189,21 +158,39 @@ export default defineComponent({
       'application/vnd.ms-powerpoint'
     ]
 
-    // Get suggestions based on field name or schema
+    // Get suggestions based on schema first, then fall back to heuristics
     const suggestions = computed(() => {
       if (!isStringArray.value) return []
       
-      // Check if this is a MIME type field
+      // First priority: Check schema for enum values (most specific)
+      if (itemSchema.value?.enum && Array.isArray(itemSchema.value.enum)) {
+        return itemSchema.value.enum
+      }
+      
+      // Second priority: Check schema for examples
+      if (itemSchema.value?.examples && Array.isArray(itemSchema.value.examples)) {
+        return itemSchema.value.examples
+      }
+      
+      // Third priority: Check for custom suggestions in schema extensions
+      if (itemSchema.value?.['x-suggestions'] && Array.isArray(itemSchema.value['x-suggestions'])) {
+        return itemSchema.value['x-suggestions']
+      }
+      
+      // Last resort: Use heuristics based on field name (only for MIME types)
       const label = control.value?.label?.toLowerCase() || ''
       const path = control.value?.path?.toLowerCase() || ''
       
-      if (label.includes('mime') || path.includes('mime')) {
-        return mimeTypeSuggestions
-      }
-      
-      // Check schema for examples
-      if (itemSchema.value?.examples) {
-        return itemSchema.value.examples
+      if (label.includes('mime') || path.includes('mime') || label.includes('content type')) {
+        // Only return a subset of the most common MIME types
+        return [
+          'application/pdf',
+          'application/json',
+          'text/plain',
+          'text/html',
+          'image/jpeg',
+          'image/png'
+        ]
       }
       
       return []

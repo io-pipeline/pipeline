@@ -104,7 +104,6 @@ export const useModuleStore = () => {
       
       // Check health status
       const health = await moduleService.checkModuleHealth(address)
-      console.log('Health check result for', address, ':', health)
       
       const module: ConnectedModule = {
         address,

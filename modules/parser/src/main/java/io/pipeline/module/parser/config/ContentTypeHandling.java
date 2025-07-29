@@ -3,6 +3,7 @@ package io.pipeline.module.parser.config;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.extensions.Extension;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -35,7 +36,8 @@ public record ContentTypeHandling(
     @JsonProperty("supportedMimeTypes")
     @Schema(
         description = "List of supported MIME types to process. Empty list means all supported types are allowed. " +
-                     "Use this to restrict processing to specific document formats.",
+                     "Use this to restrict processing to specific document formats. " +
+                     "The system supports all Apache Tika MIME types for document parsing.",
         examples = {
             "[]",
             "[\"application/pdf\"]",

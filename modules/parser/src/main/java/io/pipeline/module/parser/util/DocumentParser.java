@@ -5,6 +5,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.module.parser.config.ParserConfig;
+import org.apache.tika.Tika;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -34,7 +35,11 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
+
+import org.apache.tika.mime.MediaType;
 
 /**
  * Utility class for parsing documents using Apache Tika.
@@ -49,6 +54,7 @@ import java.util.TreeMap;
  */
 public class DocumentParser {
     private static final Logger LOG = Logger.getLogger(DocumentParser.class);
+    private static final Tika TIKA = new Tika();
 
     /**
      * Private constructor to prevent instantiation of this utility class.
@@ -452,22 +458,10 @@ public class DocumentParser {
      * Infers content type from filename extension.
      */
     private static String inferContentTypeFromFilename(String filename) {
-        if (filename == null) return "";
-        
-        String lowerFilename = filename.toLowerCase();
-        if (lowerFilename.endsWith(".pdf")) return "application/pdf";
-        if (lowerFilename.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        if (lowerFilename.endsWith(".doc")) return "application/msword";
-        if (lowerFilename.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-        if (lowerFilename.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
-        if (lowerFilename.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        if (lowerFilename.endsWith(".xls")) return "application/vnd.ms-excel";
-        if (lowerFilename.endsWith(".txt")) return "text/plain";
-        if (lowerFilename.endsWith(".html") || lowerFilename.endsWith(".htm")) return "text/html";
-        if (lowerFilename.endsWith(".json")) return "application/json";
-        if (lowerFilename.endsWith(".xml")) return "application/xml";
-        
-        return "";
+        if (filename == null) {
+            return "";
+        }
+        return TIKA.detect(filename);
     }
     
     /**
@@ -618,5 +612,23 @@ public class DocumentParser {
         
         LOG.debugf("Converted ParserConfig to Map with %d entries", configMap.size());
         return configMap;
+    }
+
+    /**
+     * Retrieves a set of all MIME types supported by the default Tika configuration.
+     *
+     * @return A Set of strings, where each string is a supported MIME type (e.g., "application/pdf").
+     */
+    public static Set<String> getSupportedMimeTypes() {
+        // Get the default Tika configuration which contains the media type registry
+        TikaConfig config = TikaConfig.getDefaultConfig();
+        
+        // Get the registry and then get all the media types from it
+        Set<MediaType> mediaTypes = config.getMediaTypeRegistry().getTypes();
+        
+        // Convert the Set<MediaType> to a Set<String> for easier use
+        return mediaTypes.stream()
+                         .map(MediaType::toString)
+                         .collect(Collectors.toSet());
     }
 }

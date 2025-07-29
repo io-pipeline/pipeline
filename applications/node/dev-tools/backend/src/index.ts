@@ -134,6 +134,19 @@ function enhanceSchema(schema: any): any {
             if (prop.type === 'object' && prop.properties) {
                 enhanceSchema(prop);
             }
+            
+            // Handle arrays - preserve x-suggestions and other custom properties
+            if (prop.type === 'array' && prop.items) {
+                // Preserve x-suggestions if found
+                if (prop.items['x-suggestions']) {
+                    // x-suggestions preserved for autocomplete functionality
+                }
+                
+                // Recursively enhance array items if they're objects
+                if (prop.items.type === 'object' && prop.items.properties) {
+                    enhanceSchema(prop.items);
+                }
+            }
         });
     }
     return schema;
