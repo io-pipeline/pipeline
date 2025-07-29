@@ -23,13 +23,16 @@ This RFC outlines a comprehensive multi-frontend architecture that supports both
 ### Four Frontend Types
 
 #### 1. **Developer Frontend** (Standalone Node.js)
-- **Purpose**: Development and testing tool for external developers
-- **Technology**: Pure Node.js with gRPC client
-- **Connection**: Direct host:port to module (e.g., `localhost:39102`)
+- **Purpose**: Development and testing tool for module developers
+- **Technology**: Node.js/Express backend + Vue.js frontend
+- **Connection**: Direct host:port to module (e.g., `localhost:39101`)
 - **Dependencies**: None (no Consul, no service discovery)
 - **Features**:
   - Schema rendering preview using UniversalConfigCard
-  - Functional testing with sample protobuf requests/responses
+  - Fallback key/value editor for modules without schemas
+  - Load and test with .bin protobuf files
+  - Pipeline testing - chain module outputs to inputs
+  - Save test results for reproducible testing
   - "What you see is what you get" experience
 
 #### 2. **Native Quarkus Module Frontends** (Your internal modules)
@@ -95,14 +98,16 @@ This RFC outlines a comprehensive multi-frontend architecture that supports both
 
 2. **Direct gRPC Integration**
    - Node.js backend connects to modules via native gRPC (HTTP/2)
-   - Schema extraction via `GetServiceRegistration` gRPC call
+   - Schema extraction via `GetServiceRegistration` gRPC call using `json_config_schema` field
    - Schema transformation pipeline in TypeScript
    - REST API for Vue frontend (HTTP/1.1)
 
 3. **UniversalConfigCard Implementation**
    - Pure Vue.js component (no Quarkus dependencies)
    - JSONForms integration for schema rendering
+   - Fallback key/value editor when no schema provided
    - Receives transformed schema from Node.js backend
+   - Extracts and displays default values from schema
    - Identical rendering across all environments
 
 4. **Schema Transformation Pipeline**
@@ -110,6 +115,13 @@ This RFC outlines a comprehensive multi-frontend architecture that supports both
    - Apply UI enhancements (widgets, layout, help text)
    - Fix JSONForms compatibility issues
    - Maintain OpenAPI 3.1 validity
+
+5. **Sample Data Testing**
+   - Load .bin protobuf files (ModuleProcessRequest/Response)
+   - Execute module with test configuration and data
+   - Save outputs as inputs for next module in pipeline
+   - Build complete test dataset for all modules
+   - Support both pre-made and uploaded test documents
 
 #### Success Criteria
 - [ ] External developer can run `npm start` and see Tika schema rendered

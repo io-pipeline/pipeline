@@ -10,13 +10,17 @@ This document outlines the step-by-step plan to fix the module registration serv
 2.  **Propose & Implement Fix:** Correct the logic to ensure it properly fetches module details, constructs a Consul registration payload, and performs the registration.
 3.  **Verify:** Run the service and use Consul's UI or API to confirm that modules are being registered correctly.
 
-## Phase 2: Correct the Schema Provider (Java Parser Module)
+## Phase 2: Standardize Schema Provisioning Across All Modules
 
-**Objective:** Ensure the Parser module provides a raw, unfiltered OpenAPI 3.1 schema.
+**Objective:** Ensure all modules provide schemas via the `json_config_schema` field in their gRPC response.
 
-1.  **Examine `ParserServiceImpl`:** Focus on the `getServiceRegistration` method to identify where the schema is being modified or "cleaned".
-2.  **Implement Change:** Modify the service to return the raw, auto-generated OpenAPI schema *before* any filtering or transformation occurs.
-3.  **Verify:** Add temporary logging to the `ParserServiceImpl` to print the `json_config_schema` being returned. Run the service and inspect the logs to confirm the schema is complete and unresolved.
+1.  **Parser Module:** ✅ Already provides full OpenAPI 3.1 schema
+2.  **Chunker Module:** Fix to provide full OpenAPI schema (not just partial JSON Schema)
+3.  **Echo Module:** Add `json_config_schema` field to `getServiceRegistration` response
+4.  **Other Modules:** Review and add schema field as needed
+5.  **Fallback Behavior:** Modules without schemas will get generic key/value editor in UI
+
+**Note:** This is a non-breaking change - existing validation continues to work while we add the new field.
 
 ## Phase 3: Build the Developer Tool (Node.js Backend)
 
@@ -31,7 +35,18 @@ This document outlines the step-by-step plan to fix the module registration serv
 
 **Objective:** Build the user-facing frontend for the developer tool.
 
-1.  **Scaffold Project:** Create `applications/node/dev-tools/frontend` and initialize a Vue 3 project using Vite. Install `jsonforms-vue`.
-2.  **Build Core UI:** Create a main application component with an input for the module's address and a button to fetch the schema from the Node.js backend.
-3.  **Implement `UniversalConfigCard.vue`:** Develop the reusable component that accepts a JSON schema and renders the configuration form using JSONForms.
-4.  **End-to-End Test:** Run the full stack (Parser -> Node.js Backend -> Vue.js Frontend) to confirm the entire workflow is functional and the parser's configuration card renders correctly.
+1.  **Scaffold Project:** ✅ Create `applications/node/dev-tools/frontend` and initialize a Vue 3 project using Vite. Install `jsonforms-vue`.
+2.  **Build Core UI:** ✅ Create a main application component with an input for the module's address and a button to fetch the schema from the Node.js backend.
+3.  **Implement `UniversalConfigCard.vue`:** ✅ Develop the reusable component that accepts a JSON schema and renders the configuration form using JSONForms.
+4.  **Add Fallback UI:** Implement key/value editor for modules without schemas.
+5.  **End-to-End Test:** Run the full stack to confirm the entire workflow is functional.
+
+## Phase 5: Implement Sample Data Testing
+
+**Objective:** Enable testing modules with real data through the developer tool.
+
+1.  **Java Helper Service:** Create utility to generate ModuleProcessRequest .bin files from test documents
+2.  **Frontend File Loading:** Add ability to load .bin protobuf files in the UI
+3.  **Module Testing:** Send loaded requests to modules and display responses
+4.  **Pipeline Chaining:** Save module outputs as inputs for next module
+5.  **Dataset Creation:** Build complete test dataset covering all modules

@@ -73,8 +73,8 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
     public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
         return Uni.createFrom().item(() -> {
             try {
-                // Use SchemaExtractorService to get the dynamically generated ChunkerConfig schema
-                Optional<String> schemaOptional = schemaExtractorService.extractChunkerConfigSchema();
+                // Use SchemaExtractorService to get the full OpenAPI document
+                Optional<String> schemaOptional = schemaExtractorService.getFullOpenApiDocument();
                 
                 ServiceRegistrationResponse.Builder registrationBuilder = ServiceRegistrationResponse.newBuilder()
                         .setModuleName("chunker")
@@ -84,13 +84,13 @@ public class ChunkerGrpcImpl implements PipeStepProcessor {
                     String jsonSchema = schemaOptional.get();
                     registrationBuilder.setJsonConfigSchema(jsonSchema);
                     registrationBuilder.setHealthCheckMessage("Chunker module is healthy and ready to process documents. " +
-                                                            "Using dynamically generated ChunkerConfig schema from OpenAPI 3.1.");
-                    LOG.debugf("Successfully extracted ChunkerConfig schema (%d characters) using SchemaExtractorService", 
+                                                            "Using full OpenAPI 3.1 document.");
+                    LOG.debugf("Successfully retrieved full OpenAPI document (%d characters) using SchemaExtractorService", 
                              jsonSchema.length());
                 } else {
                     registrationBuilder.setHealthCheckPassed(false);
-                    registrationBuilder.setHealthCheckMessage("Failed to extract ChunkerConfig schema from OpenAPI document");
-                    LOG.error("SchemaExtractorService could not extract ChunkerConfig schema");
+                    registrationBuilder.setHealthCheckMessage("Failed to retrieve OpenAPI document");
+                    LOG.error("SchemaExtractorService could not retrieve full OpenAPI document");
                 }
 
                 LOG.info("Returned service registration for chunker module using SchemaExtractorService");

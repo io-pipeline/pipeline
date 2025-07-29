@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines the requirements and architectural approach for implementing a 100% generic frontend module card system that can render any module's configuration while maintaining compatibility with JSON Schema v7 validation.
+This document outlines the requirements and architectural approach for implementing a 100% generic frontend module card system that can render any module's configuration. The system uses a single `json_config_schema` field from the module's gRPC service as the source of truth for both UI rendering and validation.
 
 ## Current State
 
@@ -109,20 +109,24 @@ After cleaning for JSON Schema v7:
 
 ## Proposed Architecture
 
-### 1. Simplified Module Contract
+### 1. Single Schema Field Contract
 
-**Module Responsibility (Simple):**
-- Modules provide ONE schema via gRPC: a valid OpenAPI 3.1 schema
-- No rendering concerns in module code
-- No dual extraction methods needed
+**Module Contract:**
+- Modules provide schema via `json_config_schema` field in `ServiceRegistrationResponse`
+- Field is OPTIONAL - if missing, UI shows generic key/value editor
+- Schema should be valid OpenAPI 3.1 format
+- This is a non-breaking addition to existing modules
 
-**Developer Tool Responsibility (Complex):**
-- Node.js backend handles ALL schema transformation
-- Resolves `$ref` references
-- Applies UI-specific enhancements
-- Fixes JSONForms compatibility issues
+**Migration Strategy:**
+- Phase 1: Add `json_config_schema` alongside existing validation (NOW)
+- Phase 2: Switch REST validation to use `json_config_schema` (AFTER frontend complete)
+- Phase 3: Remove old schema extraction code (CLEANUP)
 
-This approach moves all complexity to the developer tool, keeping modules simple.
+**Developer Tool Responsibilities:**
+- Transform OpenAPI schemas for UI rendering
+- Provide fallback key/value editor for modules without schemas
+- Handle schema resolution and enhancement
+- Enable testing with real protobuf data
 
 ### 2. Schema Transformation in Node.js
 
@@ -183,25 +187,39 @@ graph TD
 
 ## Implementation Plan
 
-### Phase 1: Developer Tool Foundation
-1. **Set up Node.js/Express backend** with TypeScript in `applications/node/dev-tools`
-2. **Implement gRPC client** to connect to modules
-3. **Create schema transformation pipeline** with reference resolution
+### Phase 1: Developer Tool Foundation (CURRENT)
+1. ✅ **Set up Node.js/Express backend** with TypeScript in `applications/node/dev-tools`
+2. ✅ **Implement gRPC client** to connect to modules
+3. ✅ **Create schema transformation pipeline** with reference resolution
+4. ✅ **Build Vue 3 frontend** with module connection UI
+5. **Fix remaining modules** (Echo needs schema, Chunker needs OpenAPI format)
+6. **Add key/value fallback** for modules without schemas
+7. **Implement .bin file loading** for testing with real protobuf data
 
-### Phase 2: Frontend Development
-1. **Build Vue 3 frontend** with module connection UI
-2. **Implement shared JSONForms component**
-3. **Test with various module schemas** (parser, chunker, etc.)
+### Phase 2: Sample Data Pipeline
+1. **Create Java helper** to generate initial ModuleProcessRequest .bin files
+2. **Add file browser** in dev tool to load .bin files
+3. **Implement pipeline chaining** - output of one module becomes input to next
+4. **Save intermediate results** as new .bin files
+5. **Build complete test dataset** for all modules
 
 ### Phase 3: Component Packaging
-1. **Extract reusable Vue component** as NPM package
-2. **Document component API** and usage
-3. **Integrate with Quarkus modules** via Quinoa
+1. **Extract UniversalConfigCard** as NPM package
+2. **Package schema transformation utilities**
+3. **Document component API** and usage
+4. **Publish to internal registry**
 
-### Phase 4: Production Integration
-1. **Deploy to Pipeline Engine** with shared component
-2. **Update Proxy-Module** to use shared component
-3. **Ensure consistent rendering** across all environments
+### Phase 4: Module Integration
+1. **Add to one module first** (Echo as proof of concept)
+2. **Integrate with Quinoa** for Vue frontend
+3. **Roll out to all modules**
+4. **Deprecate old validation approach**
+
+### Phase 5: Migration Completion
+1. **Switch REST validation** to use `json_config_schema`
+2. **Remove old schema extraction code**
+3. **Update all tests** to use new approach
+4. **Documentation and cleanup**
 
 ## Success Criteria
 

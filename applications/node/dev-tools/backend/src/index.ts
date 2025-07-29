@@ -45,8 +45,48 @@ function createClient(address: string) {
 async function transformSchemaForUI(rawSchema: string): Promise<any> {
     try {
         const parsed = JSON.parse(rawSchema);
+        
+        // Extract the actual schema - it might be nested in an OpenAPI structure
+        let schema = parsed;
+        let configKey: string | undefined;
+        
+        if (parsed.components && parsed.components.schemas) {
+            const schemas = parsed.components.schemas;
+            
+            // Generic approach: Find the main config schema
+            // Look for schemas that:
+            // 1. End with "Config"
+            // 2. Have properties (not just a reference or simple type)
+            // 3. Are not infrastructure-related configs
+            const configCandidates = Object.keys(schemas).filter(key => 
+                key.endsWith('Config') && 
+                schemas[key].properties &&
+                !key.match(/Transport|Grpc|Kafka|Pipeline|Module|Whitelist|Override/i)
+            );
+            
+            // If we have multiple candidates, pick the one with the most properties
+            // This usually indicates the main configuration object
+            if (configCandidates.length > 0) {
+                configKey = configCandidates.reduce((best, current) => {
+                    const bestCount = Object.keys(schemas[best]?.properties || {}).length;
+                    const currentCount = Object.keys(schemas[current]?.properties || {}).length;
+                    return currentCount > bestCount ? current : best;
+                });
+                
+                schema = schemas[configKey];
+                console.log(`Found config schema: ${configKey}`);
+            }
+        }
+        
+        // Resolve all $ref references
         const resolved = await RefParser.dereference(parsed);
-        return enhanceSchema(resolved);
+        
+        // Extract the resolved schema if we found a config key
+        if (configKey && resolved.components && resolved.components.schemas) {
+            schema = resolved.components.schemas[configKey];
+        }
+        
+        return enhanceSchema(schema);
     } catch (error) {
         console.error('Error transforming schema:', error);
         throw error;
@@ -93,14 +133,13 @@ app.post('/api/module-schema', async (req, res) => {
                 });
             }
 
-            if (!response?.json_config_schema) {
-                return res.status(404).json({ 
-                    error: 'Module does not provide a configuration schema' 
-                });
-            }
-
             try {
-                const transformedSchema = await transformSchemaForUI(response.json_config_schema);
+                let transformedSchema = null;
+                
+                // Only transform schema if it exists
+                if (response?.json_config_schema) {
+                    transformedSchema = await transformSchemaForUI(response.json_config_schema);
+                }
                 
                 res.json({
                     module_name: response.module_name,

@@ -1,0 +1,27 @@
+{
+  "name": "@pipeline/universal-config-card",
+  "version": "1.0.0",
+  "description": "Universal configuration card component for Pipeline modules",
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "peerDependencies": {
+    "vue": "^3.0.0",
+    "@jsonforms/vue": "^3.0.0",
+    "@jsonforms/vue-vanilla": "^3.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^3.0.0",
+    "vue": "^3.0.0"
+  }
+}

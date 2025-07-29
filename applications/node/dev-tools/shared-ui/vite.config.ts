@@ -1,21 +1,27 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import dts from 'vite-plugin-dts'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    dts({
+      insertTypesEntry: true,
+    })
+  ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.js'),
-      name: 'PipelineSharedUI',
-      fileName: (format) => `index.${format === 'es' ? 'es.js' : 'js'}`
+      entry: resolve(__dirname, 'src/index.ts'),
+      name: 'UniversalConfigCard',
+      formats: ['es', 'umd'],
+      fileName: (format) => `index.${format}.js`
     },
     rollupOptions: {
-      external: ['vue', '@jsonforms/vue', '@jsonforms/vue-vanilla', 'axios'],
+      external: ['vue', '@jsonforms/vue', '@jsonforms/vue-vanilla'],
       output: {
         globals: {
           vue: 'Vue',
-          axios: 'axios',
           '@jsonforms/vue': 'JsonFormsVue',
           '@jsonforms/vue-vanilla': 'JsonFormsVueVanilla'
         }

@@ -1,0 +1,26 @@
+{
+  "name": "pipeline-dev-tools-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Pipeline Developer Tools",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@jsonforms/core": "^3.4.0",
+    "@jsonforms/vue": "^3.4.0",
+    "@jsonforms/vue-vanilla": "^3.4.0",
+    "axios": "^1.7.9",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vue-tsc": "^2.2.0"
+  }
+}
