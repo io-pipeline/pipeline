@@ -21,8 +21,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Load proto file
+// Load proto files
 const PROTO_PATH = path.join(__dirname, '../proto/pipe_step_processor_service.proto');
+const HEALTH_PROTO_PATH = path.join(__dirname, '../proto/health/v1/health.proto');
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
     keepCase: true,
@@ -33,8 +34,18 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
     includeDirs: [path.join(__dirname, '../proto')]
 });
 
-// Create proto descriptor
+const healthPackageDefinition = protoLoader.loadSync(HEALTH_PROTO_PATH, {
+    keepCase: true,
+    longs: String,
+    enums: Number, // Changed to Number to get numeric enum values
+    defaults: true,
+    oneofs: true,
+    includeDirs: [path.join(__dirname, '../proto')]
+});
+
+// Create proto descriptors
 const proto = grpc.loadPackageDefinition(packageDefinition) as any;
+const healthProto = grpc.loadPackageDefinition(healthPackageDefinition) as any;
 
 // Type definitions
 interface ServiceRegistrationResponse {
@@ -49,6 +60,12 @@ interface ServiceRegistrationResponse {
 function createClient(address: string) {
     const PipeStepProcessor = proto.io.pipeline.search.model.PipeStepProcessor;
     return new PipeStepProcessor(address, grpc.credentials.createInsecure());
+}
+
+// Create health check client
+function createHealthClient(address: string) {
+    const Health = healthProto.grpc.health.v1.Health;
+    return new Health(address, grpc.credentials.createInsecure());
 }
 
 // Schema transformation
@@ -259,6 +276,47 @@ app.post('/api/module-execute', async (req, res) => {
         res.status(500).json({ 
             error: 'Failed to execute request',
             details: (error as Error).message 
+        });
+    }
+});
+
+// Health check for a module
+app.post('/api/module-health', async (req, res) => {
+    const { address } = req.body;
+
+    if (!address) {
+        return res.status(400).json({ error: 'Missing module address' });
+    }
+
+    try {
+        const healthClient = createHealthClient(address);
+        
+        // Call Check with empty service name to check overall health
+        healthClient.Check({ service: '' }, (error: any, response: any) => {
+            if (error) {
+                console.error('Health check error:', error);
+                return res.json({ 
+                    status: 'NOT_SERVING',
+                    error: error.message 
+                });
+            }
+
+            console.log('Health check response:', response);
+            
+            // The status might be a string or number depending on how grpc-js handles enums
+            const isServing = response.status === 'SERVING' || response.status === 1;
+            
+            res.json({
+                status: response.status,
+                serving: isServing,
+                raw: response // Let's see what we're actually getting
+            });
+        });
+    } catch (error) {
+        console.error('Error creating health client:', error);
+        res.json({ 
+            status: 'NOT_SERVING',
+            error: (error as Error).message 
         });
     }
 });
