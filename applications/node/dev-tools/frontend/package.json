@@ -16,15 +16,15 @@
     "@jsonforms/vue-vuetify": "^3.6.0",
     "@mdi/font": "^7.4.47",
     "axios": "^1.7.9",
-    "vue": "^3.5.13",
+    "vue": "^3.5.18",
     "vuetify": "^3.6.6"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.17.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
-    "vite-plugin-vuetify": "^2.0.0",
+    "vite-plugin-vuetify": "^2.1.0",
     "vue-tsc": "^2.2.0"
   }
 }
