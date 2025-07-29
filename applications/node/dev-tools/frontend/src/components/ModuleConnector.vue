@@ -44,7 +44,7 @@ const connectToModule = async () => {
   
   try {
     const data = await moduleService.getModuleSchema(moduleAddress.value)
-    emit('schema-loaded', data)
+    emit('schema-loaded', { ...data, address: moduleAddress.value })
   } catch (err: any) {
     error.value = err.response?.data?.details || err.message || 'Failed to connect to module'
     console.error('Connection error:', err)

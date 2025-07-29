@@ -21,6 +21,22 @@
         :initial-data="configData"
         @data-change="handleDataChange"
       />
+      
+      <!-- Seed Data Builder -->
+      <SeedDataBuilder 
+        v-if="moduleData"
+        :current-config="configData"
+        @request-created="handleRequestCreated"
+      />
+      
+      <!-- Request Executor -->
+      <RequestExecutor
+        v-if="currentRequest && moduleData"
+        :request="currentRequest"
+        :module-address="moduleAddress"
+        :config-data="configData"
+        @response-received="handleResponseReceived"
+      />
     </main>
   </div>
 </template>
@@ -29,6 +45,8 @@
 import { ref } from 'vue'
 import ModuleConnector from './components/ModuleConnector.vue'
 import UniversalConfigCard from './components/UniversalConfigCard.vue'
+import SeedDataBuilder from './components/SeedDataBuilder.vue'
+import RequestExecutor from './components/RequestExecutor.vue'
 
 interface ModuleData {
   module_name: string
@@ -42,10 +60,13 @@ interface ModuleData {
 const moduleData = ref<ModuleData | null>(null)
 const schema = ref<any>(null)
 const configData = ref<any>({})
+const currentRequest = ref<any>(null)
+const moduleAddress = ref<string>('')
 
-const handleSchemaLoaded = (data: ModuleData) => {
+const handleSchemaLoaded = (data: ModuleData & { address?: string }) => {
   moduleData.value = data
   schema.value = data.schema
+  moduleAddress.value = data.address || ''
   // Reset config data when loading a new module
   configData.value = {}
   console.log('Schema loaded:', data)
@@ -54,6 +75,16 @@ const handleSchemaLoaded = (data: ModuleData) => {
 const handleDataChange = (data: any) => {
   configData.value = data
   console.log('Config data changed:', data)
+}
+
+const handleRequestCreated = (request: any) => {
+  currentRequest.value = request
+  console.log('Request created:', request)
+}
+
+const handleResponseReceived = (response: any) => {
+  console.log('Response received:', response)
+  // TODO: Add functionality to save response as .bin or use as input for next module
 }
 </script>
 

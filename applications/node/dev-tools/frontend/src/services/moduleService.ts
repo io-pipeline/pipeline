@@ -19,6 +19,13 @@ export interface ModuleSchemaResponse {
   raw_schema: string
 }
 
+export interface ModuleProcessResponse {
+  success: boolean
+  processor_logs: string[]
+  output_doc?: any
+  error_details?: any
+}
+
 export const moduleService = {
   async getModuleSchema(address: string): Promise<ModuleSchemaResponse> {
     const response = await apiClient.post<ModuleSchemaResponse>('/api/module-schema', {
@@ -29,6 +36,14 @@ export const moduleService = {
 
   async checkHealth(): Promise<any> {
     const response = await apiClient.get('/health')
+    return response.data
+  },
+  
+  async executeRequest(address: string, request: any): Promise<ModuleProcessResponse> {
+    const response = await apiClient.post<ModuleProcessResponse>('/api/module-execute', {
+      address,
+      request
+    })
     return response.data
   }
 }

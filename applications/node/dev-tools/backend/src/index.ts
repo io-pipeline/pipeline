@@ -4,12 +4,22 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import RefParser from '@apidevtools/json-schema-ref-parser';
+import multer from 'multer';
 
 const app = express();
 const PORT = 3000;
 
+// Configure multer for memory storage
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 50 * 1024 * 1024 // 50MB limit
+    }
+});
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Load proto file
 const PROTO_PATH = path.join(__dirname, '../proto/pipe_step_processor_service.proto');
@@ -160,6 +170,94 @@ app.post('/api/module-schema', async (req, res) => {
         console.error('Error creating client:', error);
         res.status(500).json({ 
             error: 'Failed to create gRPC client',
+            details: (error as Error).message 
+        });
+    }
+});
+
+// Create seed data with file upload
+app.post('/api/seed/create', upload.single('file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+        const { docId, streamId, title, config } = req.body;
+        
+        // Parse config if it's a string
+        const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+        
+        // Create PipeDoc with file data
+        const pipeDoc = {
+            id: docId || `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: title || req.file.originalname,
+            source_uri: `file://${req.file.originalname}`,
+            source_mime_type: req.file.mimetype,
+            document_type: 'seed-data',
+            blob: {
+                data: req.file.buffer.toString('base64'),
+                mime_type: req.file.mimetype,
+                size: req.file.size,
+                file_name: req.file.originalname
+            },
+            metadata: {
+                source: 'dev-tool-seed-builder',
+                original_filename: req.file.originalname,
+                upload_timestamp: new Date().toISOString()
+            }
+        };
+        
+        // Create ModuleProcessRequest
+        const request = {
+            document: pipeDoc,
+            metadata: {
+                stream_id: streamId || `stream-${Date.now()}`,
+                pipe_step_name: 'seed-creation',
+                processing_timestamp: new Date().toISOString()
+            },
+            config: {
+                custom_json_config: parsedConfig || {}
+            }
+        };
+        
+        res.json({ request });
+    } catch (error) {
+        console.error('Error creating seed data:', error);
+        res.status(500).json({ 
+            error: 'Failed to create seed data',
+            details: (error as Error).message 
+        });
+    }
+});
+
+// Execute a request against a module
+app.post('/api/module-execute', async (req, res) => {
+    const { address, request } = req.body;
+
+    if (!address || !request) {
+        return res.status(400).json({ error: 'Missing address or request' });
+    }
+
+    try {
+        const client = createClient(address);
+        
+        // Call processData with the request
+        client.processData(request, (error: any, response: any) => {
+            if (error) {
+                console.error('gRPC execution error:', error);
+                return res.status(500).json({ 
+                    error: 'Failed to execute request',
+                    details: error.message 
+                });
+            }
+
+            // Return the response
+            res.json(response);
+        });
+    } catch (error) {
+        console.error('Error executing request:', error);
+        res.status(500).json({ 
+            error: 'Failed to execute request',
             details: (error as Error).message 
         });
     }
