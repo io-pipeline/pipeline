@@ -1,33 +1,28 @@
-import { createApp } from 'vue'
+/**
+ * main.ts
+ *
+ * Bootstraps Vuetify and other plugins then mounts the App`
+ */
+
+// Plugins
+import { registerPlugins } from '@/plugins'
+
+// Components
 import App from './App.vue'
+// import App from './App.test.vue'
+// import App from './App.simple.vue'
+
+// Composables
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+
+// Styles
 import './style.css'
 
-// Vuetify
-import 'vuetify/styles'
-import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
-import '@mdi/font/css/materialdesignicons.css'
+const app = createApp(App)
+const pinia = createPinia()
 
-const vuetify = createVuetify({
-  components,
-  directives,
-  theme: {
-    defaultTheme: 'light',
-    themes: {
-      light: {
-        colors: {
-          primary: '#4a90e2',
-          secondary: '#424242',
-          accent: '#82B1FF',
-          error: '#FF5252',
-          info: '#2196F3',
-          success: '#4CAF50',
-          warning: '#FFC107'
-        }
-      }
-    }
-  }
-})
+app.use(pinia)
+registerPlugins(app)
 
-createApp(App).use(vuetify).mount('#app')
+app.mount('#app')

@@ -1,90 +1,204 @@
 <template>
-  <div class="module-registry">
-    <div class="header">
-      <h3>Module Registry</h3>
-      <button @click="showAddModule = true" class="add-button">+ Add Module</button>
-    </div>
-
-    <!-- Add Module Form -->
-    <div v-if="showAddModule" class="add-module-form">
-      <input 
-        v-model="newModuleAddress" 
-        placeholder="localhost:39101"
-        @keyup.enter="connectModule"
-        class="address-input"
-      />
-      <button @click="connectModule" :disabled="!newModuleAddress || connecting">
-        {{ connecting ? 'Connecting...' : 'Connect' }}
-      </button>
-      <button @click="cancelAdd" class="cancel-button">Cancel</button>
-    </div>
-
-    <!-- Connected Modules List -->
-    <div class="modules-list">
-      <div 
-        v-for="module in connectedModules" 
-        :key="module.address"
-        class="module-card"
-        :class="{ 
-          active: module.address === activeModuleAddress,
-          serving: module.healthStatus === 'SERVING',
-          'not-serving': module.healthStatus === 'NOT_SERVING',
-          unknown: !module.healthStatus || module.healthStatus === 'UNKNOWN'
-        }"
-        @click="configureModule(module)"
+  <v-container fluid class="pa-0">
+    <!-- Add Module Button - Subtle placement -->
+    <div class="d-flex justify-end mb-3">
+      <v-btn
+        variant="text"
+        size="small"
+        @click="showAddModule = true"
+        prepend-icon="mdi-plus"
       >
-        <div class="module-content">
-          <span class="module-name" :class="{ 'disconnected-text': module.healthStatus === 'NOT_SERVING' }">
-            {{ module.name }}
-          </span>
-          <span class="module-address">({{ module.address }})</span>
-        </div>
-        
-        <div class="module-actions">
-          <button @click.stop="refreshModule(module.address)" class="mini-icon-button" title="Refresh">
-            🔄
-          </button>
-          <button @click.stop="removeModule(module.address)" class="mini-icon-button" title="Remove">
-            ×
-          </button>
-        </div>
-      </div>
-
-      <div v-if="connectedModules.length === 0" class="empty-state">
-        No modules connected. Click "Add Module" to get started.
-      </div>
+        Add Custom Module
+      </v-btn>
     </div>
 
-    <!-- Quick Connect Buttons -->
-    <div class="quick-connect">
-      <h4>Quick Connect:</h4>
-      <div class="quick-buttons">
-        <button @click="quickConnect('localhost:39101')" class="quick-button">
-          Parser (39101)
-        </button>
-        <button @click="quickConnect('localhost:39102')" class="quick-button">
-          Chunker (39102)
-        </button>
-        <button @click="quickConnect('localhost:39103')" class="quick-button">
-          Embedder (39103)
-        </button>
-        <button @click="quickConnect('localhost:39104')" class="quick-button">
-          OpenSearch Sink (39104)
-        </button>
-      </div>
-    </div>
+        <!-- Add Module Dialog -->
+        <v-dialog v-model="showAddModule" max-width="500px">
+          <v-card>
+            <v-card-title>Connect to Module</v-card-title>
+            <v-card-text>
+              <v-text-field
+                v-model="newModuleAddress"
+                label="Module Address"
+                placeholder="localhost:39101"
+                @keyup.enter="connectModule"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+              />
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn variant="text" @click="cancelAdd">Cancel</v-btn>
+              <v-btn
+                color="primary"
+                variant="flat"
+                @click="connectModule"
+                :loading="connecting"
+                :disabled="!newModuleAddress"
+              >
+                Connect
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
 
-    <div v-if="error" class="error-message">
-      {{ error }}
+        <!-- Error Alert -->
+        <v-alert
+          v-if="error"
+          type="error"
+          closable
+          @click:close="error = ''"
+          class="mb-4"
+        >
+          {{ error }}
+        </v-alert>
+
+        <!-- Connected Modules Grid -->
+        <v-row v-if="moduleStore.connectedModules.length > 0">
+          <v-col
+            v-for="module in moduleStore.connectedModules"
+            :key="module.address"
+            cols="12"
+            sm="6"
+            md="4"
+          >
+            <v-card
+              :variant="module.address === moduleStore.activeModuleAddress ? 'elevated' : 'outlined'"
+              @click="configureModule(module)"
+              class="module-card"
+              :class="{ 'active-module': module.address === moduleStore.activeModuleAddress }"
+            >
+              <v-card-item>
+                <template v-slot:prepend>
+                  <v-avatar
+                    :color="getModuleCardColor(module)"
+                    size="56"
+                  >
+                    <v-icon size="large">mdi-puzzle</v-icon>
+                  </v-avatar>
+                </template>
+
+                <v-card-title :class="{ 'text-decoration-line-through': module.healthStatus === 'NOT_SERVING' }">
+                  {{ module.name }}
+                </v-card-title>
+                
+                <v-card-subtitle>
+                  <div>{{ module.address }}</div>
+                  <div v-if="module.description" class="text-caption">{{ module.description }}</div>
+                </v-card-subtitle>
+
+                <template v-slot:append>
+                  <v-chip
+                    :color="getHealthColor(module.healthStatus)"
+                    size="small"
+                    label
+                    class="mb-2"
+                  >
+                    <v-icon start size="x-small">
+                      {{ getHealthIcon(module.healthStatus) }}
+                    </v-icon>
+                    {{ getHealthLabel(module.healthStatus) }}
+                  </v-chip>
+                </template>
+              </v-card-item>
+
+              <v-card-text v-if="module.version">
+                <div class="text-caption">
+                  <v-icon size="x-small">mdi-tag</v-icon>
+                  Version: {{ module.version }}
+                </div>
+              </v-card-text>
+
+              <v-divider />
+
+              <v-card-actions>
+                <v-btn
+                  variant="text"
+                  color="primary"
+                  @click.stop="configureModule(module)"
+                >
+                  Configure
+                </v-btn>
+                <v-spacer />
+                <v-btn
+                  icon="mdi-refresh"
+                  size="small"
+                  variant="text"
+                  @click.stop="refreshModule(module.address)"
+                  title="Refresh"
+                />
+                <v-btn
+                  icon="mdi-delete"
+                  size="small"
+                  variant="text"
+                  color="error"
+                  @click.stop="removeModule(module.address)"
+                  title="Remove"
+                />
+              </v-card-actions>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Empty State -->
+        <v-empty-state
+          v-else
+          icon="mdi-server-network-off"
+          headline="No modules connected"
+          text="Click 'Add Module' to get started"
+        />
+
+        <!-- Quick Connect Section -->
+        <v-card variant="outlined" class="mt-4">
+          <v-card-title class="text-h6 d-flex align-center">
+            <v-icon class="mr-2">mdi-lightning-bolt</v-icon>
+            Quick Connect
+          </v-card-title>
+          
+          <v-card-text>
+            <v-row>
+              <v-col
+                v-for="quick in quickConnectOptions"
+                :key="quick.address"
+                cols="12"
+                sm="6"
+                md="3"
+              >
+                <v-btn
+                  block
+                  :variant="isModuleConnected(quick.address) ? 'tonal' : 'outlined'"
+                  :color="isModuleConnected(quick.address) ? 'grey' : 'primary'"
+                  :disabled="isModuleConnected(quick.address)"
+                  @click="quickConnect(quick.address)"
+                  class="text-none"
+                >
+                  <v-icon start>{{ quick.icon || 'mdi-server' }}</v-icon>
+                  <div>
+                    <div>{{ quick.name }}</div>
+                    <div class="text-caption">{{ quick.port }}</div>
+                  </div>
+                  <v-icon v-if="isModuleConnected(quick.address)" end>
+                    mdi-check-circle
+                  </v-icon>
+                </v-btn>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+
+        <!-- Navigation -->
+        <v-divider v-if="moduleStore.activeModuleAddress" class="mt-4" />
+        <div v-if="moduleStore.activeModuleAddress" class="d-flex justify-end mt-4">
+          <v-btn
+            color="primary"
+            @click="emit('navigate-to-config')"
+            append-icon="mdi-arrow-right"
+          >
+            Next: Configure {{ moduleStore.activeModule?.name }}
+          </v-btn>
     </div>
-    
-    <!-- Navigation button -->
-    <div v-if="activeModuleAddress" class="navigation-buttons">
-      <button @click="emit('navigate-to-config')" class="next-button">
-        Next: Configure {{ activeModule?.name }} →
-      </button>
-    </div>
-  </div>
+  </v-container>
 </template>
 
 <script setup lang="ts">
@@ -95,20 +209,39 @@ const emit = defineEmits<{
   'navigate-to-config': []
 }>()
 
-const { 
-  connectedModules, 
-  activeModuleAddress,
-  activeModule,
-  addModule, 
-  removeModule, 
-  setActiveModule,
-  refreshModule 
-} = useModuleStore()
+const moduleStore = useModuleStore()
 
 const showAddModule = ref(false)
 const newModuleAddress = ref('')
 const connecting = ref(false)
 const error = ref('')
+
+const quickConnectOptions = [
+  { 
+    name: 'Parser',
+    port: '39101',
+    address: 'localhost:39101',
+    icon: 'mdi-file-document-outline'
+  },
+  { 
+    name: 'Chunker',
+    port: '39102', 
+    address: 'localhost:39102',
+    icon: 'mdi-scissors-cutting'
+  },
+  { 
+    name: 'Embedder',
+    port: '39103',
+    address: 'localhost:39103',
+    icon: 'mdi-vector-combine'
+  },
+  { 
+    name: 'OpenSearch',
+    port: '39104',
+    address: 'localhost:39104',
+    icon: 'mdi-magnify'
+  }
+]
 
 const connectModule = async () => {
   if (!newModuleAddress.value) return
@@ -117,7 +250,7 @@ const connectModule = async () => {
   error.value = ''
   
   try {
-    await addModule(newModuleAddress.value)
+    await moduleStore.connectModule(newModuleAddress.value)
     newModuleAddress.value = ''
     showAddModule.value = false
   } catch (err: any) {
@@ -139,232 +272,63 @@ const cancelAdd = () => {
 }
 
 const configureModule = (module: any) => {
-  setActiveModule(module.address)
+  moduleStore.setActiveModule(module.address)
   emit('navigate-to-config')
+}
+
+const refreshModule = async (address: string) => {
+  await moduleStore.checkModuleHealth(address)
+}
+
+const removeModule = (address: string) => {
+  moduleStore.removeModule(address)
+}
+
+const getModuleCardColor = (module: any) => {
+  if (module.healthStatus === 'SERVING') return 'success'
+  if (module.healthStatus === 'NOT_SERVING') return 'error'
+  return 'warning'
+}
+
+const getHealthColor = (status: string) => {
+  if (status === 'SERVING') return 'success'
+  if (status === 'NOT_SERVING') return 'error'
+  return 'warning'
+}
+
+const getHealthLabel = (status: string) => {
+  if (status === 'SERVING') return 'Online'
+  if (status === 'NOT_SERVING') return 'Offline'
+  return 'Unknown'
+}
+
+const getHealthIcon = (status: string) => {
+  if (status === 'SERVING') return 'mdi-check-circle'
+  if (status === 'NOT_SERVING') return 'mdi-alert-circle'
+  return 'mdi-help-circle'
+}
+
+const isModuleConnected = (address: string) => {
+  return moduleStore.connectedModules.some(m => m.address === address)
 }
 </script>
 
 <style scoped>
-.module-registry {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.header h3 {
-  margin: 0;
-  color: #333;
-}
-
-.add-button {
-  padding: 0.5rem 1rem;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.add-button:hover {
-  background: #357abd;
-}
-
-.add-module-form {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.address-input {
-  flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.cancel-button {
-  padding: 0.5rem 1rem;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.modules-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
 .module-card {
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
   transition: all 0.2s ease;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
+  cursor: pointer;
 }
 
 .module-card:hover {
-  border-color: #4a90e2;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
-.module-card.active {
-  border-color: #4a90e2;
-  background: #f0f7ff;
+.module-card.active-module {
+  border-color: rgb(var(--v-theme-primary));
+  border-width: 2px;
 }
 
-/* Health status-based styling */
-.module-card.serving {
-  border-color: #28a745;
-}
-
-.module-card.not-serving {
-  border-color: #dc3545;
-  background: #fff5f5;
-}
-
-.module-card.unknown {
-  border-color: #ffc107;
-  background: #fffbf0;
-}
-
-.module-content {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.module-name {
-  font-weight: 600;
-  color: #333;
-  font-size: 1rem;
-}
-
-.module-name.disconnected-text {
-  color: #6c757d;
-  text-decoration: line-through;
-}
-
-.module-address {
-  font-size: 0.85rem;
-  color: #6c757d;
+.text-mono {
   font-family: monospace;
-}
-
-.module-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.mini-icon-button {
-  width: 24px;
-  height: 24px;
-  border: 1px solid #dee2e6;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  color: #6c757d;
-  transition: all 0.2s ease;
-}
-
-.mini-icon-button:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
-  color: #495057;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: #999;
-  font-style: italic;
-}
-
-.quick-connect {
-  border-top: 1px solid #eee;
-  padding-top: 1rem;
-}
-
-.quick-connect h4 {
-  margin: 0 0 0.5rem 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.quick-buttons {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.5rem;
-}
-
-.quick-button {
-  padding: 0.5rem;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.quick-button:hover {
-  background: #e8e8e8;
-}
-
-.error-message {
-  margin-top: 1rem;
-  padding: 0.5rem;
-  background: #fee;
-  border: 1px solid #fcc;
-  border-radius: 4px;
-  color: #c00;
-  font-size: 0.9rem;
-}
-
-/* Navigation */
-.navigation-buttons {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.next-button {
-  padding: 0.75rem 1.5rem;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.next-button:hover {
-  background: #357abd;
 }
 </style>

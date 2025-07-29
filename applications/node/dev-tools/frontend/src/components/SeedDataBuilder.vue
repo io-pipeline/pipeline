@@ -1,96 +1,116 @@
 <template>
-  <div class="seed-data-builder">
-    <div class="section-header">
-      <h3>Create Seed Data</h3>
-      <p class="help-text">Upload a file to create a PipeDoc with blob data for testing</p>
-    </div>
+  <div>
 
-    <div class="upload-section">
-      <label for="file-upload" class="file-upload-label">
-        <div class="upload-area" :class="{ 'has-file': fileData }">
-          <svg v-if="!fileData" class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <p v-if="!fileData">Click to upload or drag and drop</p>
-          <div v-else class="file-info">
-            <p class="file-name">{{ fileName }}</p>
-            <p class="file-size">{{ formatFileSize(fileSize) }}</p>
-            <p class="file-type">{{ mimeType }}</p>
-          </div>
-        </div>
-      </label>
-      <input
-        id="file-upload"
-        type="file"
-        @change="handleFileUpload"
+      <v-file-input
+        v-model="fileData"
+        @update:model-value="handleFileChange"
+        label="Select file"
+        prepend-icon="mdi-upload"
         accept=".txt,.pdf,.html,.htm,.docx,.doc,.json,.xml,.csv,.md"
-        style="display: none"
+        show-size
+        variant="outlined"
+        :hint="fileData ? `${mimeType}` : 'Click to upload or drag and drop'"
+        persistent-hint
+        class="mb-4"
       />
-    </div>
 
-    <div v-if="fileData" class="options-section">
-      <div class="form-group">
-        <label>Document ID</label>
-        <input 
-          v-model="docId" 
-          placeholder="auto-generated"
-          class="form-input"
-        />
-      </div>
-      
-      <div class="form-group">
-        <label>Stream ID</label>
-        <input 
-          v-model="streamId" 
-          placeholder="auto-generated"
-          class="form-input"
-        />
-      </div>
+      <v-expand-transition>
+        <div v-if="fileData">
+          <v-text-field
+            v-model="docId"
+            label="Document ID"
+            placeholder="auto-generated"
+            variant="outlined"
+            density="compact"
+            class="mb-3"
+          />
+          
+          <v-text-field
+            v-model="streamId"
+            label="Stream ID"
+            placeholder="auto-generated"
+            variant="outlined"
+            density="compact"
+            class="mb-3"
+          />
+          
+          <v-text-field
+            v-model="title"
+            label="Title"
+            placeholder="Document title"
+            variant="outlined"
+            density="compact"
+            class="mb-3"
+          />
+        </div>
+      </v-expand-transition>
 
-      <div class="form-group">
-        <label>Title</label>
-        <input 
-          v-model="title" 
-          placeholder="Document title"
-          class="form-input"
-        />
-      </div>
-    </div>
-
-    <div v-if="createdRequest" class="preview-section">
-      <h4>Created ModuleProcessRequest:</h4>
-      <pre>{{ JSON.stringify(createdRequest, null, 2) }}</pre>
-    </div>
-
-    <div class="actions">
-      <button 
-        v-if="fileData"
-        @click="createSeedRequest" 
-        class="primary-button"
-        :disabled="processing"
+      <v-alert
+        v-if="error"
+        type="error"
+        variant="tonal"
+        closable
+        @click:close="error = ''"
+        class="mb-4"
       >
-        Create PipeDoc Request
-      </button>
+        {{ error }}
+      </v-alert>
       
-      <button 
-        v-if="fileData"
-        @click="clearFile" 
-        class="secondary-button"
+    <div class="mt-4 d-flex justify-end" v-if="fileData">
+      <v-btn
+        @click="clearFile"
+        variant="text"
+        class="mr-2"
       >
         Clear
-      </button>
+      </v-btn>
+      <v-btn
+        @click="createSeedRequest"
+        color="primary"
+        variant="flat"
+        :loading="processing"
+        :disabled="processing"
+      >
+        Create Module Process Request
+      </v-btn>
     </div>
-
-    <div v-if="error" class="error-message">
-      {{ error }}
-    </div>
+    
+      <v-expand-transition>
+        <v-card v-if="createdRequest" class="mt-4">
+          <v-card-title>ModuleProcessRequest Output</v-card-title>
+          
+          <v-divider />
+          
+          <v-card-text>
+            <CodeBlock
+              :code="JSON.stringify(createdRequest, null, 2)"
+              language="json"
+              title="Request JSON"
+              :show-save="true"
+              filename="module-process-request.bin"
+            />
+          </v-card-text>
+          
+          <v-card-actions>
+            <v-spacer />
+            <v-btn
+              color="primary"
+              variant="flat"
+              size="large"
+              prepend-icon="mdi-arrow-right"
+              @click="goToProcessDocument"
+            >
+              Process This Document
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-expand-transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import CodeBlock from './CodeBlock.vue'
 
 const props = defineProps<{
   currentConfig?: any
@@ -100,7 +120,7 @@ const emit = defineEmits<{
   'request-created': [request: any]
 }>()
 
-const fileData = ref<File | null>(null)
+const fileData = ref<File | File[] | null>(null)
 const fileName = ref('')
 const fileSize = ref(0)
 const mimeType = ref('')
@@ -111,21 +131,37 @@ const processing = ref(false)
 const error = ref('')
 const createdRequest = ref<any>(null)
 
-const handleFileUpload = async (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
+const handleFileChange = async (files: File | File[] | null) => {
+  // v-file-input with single file returns a File object, not an array
+  let file: File | null = null
   
-  if (!file) return
+  if (!files) {
+    clearFile()
+    return
+  }
+  
+  if (Array.isArray(files)) {
+    if (files.length === 0) {
+      clearFile()
+      return
+    }
+    file = files[0]
+  } else {
+    file = files
+  }
   
   try {
     error.value = ''
+    
+    // Check if file is valid
+    if (!file || !(file instanceof File)) {
+      throw new Error('Invalid file object')
+    }
+    
     fileName.value = file.name
     fileSize.value = file.size
     mimeType.value = file.type || 'application/octet-stream'
     title.value = file.name.replace(/\.[^/.]+$/, '') // Remove extension
-    
-    // Store the file object directly
-    fileData.value = file
   } catch (err) {
     error.value = 'Error processing file: ' + (err as Error).message
   }
@@ -134,13 +170,21 @@ const handleFileUpload = async (event: Event) => {
 const createSeedRequest = async () => {
   if (!fileData.value) return
   
+  let file: File
+  if (Array.isArray(fileData.value)) {
+    if (fileData.value.length === 0) return
+    file = fileData.value[0]
+  } else {
+    file = fileData.value
+  }
+  
   processing.value = true
   error.value = ''
   
   try {
     // Create FormData for file upload
     const formData = new FormData()
-    formData.append('file', fileData.value)
+    formData.append('file', file)
     formData.append('docId', docId.value || '')
     formData.append('streamId', streamId.value || '')
     formData.append('title', title.value || fileName.value)
@@ -159,7 +203,7 @@ const createSeedRequest = async () => {
     
     const { request } = await response.json()
     createdRequest.value = request
-    emit('request-created', request)
+    // Don't emit immediately - wait for user to click "Process This Document"
     
   } catch (err) {
     error.value = 'Error creating request: ' + (err as Error).message
@@ -187,174 +231,14 @@ const formatFileSize = (bytes: number): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
+
+const goToProcessDocument = () => {
+  if (createdRequest.value) {
+    emit('request-created', createdRequest.value)
+  }
+}
 </script>
 
 <style scoped>
-.seed-data-builder {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.section-header {
-  margin-bottom: 1.5rem;
-}
-
-.section-header h3 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
-
-.help-text {
-  margin: 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.upload-section {
-  margin-bottom: 1.5rem;
-}
-
-.file-upload-label {
-  cursor: pointer;
-}
-
-.upload-area {
-  border: 2px dashed #ddd;
-  border-radius: 8px;
-  padding: 2rem;
-  text-align: center;
-  transition: all 0.3s ease;
-  background: #fafafa;
-}
-
-.upload-area:hover {
-  border-color: #4a90e2;
-  background: #f0f7ff;
-}
-
-.upload-area.has-file {
-  border-style: solid;
-  background: #f0f7ff;
-}
-
-.upload-icon {
-  color: #999;
-  margin-bottom: 0.5rem;
-}
-
-.file-info {
-  text-align: left;
-}
-
-.file-name {
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 0.25rem 0;
-}
-
-.file-size, .file-type {
-  font-size: 0.9rem;
-  color: #666;
-  margin: 0;
-}
-
-.options-section {
-  display: grid;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.form-input {
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #4a90e2;
-}
-
-.preview-section {
-  background: #f5f5f5;
-  border-radius: 4px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.preview-section h4 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
-
-.preview-section pre {
-  margin: 0;
-  font-size: 0.85rem;
-  overflow-x: auto;
-  white-space: pre-wrap;
-}
-
-.actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.primary-button, .secondary-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.primary-button {
-  background: #4a90e2;
-  color: white;
-}
-
-.primary-button:hover:not(:disabled) {
-  background: #357abd;
-}
-
-.primary-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.secondary-button {
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-.secondary-button:hover {
-  background: #e8e8e8;
-}
-
-.error-message {
-  margin-top: 1rem;
-  padding: 0.5rem;
-  background: #fee;
-  border: 1px solid #fcc;
-  border-radius: 4px;
-  color: #c00;
-  font-size: 0.9rem;
-}
+/* Styles handled by CodeBlock component */
 </style>

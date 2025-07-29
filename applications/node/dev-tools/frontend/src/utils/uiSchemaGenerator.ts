@@ -130,17 +130,20 @@ function generateGroup(key: string, prop: SchemaProperty, parentScope = '#'): UI
     
     // Sort properties with custom order
     const sortedKeys = Object.keys(prop.properties).sort((a, b) => {
-      // Check for predefined order
-      const aOrder = fieldOrder[a] || 100
-      const bOrder = fieldOrder[b] || 100
+      const aProp = prop.properties[a]
+      const bProp = prop.properties[b]
+      
+      // First check for x-ui-order property
+      const aOrder = aProp['x-ui-order'] ?? fieldOrder[a] ?? 100
+      const bOrder = bProp['x-ui-order'] ?? fieldOrder[b] ?? 100
       
       if (aOrder !== bOrder) {
         return aOrder - bOrder
       }
       
       // Then by advanced property
-      const aAdvanced = isAdvancedProperty(a, prop.properties[a])
-      const bAdvanced = isAdvancedProperty(b, prop.properties[b])
+      const aAdvanced = isAdvancedProperty(a, aProp)
+      const bAdvanced = isAdvancedProperty(b, bProp)
       
       if (aAdvanced && !bAdvanced) return 1
       if (!aAdvanced && bAdvanced) return -1
@@ -151,6 +154,12 @@ function generateGroup(key: string, prop: SchemaProperty, parentScope = '#'): UI
     
     sortedKeys.forEach(subKey => {
       const subProp = prop.properties[subKey]
+      
+      // Skip hidden fields and description fields
+      if (subProp['x-ui-hidden'] === true || subKey.toLowerCase().endsWith('description')) {
+        return
+      }
+      
       if (subProp.type === 'object' && subProp.properties) {
         elements.push(generateGroup(subKey, subProp, `${parentScope}/properties/${key}`))
       } else {
@@ -171,10 +180,10 @@ function generateGroup(key: string, prop: SchemaProperty, parentScope = '#'): UI
     elements: [layoutElement],
     options: {
       style: {
-        padding: '1rem',
-        marginBottom: '1rem',
+        padding: '0.75rem',
+        marginBottom: '0.5rem',
         border: '1px solid #e0e0e0',
-        borderRadius: '8px',
+        borderRadius: '4px',
         backgroundColor: '#f9f9f9'
       }
     }
@@ -192,15 +201,34 @@ export function generateUISchema(schema: any): UISchemaElement | undefined {
   const mainElements: UISchemaElement[] = []
   const advancedElements: UISchemaElement[] = []
   
-  // Process top-level properties
-  const topLevelKeys = Object.keys(schema.properties).sort()
+  // Process top-level properties with custom ordering
+  const topLevelKeys = Object.keys(schema.properties).sort((a, b) => {
+    const aProp = schema.properties[a]
+    const bProp = schema.properties[b]
+    
+    // First check for x-ui-order property
+    const aOrder = aProp['x-ui-order'] ?? 100
+    const bOrder = bProp['x-ui-order'] ?? 100
+    
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder
+    }
+    
+    // Then by type (booleans first, then others)
+    const aIsBool = aProp.type === 'boolean'
+    const bIsBool = bProp.type === 'boolean'
+    if (aIsBool && !bIsBool) return -1
+    if (!aIsBool && bIsBool) return 1
+    
+    // Finally alphabetical
+    return a.localeCompare(b)
+  })
   
   topLevelKeys.forEach(key => {
     const prop = schema.properties[key]
     
-    // Skip config_id as it should be at the top
-    if (key === 'config_id') {
-      mainElements.unshift(generateControl(key, prop))
+    // Skip hidden fields and description fields
+    if (prop['x-ui-hidden'] === true || key.toLowerCase().endsWith('description')) {
       return
     }
     
@@ -233,10 +261,59 @@ export function generateUISchema(schema: any): UISchemaElement | undefined {
         collapsible: true,
         collapsed: true,
         style: {
-          marginTop: '2rem',
-          padding: '1rem',
+          marginTop: '1rem',
+          padding: '0.75rem',
           border: '1px solid #d0d0d0',
-          borderRadius: '8px',
+          borderRadius: '4px',
+          backgroundColor: '#f5f5f5'
+        }
+      }
+    })
+  }
+  
+  // Group related fields horizontally
+  const finalElements: UISchemaElement[] = []
+  
+  // Group boolean fields horizontally
+  const booleanFields = mainElements.filter(el => {
+    const key = el.scope?.split('/').pop()
+    const prop = schema.properties[key]
+    return prop?.type === 'boolean'
+  })
+  
+  const nonBooleanFields = mainElements.filter(el => {
+    const key = el.scope?.split('/').pop()
+    const prop = schema.properties[key]
+    return prop?.type !== 'boolean'
+  })
+  
+  // Add boolean fields in horizontal groups (2-3 per row)
+  if (booleanFields.length > 0) {
+    for (let i = 0; i < booleanFields.length; i += 3) {
+      finalElements.push({
+        type: 'HorizontalLayout',
+        elements: booleanFields.slice(i, i + 3)
+      })
+    }
+  }
+  
+  // Add non-boolean fields
+  finalElements.push(...nonBooleanFields)
+  
+  // Add advanced section if needed
+  if (advancedElements.length > 0) {
+    finalElements.push({
+      type: 'Group',
+      label: 'Advanced Settings',
+      elements: advancedElements,
+      options: {
+        collapsible: true,
+        collapsed: true,
+        style: {
+          marginTop: '1rem',
+          padding: '0.75rem',
+          border: '1px solid #d0d0d0',
+          borderRadius: '4px',
           backgroundColor: '#f5f5f5'
         }
       }
@@ -245,7 +322,7 @@ export function generateUISchema(schema: any): UISchemaElement | undefined {
   
   return {
     type: 'VerticalLayout',
-    elements
+    elements: finalElements
   }
 }
 

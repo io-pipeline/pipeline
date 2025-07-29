@@ -316,13 +316,19 @@ app.post('/api/module-health', async (req, res) => {
 
             console.log('Health check response:', response);
             
-            // The status might be a string or number depending on how grpc-js handles enums
-            const isServing = response.status === 'SERVING' || response.status === 1;
+            // Convert numeric status to string
+            let statusString = 'UNKNOWN';
+            if (response.status === 'SERVING' || response.status === 1) {
+                statusString = 'SERVING';
+            } else if (response.status === 'NOT_SERVING' || response.status === 2) {
+                statusString = 'NOT_SERVING';
+            } else if (response.status === 'SERVICE_UNKNOWN' || response.status === 3) {
+                statusString = 'SERVICE_UNKNOWN';
+            }
             
             res.json({
-                status: response.status,
-                serving: isServing,
-                raw: response // Let's see what we're actually getting
+                status: statusString,
+                serving: statusString === 'SERVING'
             });
         });
     } catch (error) {

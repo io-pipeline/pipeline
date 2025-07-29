@@ -51,9 +51,6 @@
       </v-chip>
     </div>
     
-    <div v-else class="empty-state">
-      <p>No items added yet. Type or select from suggestions above.</p>
-    </div>
   </div>
 </template>
 
@@ -66,7 +63,6 @@ export default defineComponent({
   name: 'ArrayAutoCompleteRenderer',
   props: rendererProps<ArrayControlProps>(),
   setup(props) {
-    console.log('ArrayAutoCompleteRenderer mounted for:', props.schema)
     const arrayControl = useJsonFormsArrayControl(props)
     const control = computed(() => arrayControl.control.value)
     const newItem = ref('')
@@ -96,20 +92,13 @@ export default defineComponent({
     const allSuggestions = computed(() => {
       if (!isStringArray.value) return []
       
-      console.log('Checking for suggestions in schema:', {
-        itemSchema: itemSchema.value,
-        controlSchema: control.value?.schema
-      })
-      
       // Priority 1: enum values (most restrictive)
       if (itemSchema.value?.enum && Array.isArray(itemSchema.value.enum)) {
-        console.log('Found enum values:', itemSchema.value.enum.length)
         return itemSchema.value.enum
       }
       
       // Priority 2: x-suggestions (custom extension for autocomplete)
       if (itemSchema.value?.['x-suggestions'] && Array.isArray(itemSchema.value['x-suggestions'])) {
-        console.log('Found x-suggestions in items:', itemSchema.value['x-suggestions'].length)
         return itemSchema.value['x-suggestions']
       }
       
@@ -221,17 +210,4 @@ export default defineComponent({
   margin: 0;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 1.5rem;
-  background: #f8f9fa;
-  border: 2px dashed #dee2e6;
-  border-radius: 8px;
-  margin-top: 1rem;
-}
-
-.empty-state p {
-  margin: 0;
-  color: #6c757d;
-}
 </style>

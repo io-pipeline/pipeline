@@ -1,21 +1,41 @@
 <template>
-  <v-card class="universal-config-card">
-    <v-card-title>Configuration</v-card-title>
-    <v-card-text>
-    
-    <!-- Schema-based rendering with JSONForms -->
-    <div class="jsonforms-container" v-if="schema">
-      <JsonForms
-        :data="data"
-        :schema="schema"
-        :uischema="uischema"
-        :renderers="renderers"
-        @change="handleChange"
+  <v-card>
+    <v-card-title class="d-flex justify-space-between align-center">
+      <span>Configuration</span>
+      <v-btn
+        v-if="showJson"
+        @click="showJson = false"
+        icon="mdi-eye-off"
+        size="small"
+        variant="text"
+        title="Hide JSON"
       />
-    </div>
+      <v-btn
+        v-else
+        @click="showJson = true"
+        icon="mdi-code-json"
+        size="small"
+        variant="text"
+        title="Show JSON"
+      />
+    </v-card-title>
     
-    <!-- Fallback key/value editor when no schema -->
-    <div v-else class="kv-editor">
+    <v-divider />
+    
+    <v-card-text>
+      <!-- Schema-based rendering with JSONForms -->
+      <div v-if="schema && !showJson" class="jsonforms-container compact-config">
+        <JsonForms
+          :data="data"
+          :schema="schema"
+          :uischema="uischema"
+          :renderers="renderers"
+          @change="handleChange"
+        />
+      </div>
+    
+      <!-- Fallback key/value editor when no schema -->
+      <div v-else-if="!schema && !showJson" class="kv-editor">
       <div class="kv-header">
         <p class="no-schema-message">No schema provided - using key/value editor</p>
         <v-btn @click="addRow" color="primary" size="small">+ Add Entry</v-btn>
@@ -54,14 +74,18 @@
       </div>
     </div>
     
-    <v-divider class="my-4"></v-divider>
-    
-    <div class="config-output">
-      <div class="text-subtitle-2 mb-2">Current Configuration:</div>
-      <v-sheet color="grey-lighten-4" rounded class="pa-3">
-        <pre class="config-json">{{ JSON.stringify(data, null, 2) }}</pre>
-      </v-sheet>
-    </div>
+      <!-- JSON View -->
+      <v-expand-transition>
+        <div v-if="showJson">
+          <v-sheet 
+            :color="$vuetify.theme.current.dark ? 'grey-darken-3' : 'grey-lighten-4'" 
+            rounded 
+            class="pa-3"
+          >
+            <pre class="config-json">{{ JSON.stringify(data, null, 2) }}</pre>
+          </v-sheet>
+        </div>
+      </v-expand-transition>
     </v-card-text>
   </v-card>
 </template>
@@ -70,7 +94,7 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import { JsonForms } from '@jsonforms/vue'
 import { vanillaRenderers } from '@jsonforms/vue-vanilla'
-import { vuetifyRenderers } from '@jsonforms/vue-vuetify'
+import { vuetifyRenderers } from '../renderers/vue-vuetify/renderers'
 import { generateUISchema, generateCategorizedUISchema } from '../utils/uiSchemaGenerator'
 import { customRenderers } from '../renderers'
 
@@ -89,8 +113,9 @@ const emit = defineEmits<{
 }>()
 
 const data = ref(props.initialData || {})
-// Put our custom renderers first to override Vuetify defaults
-const renderers = Object.freeze([...customRenderers, ...vuetifyRenderers])
+const showJson = ref(false)
+// Use Vuetify renderers, then custom renderers, then vanilla fallbacks
+const renderers = Object.freeze([...vuetifyRenderers, ...customRenderers, ...vanillaRenderers])
 const kvEntries = ref<KeyValueEntry[]>([])
 
 // Extract default values from schema
@@ -197,28 +222,67 @@ const updateKvData = () => {
 </script>
 
 <style scoped>
-/* Minimal custom styling - Let Vuetify handle most styling */
-.universal-config-card {
-  margin-top: 2rem;
+/* Compact JSONForms styling for Vuetify renderers */
+.jsonforms-container :deep(.v-input) {
+  margin-bottom: 0.5rem;
 }
 
-.jsonforms-container {
-  margin-bottom: 2rem;
+.jsonforms-container :deep(.v-messages) {
+  min-height: auto;
 }
 
-/* Multi-column layout for groups */
-:deep(.group > :first-child:not(.group-label)) {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 1rem 2rem;
-  width: 100%;
+/* Reduce padding on input fields */
+.jsonforms-container :deep(.v-field__input) {
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
-:deep(.horizontal-layout) {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 1rem 2rem;
-  width: 100%;
+/* Tighten up text field density */
+.jsonforms-container :deep(.v-text-field .v-field) {
+  --v-field-padding-top: 4px;
+  --v-field-padding-bottom: 4px;
+}
+
+/* Reduce gap between label and input */
+.jsonforms-container :deep(.v-label) {
+  margin-bottom: 2px;
+}
+
+/* Compact switches */
+.jsonforms-container :deep(.v-switch) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.jsonforms-container :deep(.v-switch .v-label) {
+  margin-bottom: 0;
+}
+
+/* Compact config - reduce Vuetify layout spacing */
+.compact-config :deep(.v-container) {
+  padding: 0 !important;
+}
+
+.compact-config :deep(.v-row) {
+  margin: 0 !important;
+}
+
+.compact-config :deep(.v-row + .v-row) {
+  margin-top: 8px !important;
+}
+
+.compact-config :deep(.v-col) {
+  padding: 0 !important;
+}
+
+/* Compact horizontal layout spacing */
+.compact-config :deep(.horizontal-layout) {
+  gap: 0.5rem;
+}
+
+/* Reduce spacing between form controls */
+.compact-config :deep(.v-input + .v-input) {
+  margin-top: 8px;
 }
 
 /* Vuetify will handle most control styling */

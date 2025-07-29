@@ -1,84 +1,157 @@
 <template>
-  <div class="config-selector">
-    <div class="selector-header">
-      <h3>Configuration</h3>
-      <button @click="showNewConfig = true" class="new-config-button">
-        + New Config
-      </button>
-    </div>
-
-    <!-- Config List -->
-    <div class="config-list">
-      <div
-        v-for="config in moduleConfigs"
-        :key="config.id"
-        class="config-item"
-        :class="{ active: config.id === selectedConfigId }"
-        @click="selectConfig(config)"
+  <v-card class="mb-4">
+    <v-card-title class="d-flex justify-space-between align-center">
+      <span>Configuration</span>
+      <v-btn
+        color="primary"
+        @click="showNewConfig = true"
+        prepend-icon="mdi-plus"
       >
-        <div class="config-info">
-          <h4>{{ config.name }}</h4>
-          <p v-if="config.description" class="config-description">
+        New Config
+      </v-btn>
+    </v-card-title>
+
+    <v-card-text>
+      <!-- Config List -->
+      <v-list v-if="moduleConfigs.length > 0" lines="two">
+        <v-list-item
+          v-for="config in moduleConfigs"
+          :key="config.id"
+          :active="config.id === selectedConfigId"
+          @click="selectConfig(config)"
+          class="mb-2"
+        >
+          <template v-slot:prepend>
+            <v-icon :color="config.id === selectedConfigId ? 'primary' : ''">
+              mdi-file-cog-outline
+            </v-icon>
+          </template>
+
+          <v-list-item-title>{{ config.name }}</v-list-item-title>
+          <v-list-item-subtitle v-if="config.description">
             {{ config.description }}
-          </p>
-          <p class="config-meta">
+          </v-list-item-subtitle>
+          <v-list-item-subtitle>
             Updated {{ formatDate(config.updatedAt) }}
-          </p>
-        </div>
-        
-        <div class="config-actions">
-          <button @click.stop="editConfig(config)" class="icon-button" title="Edit">
-            ✏️
-          </button>
-          <button @click.stop="cloneConfig(config)" class="icon-button" title="Clone">
-            📋
-          </button>
-          <button @click.stop="deleteConfig(config)" class="icon-button" title="Delete">
-            🗑️
-          </button>
-        </div>
-      </div>
-      
-      <div v-if="moduleConfigs.length === 0" class="empty-configs">
-        No configurations yet. Create your first config!
-      </div>
-    </div>
+          </v-list-item-subtitle>
+
+          <template v-slot:append>
+            <v-btn
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click.stop="editConfig(config)"
+              title="Edit"
+            />
+            <v-btn
+              icon="mdi-content-copy"
+              size="small"
+              variant="text"
+              @click.stop="cloneConfig(config)"
+              title="Clone"
+            />
+            <v-btn
+              icon="mdi-delete"
+              size="small"
+              variant="text"
+              @click.stop="deleteConfig(config)"
+              title="Delete"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
+
+      <!-- Empty State -->
+      <v-empty-state
+        v-else
+        icon="mdi-file-cog-outline"
+        headline="No configurations yet"
+        text="Create your first config!"
+      />
+    </v-card-text>
 
     <!-- New/Edit Config Dialog -->
-    <div v-if="showNewConfig || editingConfig" class="config-dialog">
-      <div class="dialog-content">
-        <h3>{{ editingConfig ? 'Edit Configuration' : 'New Configuration' }}</h3>
+    <v-dialog v-model="showConfigDialog" max-width="500px">
+      <v-card>
+        <v-card-title>
+          {{ editingConfig ? 'Edit Configuration' : 'New Configuration' }}
+        </v-card-title>
         
-        <div class="form-group">
-          <label>Name</label>
-          <input 
-            v-model="configForm.name" 
+        <v-card-text>
+          <v-text-field
+            v-model="configForm.name"
+            label="Name"
             placeholder="e.g., Default Parser Config"
-            class="form-input"
+            variant="outlined"
+            density="comfortable"
+            :rules="[v => !!v || 'Name is required']"
           />
-        </div>
-        
-        <div class="form-group">
-          <label>Description (optional)</label>
-          <textarea 
-            v-model="configForm.description" 
+          
+          <v-textarea
+            v-model="configForm.description"
+            label="Description (optional)"
             placeholder="Describe this configuration..."
-            class="form-textarea"
+            variant="outlined"
+            density="comfortable"
             rows="3"
           />
-        </div>
+        </v-card-text>
         
-        <div class="dialog-actions">
-          <button @click="saveConfigForm" class="save-button">
-            {{ editingConfig ? 'Update' : 'Create' }}
-          </button>
-          <button @click="cancelConfigForm" class="cancel-button">
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="cancelConfigForm">
             Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            @click="saveConfigForm"
+            :disabled="!configForm.name"
+          >
+            {{ editingConfig ? 'Update' : 'Create' }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Clone Dialog -->
+    <v-dialog v-model="showCloneDialog" max-width="400px">
+      <v-card>
+        <v-card-title>Clone Configuration</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="cloneName"
+            label="Name for cloned configuration"
+            variant="outlined"
+            density="comfortable"
+            :rules="[v => !!v || 'Name is required']"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showCloneDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" @click="confirmClone" :disabled="!cloneName">
+            Clone
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="showDeleteDialog" max-width="400px">
+      <v-card>
+        <v-card-title>Delete Configuration</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete "{{ configToDelete?.name }}"?
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" @click="confirmDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </v-card>
 </template>
 
 <script setup lang="ts">
@@ -96,17 +169,30 @@ const emit = defineEmits<{
   'config-changed': [configId: string]
 }>()
 
-const { 
-  getModuleConfigs, 
-  saveConfig, 
-  deleteConfig: deleteConfigStore,
-  cloneConfig: cloneConfigStore
-} = useConfigStore()
+const configStore = useConfigStore()
 
-const moduleConfigs = getModuleConfigs(props.moduleAddress)
+const moduleConfigs = computed(() => configStore.getConfigs(props.moduleAddress))
 const selectedConfigId = ref<string>('')
 const showNewConfig = ref(false)
 const editingConfig = ref<any>(null)
+const showConfigDialog = computed({
+  get: () => showNewConfig.value || !!editingConfig.value,
+  set: (val) => {
+    if (!val) {
+      showNewConfig.value = false
+      editingConfig.value = null
+    }
+  }
+})
+
+// Clone dialog
+const showCloneDialog = ref(false)
+const cloneName = ref('')
+const configToClone = ref<any>(null)
+
+// Delete dialog
+const showDeleteDialog = ref(false)
+const configToDelete = ref<any>(null)
 
 const configForm = ref({
   name: '',
@@ -126,7 +212,7 @@ watch(() => moduleConfigs.value, (configs) => {
     selectConfig(configs[0])
   } else if (configs.length === 0 && props.currentConfig) {
     // Create a default config if we have current config data
-    const defaultConfig = saveConfig({
+    const defaultConfig = configStore.saveConfig({
       moduleAddress: props.moduleAddress,
       moduleName: props.moduleName,
       name: 'Default Configuration',
@@ -145,44 +231,56 @@ const editConfig = (config: any) => {
 }
 
 const cloneConfig = (config: any) => {
-  const newName = prompt('Name for cloned configuration:', `${config.name} (Copy)`)
-  if (newName) {
-    const cloned = cloneConfigStore(config.id, newName)
+  configToClone.value = config
+  cloneName.value = `${config.name} (Copy)`
+  showCloneDialog.value = true
+}
+
+const confirmClone = () => {
+  if (cloneName.value && configToClone.value) {
+    const cloned = configStore.cloneConfig(configToClone.value.id, cloneName.value)
     if (cloned) {
       selectConfig(cloned)
     }
+    showCloneDialog.value = false
+    cloneName.value = ''
+    configToClone.value = null
   }
 }
 
 const deleteConfig = (config: any) => {
-  if (confirm(`Delete configuration "${config.name}"?`)) {
-    deleteConfigStore(config.id)
-    if (selectedConfigId.value === config.id) {
+  configToDelete.value = config
+  showDeleteDialog.value = true
+}
+
+const confirmDelete = () => {
+  if (configToDelete.value) {
+    configStore.deleteConfig(configToDelete.value.id)
+    if (selectedConfigId.value === configToDelete.value.id) {
       selectedConfigId.value = ''
       const remaining = moduleConfigs.value
       if (remaining.length > 0) {
         selectConfig(remaining[0])
       }
     }
+    showDeleteDialog.value = false
+    configToDelete.value = null
   }
 }
 
 const saveConfigForm = () => {
-  if (!configForm.value.name) {
-    alert('Please provide a name for the configuration')
-    return
-  }
+  if (!configForm.value.name) return
   
   if (editingConfig.value) {
     // Update existing
-    saveConfig({
+    configStore.saveConfig({
       ...editingConfig.value,
       name: configForm.value.name,
       description: configForm.value.description
     })
   } else {
     // Create new with current config data
-    const newConfig = saveConfig({
+    const newConfig = configStore.saveConfig({
       moduleAddress: props.moduleAddress,
       moduleName: props.moduleName,
       name: configForm.value.name,
@@ -217,7 +315,7 @@ const updateCurrentConfig = (newConfig: any) => {
   if (selectedConfigId.value) {
     const config = moduleConfigs.value.find(c => c.id === selectedConfigId.value)
     if (config) {
-      saveConfig({
+      configStore.saveConfig({
         ...config,
         config: newConfig
       })
@@ -229,194 +327,5 @@ defineExpose({ updateCurrentConfig })
 </script>
 
 <style scoped>
-.config-selector {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.selector-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.selector-header h3 {
-  margin: 0;
-  color: #333;
-}
-
-.new-config-button {
-  padding: 0.5rem 1rem;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.new-config-button:hover {
-  background: #357abd;
-}
-
-.config-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.config-item {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.config-item:hover {
-  border-color: #4a90e2;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.config-item.active {
-  border-color: #4a90e2;
-  background: #f0f7ff;
-}
-
-.config-info h4 {
-  margin: 0 0 0.25rem 0;
-  color: #333;
-}
-
-.config-description {
-  margin: 0 0 0.25rem 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.config-meta {
-  margin: 0;
-  color: #999;
-  font-size: 0.85rem;
-}
-
-.config-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.icon-button {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-}
-
-.icon-button:hover {
-  background: #f5f5f5;
-}
-
-.empty-configs {
-  text-align: center;
-  padding: 2rem;
-  color: #999;
-  font-style: italic;
-}
-
-/* Dialog */
-.config-dialog {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.dialog-content {
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  width: 90%;
-  max-width: 500px;
-}
-
-.dialog-content h3 {
-  margin: 0 0 1.5rem 0;
-  color: #333;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.form-input, .form-textarea {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-family: inherit;
-}
-
-.form-input:focus, .form-textarea:focus {
-  outline: none;
-  border-color: #4a90e2;
-}
-
-.dialog-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.save-button, .cancel-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.save-button {
-  background: #4a90e2;
-  color: white;
-}
-
-.save-button:hover {
-  background: #357abd;
-}
-
-.cancel-button {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.cancel-button:hover {
-  background: #e8e8e8;
-}
+/* Vuetify handles most styling */
 </style>

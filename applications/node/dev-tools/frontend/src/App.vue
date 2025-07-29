@@ -1,285 +1,252 @@
 <template>
   <v-app>
-    <div class="app">
-    <header class="app-header">
-      <div class="header-content">
-        <div class="header-left">
-          <h1>Pipeline Developer Tools</h1>
-          <p class="tagline">Design, test, and prototype document processing pipelines</p>
+    <v-app-bar color="primary" dark>
+      <v-container fluid class="d-flex align-center justify-space-between">
+        <div>
+          <v-app-bar-title class="text-white">Pipeline Developer Tools</v-app-bar-title>
+          <div class="text-caption text-white">Design, test, and prototype document processing pipelines</div>
         </div>
-        
-        <div v-if="activeModule" class="active-status-card">
-          <div class="status-item">
-            <span class="status-label">Active Module:</span>
-            <span class="status-value">{{ activeModule.name }}</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Status:</span>
-            <span class="status-value" :class="getStatusClass(activeModule.healthStatus)">
-              {{ getStatusText(activeModule.healthStatus) }}
-            </span>
-          </div>
-          <div v-if="currentConfigId" class="status-item">
-            <span class="status-label">Config:</span>
-            <span class="status-value">{{ getConfigName(currentConfigId) }}</span>
-          </div>
-        </div>
-      </div>
-    </header>
+        <v-btn
+          :icon="theme.global.name.value === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night'"
+          @click="toggleTheme"
+          color="white"
+        />
+      </v-container>
+    </v-app-bar>
     
-    <nav class="tabs">
-      <button 
-        v-for="tab in tabs" 
-        :key="tab.id"
-        @click="activeTab = tab.id"
-        :class="{ active: activeTab === tab.id }"
-        class="tab-button"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
-    
-    <main>
-      <!-- Module Registry Tab -->
-      <div v-if="activeTab === 'registry'" class="tab-content">
-        <ModuleRegistry @navigate-to-config="activeTab = 'config'" />
-      </div>
-      
-      <!-- Module Config Tab (Original functionality) -->
-      <div v-if="activeTab === 'config'" class="tab-content">
-        <div v-if="!activeModule" class="empty-state">
-          <p>No module selected. Go to Module Registry to connect a module.</p>
-          <button @click="activeTab = 'registry'" class="primary-button">
-            Go to Registry
-          </button>
-        </div>
+    <v-main>
+      <v-container fluid>
+        <v-sheet elevation="2" rounded="lg" class="mb-4">
+          <v-tabs 
+            v-model="activeTab" 
+            color="primary"
+            align-tabs="center"
+            height="64"
+            show-arrows
+          >
+            <v-tab value="registry" prepend-icon="mdi-puzzle-outline">
+              Module Registry
+            </v-tab>
+            <v-tab value="config" prepend-icon="mdi-cog-outline">
+              Module Config
+            </v-tab>
+            <v-tab value="data" prepend-icon="mdi-database-outline">
+              Data Seeding
+            </v-tab>
+            <v-tab value="process" prepend-icon="mdi-file-document-outline">
+              Process Document
+            </v-tab>
+            <v-tab value="admin" prepend-icon="mdi-shield-crown-outline">
+              Admin
+            </v-tab>
+          </v-tabs>
+        </v-sheet>
         
-        <div v-else>
-          <!-- Config Selector -->
-          <ConfigSelector
-            ref="configSelectorRef"
-            :module-address="activeModule.address"
-            :module-name="activeModule.name"
-            :current-config="currentConfig"
-            @config-selected="handleConfigSelected"
-            @config-changed="handleConfigIdChanged"
-          />
-      
-          <!-- UniversalConfigCard handles both schema and no-schema cases -->
-          <UniversalConfigCard 
-            v-if="activeModule.schema"
-            :schema="activeModule.schema"
-            :initial-data="currentConfig"
-            @data-change="handleConfigChange"
-          />
+        <v-tabs-window v-model="activeTab">
+          <!-- Module Registry Tab -->
+          <v-tabs-window-item value="registry">
+            <ModuleRegistry @navigate-to-config="activeTab = 'config'" />
+          </v-tabs-window-item>
           
-          <!-- Navigation button -->
-          <div class="navigation-buttons">
-            <button @click="activeTab = 'data'" class="next-button">
-              Next: Data Seeding →
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Data Seeding Tab -->
-      <div v-if="activeTab === 'data'" class="tab-content">
-        <h2>Data Seeding</h2>
-        <p>Create test data for pipeline processing</p>
-        
-        <div v-if="!activeModule" class="empty-state">
-          <p>No module selected. Go to Module Registry to connect a module.</p>
-          <button @click="activeTab = 'registry'" class="primary-button">
-            Go to Registry
-          </button>
-        </div>
-        
-        <div v-else>
-          <!-- Seed Data Builder -->
-          <SeedDataBuilder 
-            :current-config="currentConfig"
-            @request-created="handleRequestCreated"
-          />
-      
-          <!-- Request Executor -->
-          <RequestExecutor
-            v-if="currentRequest"
-            :request="currentRequest"
-            :module-address="activeModule.address"
-            :config-data="currentConfig"
-            @response-received="handleResponseReceived"
-          />
+          <!-- Module Config Tab -->
+          <v-tabs-window-item value="config">
+            <div v-if="moduleStore.activeModule">
+              <ConfigSelector
+                :module-address="moduleStore.activeModuleAddress"
+                :module-name="moduleStore.activeModule.name"
+                :current-config="currentConfig"
+                @config-selected="handleConfigSelected"
+                @config-changed="handleConfigChanged"
+                ref="configSelector"
+              />
+              
+              <UniversalConfigCard
+                v-if="moduleStore.activeModule.schema"
+                :schema="moduleStore.activeModule.schema"
+                v-model="currentConfig"
+                @update:modelValue="handleConfigUpdate"
+              />
+            </div>
+            <v-empty-state
+              v-else
+              icon="mdi-cog-outline"
+              headline="No module selected"
+              text="Select a module from the registry to configure it"
+            />
+          </v-tabs-window-item>
           
-          <!-- Navigation buttons -->
-          <div class="navigation-buttons">
-            <button @click="activeTab = 'config'" class="prev-button">
-              ← Back: Module Config
-            </button>
-            <button @click="activeTab = 'pipeline'" class="next-button">
-              Next: Pipeline →
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Pipeline Tab -->
-      <div v-if="activeTab === 'pipeline'" class="tab-content">
-        <h2>Simple Pipeline</h2>
-        <p>Chain modules together for sequential processing</p>
-        
-        <div v-if="connectedModules.length < 2" class="empty-state">
-          <p>You need at least 2 connected modules to create a pipeline.</p>
-          <button @click="activeTab = 'registry'" class="primary-button">
-            Go to Registry
-          </button>
-        </div>
-        
-        <div v-else>
-          <!-- TODO: Add simple pipeline chaining -->
-          <p>Pipeline builder coming soon...</p>
+          <!-- Data Seeding Tab -->
+          <v-tabs-window-item value="data">
+            <div v-if="moduleStore.activeModule">
+              <v-alert
+                type="info"
+                variant="tonal"
+                class="mb-4"
+              >
+                <v-alert-title>Test Data Creation</v-alert-title>
+                <div>Create seed data to test {{ moduleStore.activeModule.name }} with your current configuration</div>
+              </v-alert>
+              
+              <SeedDataBuilder
+                :current-config="currentConfig"
+                @request-created="handleRequestCreated"
+              />
+            </div>
+            <v-empty-state
+              v-else
+              icon="mdi-database-outline"
+              headline="No module selected"
+              text="Select a module from the registry to create test data"
+            />
+          </v-tabs-window-item>
           
-          <!-- Navigation button -->
-          <div class="navigation-buttons">
-            <button @click="activeTab = 'data'" class="prev-button">
-              ← Back: Data Seeding
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Admin Tab -->
-      <div v-if="activeTab === 'admin'" class="tab-content">
-        <h2>Admin Tools</h2>
-        <p>Administrative functions and debugging tools</p>
-        
-        <div class="admin-section">
-          <h3>Local Storage Management</h3>
-          <p>Clear locally stored data to reset the application state.</p>
+          <!-- Process Document Tab -->
+          <v-tabs-window-item value="process">
+            <div v-if="moduleStore.activeModule">
+              <ProcessDocument 
+                :current-config="currentConfig"
+                :created-request="createdRequest"
+                @request-updated="handleRequestUpdated"
+              />
+            </div>
+            <v-empty-state
+              v-else
+              icon="mdi-file-document-outline"
+              headline="No module selected"
+              text="Select a module from the registry to process documents"
+            />
+          </v-tabs-window-item>
           
-          <div class="admin-actions">
-            <button @click="clearAllStorage" class="danger-button">
-              Clear All Storage
-            </button>
-            
-            <button @click="clearModuleStorage" class="warning-button">
-              Clear Module Storage Only
-            </button>
-            
-            <button @click="clearConfigStorage" class="warning-button">
-              Clear Config Storage Only
-            </button>
-          </div>
-          
-          <div v-if="storageCleared" class="success-message">
-            {{ storageCleared }}
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
+          <!-- Admin Tab -->
+          <v-tabs-window-item value="admin">
+            <v-container fluid>
+              <v-card>
+                <v-card-title>Admin Tools</v-card-title>
+                <v-card-subtitle>Administrative functions and debugging tools</v-card-subtitle>
+                
+                <v-divider />
+                
+                <v-card-text>
+                  <h3 class="text-h6 mb-2">Local Storage Management</h3>
+                  <p class="text-body-2 mb-4">Clear locally stored data to reset the application state.</p>
+                  
+                  <v-row>
+                    <v-col cols="12" sm="4">
+                      <v-btn
+                        color="error"
+                        variant="flat"
+                        block
+                        @click="clearAllStorage"
+                        prepend-icon="mdi-delete-alert"
+                      >
+                        Clear All Storage
+                      </v-btn>
+                    </v-col>
+                    <v-col cols="12" sm="4">
+                      <v-btn
+                        color="warning"
+                        variant="flat"
+                        block
+                        @click="clearModuleStorage"
+                        prepend-icon="mdi-delete"
+                      >
+                        Clear Module Storage Only
+                      </v-btn>
+                    </v-col>
+                    <v-col cols="12" sm="4">
+                      <v-btn
+                        color="warning"
+                        variant="flat"
+                        block
+                        @click="clearConfigStorage"
+                        prepend-icon="mdi-delete"
+                      >
+                        Clear Config Storage Only
+                      </v-btn>
+                    </v-col>
+                  </v-row>
+                  
+                  <v-alert
+                    v-if="storageCleared"
+                    type="success"
+                    variant="tonal"
+                    closable
+                    @click:close="storageCleared = ''"
+                    class="mt-4"
+                  >
+                    {{ storageCleared }}
+                  </v-alert>
+                </v-card-text>
+              </v-card>
+            </v-container>
+          </v-tabs-window-item>
+        </v-tabs-window>
+      </v-container>
+    </v-main>
   </v-app>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import UniversalConfigCard from './components/UniversalConfigCard.vue'
-import SeedDataBuilder from './components/SeedDataBuilder.vue'
-import RequestExecutor from './components/RequestExecutor.vue'
+import { ref, onMounted } from 'vue'
+import { useTheme } from 'vuetify'
 import ModuleRegistry from './components/ModuleRegistry.vue'
 import ConfigSelector from './components/ConfigSelector.vue'
+import UniversalConfigCard from './components/UniversalConfigCard.vue'
+import SeedDataBuilder from './components/SeedDataBuilder.vue'
+import ProcessDocument from './components/ProcessDocument.vue'
 import { useModuleStore } from './stores/moduleStore'
 import { useConfigStore } from './stores/configStore'
 
-interface ModuleData {
-  module_name: string
-  version: string
-  description?: string
-  module_type?: string
-  schema: any
-  raw_schema: string
+const theme = useTheme()
+const moduleStore = useModuleStore()
+const configStore = useConfigStore()
+
+// Toggle theme
+const toggleTheme = () => {
+  const newTheme = theme.global.name.value === 'dark' ? 'light' : 'dark'
+  theme.change(newTheme)
 }
 
-// Module store
-const moduleStore = useModuleStore()
-const { getConfig } = useConfigStore()
+// Initialize stores
+onMounted(() => {
+  moduleStore.init()
+  configStore.init()
+})
 
-// Get activeModule as computed to ensure reactivity
-const activeModule = computed(() => moduleStore.activeModule.value)
-const connectedModules = computed(() => moduleStore.connectedModules.value)
-
-// Local state
-const currentRequest = ref<any>(null)
-const currentConfig = ref<any>({})
-const currentConfigId = ref<string>('')
-const configSelectorRef = ref<any>(null)
-const storageCleared = ref<string>('')
-
-
-// Tab management
 const activeTab = ref('registry')
-const tabs = [
-  { id: 'registry', label: 'Module Registry' },
-  { id: 'config', label: 'Module Config' },
-  { id: 'data', label: 'Data Seeding' },
-  { id: 'pipeline', label: 'Pipeline' },
-  { id: 'admin', label: 'Admin' }
-]
+const currentConfig = ref<any>({})
+const configSelector = ref<any>(null)
+const createdRequest = ref<any>(null)
+const storageCleared = ref('')
 
 // Handle config selection
 const handleConfigSelected = (config: any) => {
   currentConfig.value = config
 }
 
-const handleConfigIdChanged = (configId: string) => {
-  currentConfigId.value = configId
+// Handle config ID change
+const handleConfigChanged = (configId: string) => {
+  moduleStore.setCurrentConfigId(configId)
 }
 
-const handleConfigChange = (data: any) => {
-  currentConfig.value = data
-  // Update the config in the store via ConfigSelector
-  if (configSelectorRef.value) {
-    configSelectorRef.value.updateCurrentConfig(data)
+// Handle config updates
+const handleConfigUpdate = (newConfig: any) => {
+  currentConfig.value = newConfig
+  if (configSelector.value) {
+    configSelector.value.updateCurrentConfig(newConfig)
   }
 }
 
+// Handle seed data request creation
 const handleRequestCreated = (request: any) => {
-  currentRequest.value = request
-  console.log('Request created:', request)
+  createdRequest.value = request
+  // Switch to Process Document tab
+  activeTab.value = 'process'
 }
 
-const handleResponseReceived = (response: any) => {
-  console.log('Response received:', response)
-  // TODO: Add functionality to save response as .bin or use as input for next module
-}
-
-// Helper to get config name
-const getConfigName = (configId: string) => {
-  const config = getConfig(configId).value
-  return config?.name || 'Unknown Config'
-}
-
-// Helper to get status text
-const getStatusText = (healthStatus?: string) => {
-  switch (healthStatus) {
-    case 'SERVING':
-      return 'Connected'
-    case 'NOT_SERVING':
-      return 'Disconnected'
-    default:
-      return 'Unknown'
-  }
-}
-
-// Helper to get status class
-const getStatusClass = (healthStatus?: string) => {
-  switch (healthStatus) {
-    case 'SERVING':
-      return 'status-connected'
-    case 'NOT_SERVING':
-      return 'status-disconnected'
-    default:
-      return 'status-unknown'
-  }
+// Handle request update from Process Document tab
+const handleRequestUpdated = (request: any) => {
+  createdRequest.value = request
 }
 
 // Admin functions
@@ -309,291 +276,5 @@ const clearConfigStorage = () => {
 </script>
 
 <style scoped>
-.app {
-  min-height: 100vh;
-  background: #f8f9fa;
-}
-
-/* Header */
-.app-header {
-  background: white;
-  border-bottom: 2px solid #e9ecef;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.5rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.header-left h1 {
-  margin: 0 0 0.25rem 0;
-  color: #333;
-  font-size: 1.75rem;
-}
-
-.tagline {
-  margin: 0;
-  color: #666;
-  font-size: 0.95rem;
-}
-
-/* Active Status Card */
-.active-status-card {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 1rem 1.5rem;
-  min-width: 250px;
-}
-
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.status-item:last-child {
-  margin-bottom: 0;
-}
-
-.status-label {
-  font-size: 0.85rem;
-  color: #6c757d;
-  font-weight: 500;
-}
-
-.status-value {
-  font-size: 0.95rem;
-  color: #333;
-  font-weight: 600;
-}
-
-/* Status colors */
-.status-connected {
-  color: #28a745;
-}
-
-.status-disconnected {
-  color: #dc3545;
-}
-
-.status-unknown {
-  color: #ffc107;
-}
-
-/* Main content */
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem 2rem;
-}
-
-.module-info {
-  background: #f5f5f5;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin: 2rem 0;
-}
-
-.module-info h2 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
-
-.module-info p {
-  margin: 0.25rem 0;
-  color: #666;
-}
-
-.version {
-  font-size: 0.9rem;
-  font-style: italic;
-}
-
-/* Tab Navigation */
-.tabs {
-  max-width: 1200px;
-  margin: 2rem auto 1.5rem;
-  padding: 0 2rem;
-  display: flex;
-  gap: 1rem;
-  border-bottom: 2px solid #e9ecef;
-}
-
-.tab-button {
-  padding: 0.75rem 1.5rem;
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: #666;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: -2px;
-}
-
-.tab-button:hover {
-  color: #333;
-}
-
-.tab-button.active {
-  color: #4a90e2;
-  border-bottom-color: #4a90e2;
-  font-weight: 600;
-}
-
-.tab-content {
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Empty state */
-.empty-state {
-  text-align: center;
-  padding: 3rem;
-  color: #666;
-}
-
-.empty-state p {
-  margin-bottom: 1.5rem;
-  font-size: 1.1rem;
-}
-
-.primary-button {
-  padding: 0.75rem 1.5rem;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.primary-button:hover {
-  background: #357abd;
-}
-
-
-/* Navigation buttons */
-.navigation-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #eee;
-}
-
-.next-button, .prev-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.next-button {
-  background: #4a90e2;
-  color: white;
-  margin-left: auto;
-}
-
-.next-button:hover {
-  background: #357abd;
-}
-
-.prev-button {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.prev-button:hover {
-  background: #e8e8e8;
-}
-
-/* Admin section */
-.admin-section {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 2rem;
-  margin-top: 1.5rem;
-}
-
-.admin-section h3 {
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
-.admin-section p {
-  color: #666;
-  margin-bottom: 1.5rem;
-}
-
-.admin-actions {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.danger-button {
-  padding: 0.75rem 1.5rem;
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.danger-button:hover {
-  background: #c82333;
-}
-
-.warning-button {
-  padding: 0.75rem 1.5rem;
-  background: #ffc107;
-  color: #333;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.warning-button:hover {
-  background: #e0a800;
-}
-
-.success-message {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: #d4edda;
-  border: 1px solid #c3e6cb;
-  border-radius: 4px;
-  color: #155724;
-}
+/* Let Vuetify handle most styling */
 </style>
