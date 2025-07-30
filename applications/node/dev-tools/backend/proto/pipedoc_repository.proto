@@ -1,0 +1,186 @@
+syntax = "proto3";
+
+package io.pipeline.repository.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "pipeline_core_types.proto";
+import "pipe_step_processor_service.proto";
+
+option java_multiple_files = true;
+option java_package = "io.pipeline.repository.v1";
+option java_outer_classname = "PipeDocRepositoryProto";
+
+// PipeDoc Repository Service - Pure CRUD operations for test documents and module requests
+service PipeDocRepository {
+  // PipeDoc CRUD operations
+  rpc CreatePipeDoc(CreatePipeDocRequest) returns (CreatePipeDocResponse);
+  rpc GetPipeDoc(GetPipeDocRequest) returns (StoredPipeDoc);
+  rpc UpdatePipeDoc(UpdatePipeDocRequest) returns (StoredPipeDoc);
+  rpc DeletePipeDoc(DeletePipeDocRequest) returns (google.protobuf.Empty);
+  rpc ListPipeDocs(ListPipeDocsRequest) returns (ListPipeDocsResponse);
+  rpc BatchCreatePipeDocs(stream CreatePipeDocRequest) returns (stream BatchOperationResult);
+  
+  // ModuleProcessRequest storage (for test cases)
+  rpc SaveProcessRequest(SaveProcessRequestRequest) returns (SaveProcessRequestResponse);
+  rpc GetProcessRequest(GetProcessRequestRequest) returns (StoredProcessRequest);
+  rpc ListProcessRequests(ListProcessRequestsRequest) returns (ListProcessRequestsResponse);
+  rpc DeleteProcessRequest(DeleteProcessRequestRequest) returns (google.protobuf.Empty);
+  
+  // Export/Import operations
+  rpc ExportPipeDocs(ExportPipeDocsRequest) returns (stream ExportChunk);
+  rpc ImportPipeDocs(stream ImportChunk) returns (ImportPipeDocsResponse);
+}
+
+// Repository-specific data models for storing test data
+message StoredPipeDoc {
+  string storage_id = 1; // Repository-assigned ID
+  io.pipeline.search.model.PipeDoc document = 2;
+  map<string, string> tags = 3; // Repository tags for categorization
+  string description = 4; // Human-readable description
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message StoredProcessRequest {
+  string storage_id = 1; // Repository-assigned ID
+  io.pipeline.search.model.ModuleProcessRequest request = 2;
+  string name = 3; // Human-readable name for this test case
+  string description = 4; // Description of what this test case validates
+  map<string, string> tags = 5; // Tags for categorization
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+
+// Request/Response messages for PipeDoc operations
+message CreatePipeDocRequest {
+  io.pipeline.search.model.PipeDoc document = 1;
+  map<string, string> tags = 2; // Repository tags
+  string description = 3; // Description for this stored document
+}
+
+message CreatePipeDocResponse {
+  string storage_id = 1;
+  StoredPipeDoc stored_document = 2;
+}
+
+message GetPipeDocRequest {
+  string storage_id = 1;
+}
+
+message UpdatePipeDocRequest {
+  string storage_id = 1;
+  io.pipeline.search.model.PipeDoc document = 2;
+  map<string, string> tags = 3;
+  string description = 4;
+  google.protobuf.FieldMask update_mask = 5;
+}
+
+message DeletePipeDocRequest {
+  string storage_id = 1;
+}
+
+message ListPipeDocsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  string filter = 3; // e.g., "tags.environment = 'test'"
+  string order_by = 4; // e.g., "created_at desc"
+}
+
+message ListPipeDocsResponse {
+  repeated StoredPipeDoc documents = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// Request/Response messages for ModuleProcessRequest operations
+message SaveProcessRequestRequest {
+  io.pipeline.search.model.ModuleProcessRequest request = 1;
+  string name = 2; // Name for this test case
+  string description = 3; // Description
+  map<string, string> tags = 4; // Tags for categorization
+}
+
+message SaveProcessRequestResponse {
+  string storage_id = 1;
+  StoredProcessRequest stored_request = 2;
+}
+
+message GetProcessRequestRequest {
+  string storage_id = 1;
+}
+
+message ListProcessRequestsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  string filter = 3;
+  string order_by = 4;
+}
+
+message ListProcessRequestsResponse {
+  repeated StoredProcessRequest requests = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteProcessRequestRequest {
+  string storage_id = 1;
+}
+
+// Batch operations
+message BatchOperationResult {
+  string operation_id = 1;
+  bool success = 2;
+  string error_message = 3;
+  string resource_id = 4; // ID of created/updated resource
+}
+
+// Export/Import
+message ExportPipeDocsRequest {
+  string filter = 1; // Query filter
+  repeated string document_ids = 2; // Specific IDs to export
+  ExportFormat format = 3;
+  bool include_results = 4;
+}
+
+enum ExportFormat {
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  EXPORT_FORMAT_JSON = 1;
+  EXPORT_FORMAT_JSONL = 2; // JSON Lines for streaming
+  EXPORT_FORMAT_ZIP = 3; // ZIP with original files
+}
+
+message ExportChunk {
+  bytes data = 1;
+  int32 sequence_number = 2;
+  bool is_last = 3;
+  string content_type = 4;
+}
+
+message ImportChunk {
+  bytes data = 1;
+  int32 sequence_number = 2;
+  bool is_last = 3;
+  ImportOptions options = 4;
+}
+
+message ImportOptions {
+  bool overwrite_existing = 1;
+  bool validate_only = 2;
+  map<string, string> default_tags = 3;
+}
+
+message ImportPipeDocsResponse {
+  int32 total_imported = 1;
+  int32 total_updated = 2;
+  int32 total_failed = 3;
+  repeated ImportError errors = 4;
+}
+
+message ImportError {
+  string document_name = 1;
+  string error_message = 2;
+  int32 line_number = 3;
+}

@@ -1,60 +1,47 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
-import RefParser from '@apidevtools/json-schema-ref-parser';
-import multer from 'multer';
+import { storageService } from './services/storageService';
+import * as fs from 'fs';
+import seedRoutes from './routes/seedRoutes';
+import repositoryRoutes from './routes/repositoryRoutes';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Configure multer for memory storage
-const upload = multer({ 
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 50 * 1024 * 1024 // 50MB limit
-    }
-});
-
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Load proto files
-const PROTO_PATH = path.join(__dirname, '../proto/pipe_step_processor_service.proto');
-const HEALTH_PROTO_PATH = path.join(__dirname, '../proto/health/v1/health.proto');
+const protoPath = path.join(__dirname, '../proto/pipe_step_processor_service.proto');
+const healthProtoPath = path.join(__dirname, '../proto/health/v1/health.proto');
 
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+const packageDefinition = protoLoader.loadSync(protoPath, {
     keepCase: true,
     longs: String,
     enums: String,
     defaults: true,
-    oneofs: true,
-    includeDirs: [path.join(__dirname, '../proto')]
+    oneofs: true
 });
 
-const healthPackageDefinition = protoLoader.loadSync(HEALTH_PROTO_PATH, {
+const healthPackageDefinition = protoLoader.loadSync(healthProtoPath, {
     keepCase: true,
     longs: String,
-    enums: Number, // Changed to Number to get numeric enum values
+    enums: String,
     defaults: true,
-    oneofs: true,
-    includeDirs: [path.join(__dirname, '../proto')]
+    oneofs: true
 });
 
-// Create proto descriptors
 const proto = grpc.loadPackageDefinition(packageDefinition) as any;
 const healthProto = grpc.loadPackageDefinition(healthPackageDefinition) as any;
 
-// Type definitions
-interface ServiceRegistrationResponse {
-    module_name: string;
-    version: string;
-    json_config_schema: string;
-    module_type?: string;
-    description?: string;
-}
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
 
 // Create gRPC client factory
 function createClient(address: string) {
@@ -80,37 +67,37 @@ async function transformSchemaForUI(rawSchema: string): Promise<any> {
         if (parsed.components && parsed.components.schemas) {
             const schemas = parsed.components.schemas;
             
-            // Generic approach: Find the main config schema
-            // Look for schemas that:
-            // 1. End with "Config"
-            // 2. Have properties (not just a reference or simple type)
-            // 3. Are not infrastructure-related configs
-            const configCandidates = Object.keys(schemas).filter(key => 
-                key.endsWith('Config') && 
-                schemas[key].properties &&
-                !key.match(/Transport|Grpc|Kafka|Pipeline|Module|Whitelist|Override/i)
-            );
+            // Find the main schema (usually ends with 'Config')
+            configKey = Object.keys(schemas).find(key => key.endsWith('Config'));
             
-            // If we have multiple candidates, pick the one with the most properties
-            // This usually indicates the main configuration object
-            if (configCandidates.length > 0) {
-                configKey = configCandidates.reduce((best, current) => {
-                    const bestCount = Object.keys(schemas[best]?.properties || {}).length;
-                    const currentCount = Object.keys(schemas[current]?.properties || {}).length;
-                    return currentCount > bestCount ? current : best;
-                });
-                
+            if (configKey) {
                 schema = schemas[configKey];
-                console.log(`Found config schema: ${configKey}`);
+            } else {
+                // If no Config schema, look for any object schema
+                configKey = Object.keys(schemas).find(key => 
+                    schemas[key].type === 'object' && schemas[key].properties
+                );
+                if (configKey) {
+                    schema = schemas[configKey];
+                }
             }
         }
         
-        // Resolve all $ref references
-        const resolved = await RefParser.dereference(parsed);
+        // If it's an OpenAPI schema with a single component, extract it
+        if (!schema.properties && parsed.components && parsed.components.schemas) {
+            const schemaKeys = Object.keys(parsed.components.schemas);
+            if (schemaKeys.length === 1) {
+                schema = parsed.components.schemas[schemaKeys[0]];
+            }
+        }
         
-        // Extract the resolved schema if we found a config key
+        // Use json-schema-ref-parser to resolve references
+        const $RefParser = require('@apidevtools/json-schema-ref-parser');
+        const resolved = await $RefParser.dereference(parsed);
+        
+        // Re-extract schema after dereferencing
         if (configKey && resolved.components && resolved.components.schemas) {
-            schema = resolved.components.schemas[configKey];
+            schema = (resolved as any).components.schemas[configKey];
         }
         
         return enhanceSchema(schema);
@@ -163,98 +150,45 @@ app.post('/api/module-schema', async (req, res) => {
     try {
         const client = createClient(address);
         
-        // Call getServiceRegistration
-        client.getServiceRegistration({}, async (error: any, response: ServiceRegistrationResponse) => {
+        // Call GetServiceRegistration to get schema
+        client.GetServiceRegistration({}, async (error: any, response: any) => {
             if (error) {
                 console.error('gRPC error:', error);
                 return res.status(500).json({ 
-                    error: 'Failed to connect to module',
+                    error: 'Failed to get module schema',
                     details: error.message 
                 });
             }
 
-            try {
-                let transformedSchema = null;
-                
-                // Only transform schema if it exists
-                if (response?.json_config_schema) {
-                    transformedSchema = await transformSchemaForUI(response.json_config_schema);
-                }
-                
-                res.json({
-                    module_name: response.module_name,
-                    version: response.version,
-                    description: response.description,
-                    module_type: response.module_type,
-                    schema: transformedSchema,
-                    raw_schema: response.json_config_schema
+            console.log('Service registration response:', response);
+
+            if (!response.json_config_schema) {
+                return res.status(400).json({ 
+                    error: 'Module does not provide a configuration schema' 
                 });
-            } catch (transformError) {
+            }
+
+            try {
+                const transformedSchema = await transformSchemaForUI(response.json_config_schema);
+                res.json({
+                    moduleInfo: {
+                        name: response.name,
+                        description: response.description,
+                        schema: transformedSchema
+                    }
+                });
+            } catch (schemaError) {
+                console.error('Schema transformation error:', schemaError);
                 res.status(500).json({ 
                     error: 'Failed to transform schema',
-                    details: (transformError as Error).message 
+                    details: (schemaError as Error).message 
                 });
             }
         });
     } catch (error) {
-        console.error('Error creating client:', error);
+        console.error('Error creating gRPC client:', error);
         res.status(500).json({ 
-            error: 'Failed to create gRPC client',
-            details: (error as Error).message 
-        });
-    }
-});
-
-// Create seed data with file upload
-app.post('/api/seed/create', upload.single('file'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    try {
-        const { docId, streamId, title, config } = req.body;
-        
-        // Parse config if it's a string
-        const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
-        
-        // Create PipeDoc with file data
-        const pipeDoc = {
-            id: docId || `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: title || req.file.originalname,
-            source_uri: `file://${req.file.originalname}`,
-            source_mime_type: req.file.mimetype,
-            document_type: 'seed-data',
-            blob: {
-                data: req.file.buffer.toString('base64'),
-                mime_type: req.file.mimetype,
-                size: req.file.size,
-                file_name: req.file.originalname
-            },
-            metadata: {
-                source: 'dev-tool-seed-builder',
-                original_filename: req.file.originalname,
-                upload_timestamp: new Date().toISOString()
-            }
-        };
-        
-        // Create ModuleProcessRequest
-        const request = {
-            document: pipeDoc,
-            metadata: {
-                stream_id: streamId || `stream-${Date.now()}`,
-                pipe_step_name: 'seed-creation',
-                processing_timestamp: new Date().toISOString()
-            },
-            config: {
-                custom_json_config: parsedConfig || {}
-            }
-        };
-        
-        res.json({ request });
-    } catch (error) {
-        console.error('Error creating seed data:', error);
-        res.status(500).json({ 
-            error: 'Failed to create seed data',
+            error: 'Failed to connect to module',
             details: (error as Error).message 
         });
     }
@@ -340,10 +274,127 @@ app.post('/api/module-health', async (req, res) => {
     }
 });
 
+// Health check for repository service
+app.get('/api/repository-health', async (req, res) => {
+    try {
+        const healthClient = createHealthClient('localhost:38002');
+        
+        // Call Check with empty service name to check overall health
+        healthClient.Check({ service: '' }, (error: any, response: any) => {
+            if (error) {
+                console.error('Repository health check error:', error);
+                return res.json({ 
+                    status: 'NOT_SERVING',
+                    healthy: false,
+                    error: error.message 
+                });
+            }
+            
+            // Convert numeric status to string
+            let statusString = 'UNKNOWN';
+            if (response.status === 'SERVING' || response.status === 1) {
+                statusString = 'SERVING';
+            } else if (response.status === 'NOT_SERVING' || response.status === 2) {
+                statusString = 'NOT_SERVING';
+            } else if (response.status === 'SERVICE_UNKNOWN' || response.status === 3) {
+                statusString = 'SERVICE_UNKNOWN';
+            }
+            
+            res.json({
+                status: statusString,
+                healthy: statusString === 'SERVING'
+            });
+        });
+    } catch (error) {
+        console.error('Error creating repository health client:', error);
+        res.json({ 
+            status: 'NOT_SERVING',
+            healthy: false,
+            error: (error as Error).message 
+        });
+    }
+});
+
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-    console.log(`Developer tool backend listening at http://localhost:${PORT}`);
+// Storage status endpoint (simplified)
+app.get('/api/storage/status', async (req, res) => {
+    res.json({
+        storageType: 'localStorage',
+        healthy: true
+    });
 });
+
+// Test Documents API
+app.post('/api/test-documents', async (req, res) => {
+    try {
+        const document = req.body;
+        const id = await storageService.getAdapter().saveTestDocument(document);
+        res.json({ id, success: true });
+    } catch (error) {
+        console.error('Error saving test document:', error);
+        res.status(500).json({ 
+            error: 'Failed to save test document',
+            details: (error as Error).message 
+        });
+    }
+});
+
+app.get('/api/test-documents/:id', async (req, res) => {
+    try {
+        const doc = await storageService.getAdapter().getTestDocument(req.params.id);
+        if (!doc) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        res.json(doc);
+    } catch (error) {
+        console.error('Error retrieving test document:', error);
+        res.status(500).json({ 
+            error: 'Failed to retrieve test document',
+            details: (error as Error).message 
+        });
+    }
+});
+
+app.get('/api/test-documents', async (req, res) => {
+    try {
+        const documents = await storageService.getAdapter().listTestDocuments();
+        res.json(documents);
+    } catch (error) {
+        console.error('Error listing test documents:', error);
+        res.status(500).json({ 
+            error: 'Failed to list test documents',
+            details: (error as Error).message 
+        });
+    }
+});
+
+// Mount routes
+app.use('/api/seed', seedRoutes);
+app.use('/api/repository', repositoryRoutes);
+
+// Initialize and start server
+async function startServer() {
+    try {
+        // Initialize storage service
+        await storageService.initialize();
+        
+        app.listen(PORT, () => {
+            console.log(`Developer tool backend listening at http://localhost:${PORT}`);
+            console.log(`Storage: Local file-based`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('\nShutting down gracefully...');
+    process.exit(0);
+});
+
+startServer();

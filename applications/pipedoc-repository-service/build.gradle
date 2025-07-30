@@ -1,0 +1,57 @@
+plugins {
+    alias(libs.plugins.java)
+    alias(libs.plugins.quarkus)
+}
+
+
+
+dependencies {
+    implementation 'io.quarkiverse.quinoa:quarkus-quinoa:2.6.0'
+    implementation 'io.quarkus:quarkus-mongodb-client'
+    implementation 'io.quarkus:quarkus-mongodb-panache'
+    //implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation platform(project(':bom'))
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-container-image-docker'
+    implementation 'io.quarkus:quarkus-smallrye-health'
+    implementation 'io.quarkus:quarkus-smallrye-stork'
+
+    implementation 'io.quarkus:quarkus-vertx'
+    implementation 'io.quarkus:quarkus-grpc'
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-consul-client'
+    implementation 'io.smallrye.stork:stork-service-discovery-consul'
+    implementation 'io.smallrye.stork:stork-service-registration-consul'
+
+    // Project dependencies
+    implementation project(':grpc-stubs')
+    implementation project(':libraries:pipeline-api')
+
+
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.quarkus:quarkus-junit5-mockito'
+    testImplementation 'io.rest-assured:rest-assured'
+    runtimeOnly libs.quarkus.logging.manager
+
+
+}
+
+group 'io.pipeline'
+version '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+}
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}

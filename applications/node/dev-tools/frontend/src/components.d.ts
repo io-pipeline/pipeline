@@ -10,8 +10,10 @@ declare module 'vue' {
   export interface GlobalComponents {
     CodeBlock: typeof import('./components/CodeBlock.vue')['default']
     ConfigSelector: typeof import('./components/ConfigSelector.vue')['default']
+    DataSeedingEnhanced: typeof import('./components/DataSeedingEnhanced.vue')['default']
     HelloWorld: typeof import('./components/HelloWorld.vue')['default']
     ModuleRegistry: typeof import('./components/ModuleRegistry.vue')['default']
+    MongoDBConfig: typeof import('./components/MongoDBConfig.vue')['default']
     ProcessDocument: typeof import('./components/ProcessDocument.vue')['default']
     RequestExecutor: typeof import('./components/RequestExecutor.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

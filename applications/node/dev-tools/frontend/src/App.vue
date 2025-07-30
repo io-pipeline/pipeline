@@ -6,11 +6,31 @@
           <v-app-bar-title class="text-white">Pipeline Developer Tools</v-app-bar-title>
           <div class="text-caption text-white">Design, test, and prototype document processing pipelines</div>
         </div>
-        <v-btn
-          :icon="theme.global.name.value === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night'"
-          @click="toggleTheme"
-          color="white"
-        />
+        
+        <!-- Status Indicators -->
+        <div class="d-flex align-center">
+          <!-- Repository Service Status -->
+          <v-tooltip location="bottom">
+            <template v-slot:activator="{ props }">
+              <v-btn
+                v-bind="props"
+                :icon="getRepositoryIcon()"
+                :color="getRepositoryStatusColor()"
+                variant="text"
+                size="small"
+                @click="checkRepositoryHealth"
+                class="mr-2"
+              />
+            </template>
+            <span>{{ getRepositoryStatusText() }}</span>
+          </v-tooltip>
+          
+          <v-btn
+            :icon="theme.global.name.value === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night'"
+            @click="toggleTheme"
+            color="white"
+          />
+        </div>
       </v-container>
     </v-app-bar>
     
@@ -30,7 +50,10 @@
             <v-tab value="config" prepend-icon="mdi-cog-outline">
               Module Config
             </v-tab>
-            <v-tab value="data" prepend-icon="mdi-database-outline">
+            <v-tab v-if="!databaseStore.isConnected" value="data" prepend-icon="mdi-database-outline">
+              Data Seeding
+            </v-tab>
+            <v-tab v-else value="data-enhanced" prepend-icon="mdi-database-plus-outline">
               Data Seeding
             </v-tab>
             <v-tab value="process" prepend-icon="mdi-file-document-outline">
@@ -42,10 +65,10 @@
           </v-tabs>
         </v-sheet>
         
-        <v-tabs-window v-model="activeTab">
+        <v-tabs-window v-model="activeTab" :key="activeTab">
           <!-- Module Registry Tab -->
           <v-tabs-window-item value="registry">
-            <ModuleRegistry @navigate-to-config="activeTab = 'config'" />
+            <ModuleRegistry @navigate-to-config="() => nextTick(() => activeTab = 'config')" />
           </v-tabs-window-item>
           
           <!-- Module Config Tab -->
@@ -75,7 +98,7 @@
             />
           </v-tabs-window-item>
           
-          <!-- Data Seeding Tab -->
+          <!-- Data Seeding Tab (Basic) -->
           <v-tabs-window-item value="data">
             <div v-if="moduleStore.activeModule">
               <v-alert
@@ -100,6 +123,11 @@
             />
           </v-tabs-window-item>
           
+          <!-- Data Seeding Tab (Enhanced with MongoDB) -->
+          <v-tabs-window-item value="data-enhanced">
+            <DataSeedingEnhanced />
+          </v-tabs-window-item>
+          
           <!-- Process Document Tab -->
           <v-tabs-window-item value="process">
             <div v-if="moduleStore.activeModule">
@@ -120,8 +148,9 @@
           <!-- Admin Tab -->
           <v-tabs-window-item value="admin">
             <v-container fluid>
+              <!-- Storage Management -->
               <v-card>
-                <v-card-title>Admin Tools</v-card-title>
+                <v-card-title>Storage Management</v-card-title>
                 <v-card-subtitle>Administrative functions and debugging tools</v-card-subtitle>
                 
                 <v-divider />
@@ -187,19 +216,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useTheme } from 'vuetify'
 import ModuleRegistry from './components/ModuleRegistry.vue'
 import ConfigSelector from './components/ConfigSelector.vue'
 import UniversalConfigCard from './components/UniversalConfigCard.vue'
 import SeedDataBuilder from './components/SeedDataBuilder.vue'
 import ProcessDocument from './components/ProcessDocument.vue'
+import DataSeedingEnhanced from './components/DataSeedingEnhanced.vue'
 import { useModuleStore } from './stores/moduleStore'
 import { useConfigStore } from './stores/configStore'
+import { useDatabaseStore } from './stores/databaseStore'
 
 const theme = useTheme()
 const moduleStore = useModuleStore()
 const configStore = useConfigStore()
+const databaseStore = useDatabaseStore()
 
 // Toggle theme
 const toggleTheme = () => {
@@ -211,6 +243,10 @@ const toggleTheme = () => {
 onMounted(() => {
   moduleStore.init()
   configStore.init()
+  databaseStore.init()
+  checkRepositoryHealth()
+  // Check repository health periodically
+  setInterval(checkRepositoryHealth, 30000) // every 30 seconds
 })
 
 const activeTab = ref('registry')
@@ -218,6 +254,8 @@ const currentConfig = ref<any>({})
 const configSelector = ref<any>(null)
 const createdRequest = ref<any>(null)
 const storageCleared = ref('')
+const repositoryHealthy = ref(false)
+const repositoryChecking = ref(false)
 
 // Handle config selection
 const handleConfigSelected = (config: any) => {
@@ -240,14 +278,58 @@ const handleConfigUpdate = (newConfig: any) => {
 // Handle seed data request creation
 const handleRequestCreated = (request: any) => {
   createdRequest.value = request
-  // Switch to Process Document tab
-  activeTab.value = 'process'
+  // Switch to Process Document tab with proper timing
+  nextTick(() => {
+    activeTab.value = 'process'
+  })
 }
 
 // Handle request update from Process Document tab
 const handleRequestUpdated = (request: any) => {
   createdRequest.value = request
 }
+
+// Navigate to admin tab
+const navigateToAdmin = () => {
+  // Use nextTick to ensure proper component lifecycle
+  nextTick(() => {
+    activeTab.value = 'admin'
+  })
+}
+
+// Repository Service health check
+const checkRepositoryHealth = async () => {
+  repositoryChecking.value = true
+  try {
+    const response = await fetch('http://localhost:3000/api/repository-health')
+    const data = await response.json()
+    repositoryHealthy.value = data.healthy
+  } catch (error) {
+    repositoryHealthy.value = false
+  } finally {
+    repositoryChecking.value = false
+  }
+}
+
+// Repository status helpers
+const getRepositoryIcon = () => {
+  if (repositoryChecking.value) return 'mdi-loading'
+  if (repositoryHealthy.value) return 'mdi-server-network'
+  return 'mdi-server-network-off'
+}
+
+const getRepositoryStatusColor = () => {
+  if (repositoryChecking.value) return 'blue'
+  if (repositoryHealthy.value) return 'green'
+  return 'red'
+}
+
+const getRepositoryStatusText = () => {
+  if (repositoryChecking.value) return 'Checking repository service...'
+  if (repositoryHealthy.value) return 'Repository Service Connected'
+  return 'Repository Service Offline'
+}
+
 
 // Admin functions
 const clearAllStorage = () => {
@@ -276,5 +358,17 @@ const clearConfigStorage = () => {
 </script>
 
 <style scoped>
-/* Let Vuetify handle most styling */
+/* Rotating animation for launching state */
+.rotate-animation :deep(.v-icon) {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>
