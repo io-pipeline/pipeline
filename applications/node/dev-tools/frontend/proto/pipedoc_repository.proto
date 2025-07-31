@@ -31,6 +31,9 @@ service PipeDocRepository {
   // Export/Import operations
   rpc ExportPipeDocs(ExportPipeDocsRequest) returns (stream ExportChunk);
   rpc ImportPipeDocs(stream ImportChunk) returns (ImportPipeDocsResponse);
+  
+  // Format/Clear all data from the repository
+  rpc FormatRepository(FormatRepositoryRequest) returns (FormatRepositoryResponse);
 }
 
 // Repository-specific data models for storing test data
@@ -183,4 +186,20 @@ message ImportError {
   string document_name = 1;
   string error_message = 2;
   int32 line_number = 3;
+}
+
+// Format repository messages
+message FormatRepositoryRequest {
+  string confirmation = 1; // Must be "DELETE_REPOSITORY_DATA" to proceed
+  bool include_documents = 2; // Delete stored PipeDocs
+  bool include_requests = 3; // Delete stored ProcessRequests
+  bool dry_run = 4; // If true, return what would be deleted without deleting
+}
+
+message FormatRepositoryResponse {
+  bool success = 1;
+  string message = 2;
+  int32 documents_deleted = 3;
+  int32 requests_deleted = 4;
+  repeated string deleted_ids = 5; // Storage IDs deleted (only populated if dry_run=true)
 }

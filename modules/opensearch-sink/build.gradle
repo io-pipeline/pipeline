@@ -24,6 +24,9 @@ dependencies {
     // OpenSearch Java Client
     implementation 'org.opensearch.client:opensearch-java:3.2.0'
 
+    // Redis Client for distributed locking
+    implementation 'io.quarkus:quarkus-redis-client'
+
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
 

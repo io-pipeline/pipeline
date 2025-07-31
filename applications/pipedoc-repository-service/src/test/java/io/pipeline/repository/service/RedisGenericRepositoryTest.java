@@ -216,4 +216,51 @@ public class RedisGenericRepositoryTest {
                 .allMatch(any -> any.is(PipeDoc.class)), 
             is(true));
     }
+    
+    @Test
+    void testClearAllData() {
+        // Given - Store some test data
+        PipeDoc doc1 = PipeDoc.newBuilder().setId("clear-1").setTitle("Clear Test 1").build();
+        PipeDoc doc2 = PipeDoc.newBuilder().setId("clear-2").setTitle("Clear Test 2").build();
+        
+        String id1 = repository.store(doc1, Map.of()).await().indefinitely();
+        String id2 = repository.store(doc2, Map.of()).await().indefinitely();
+        
+        // Verify they exist
+        assertThat("Document 1 should exist", repository.exists(id1).await().indefinitely(), is(true));
+        assertThat("Document 2 should exist", repository.exists(id2).await().indefinitely(), is(true));
+        
+        // When - Clear all
+        Map<String, Long> deletedCounts = repository.clearAll(null)
+            .await().indefinitely();
+        
+        // Then
+        assertThat("Should have deleted counts", deletedCounts, is(notNullValue()));
+        assertThat("Should have deleted at least one type", deletedCounts.size(), is(greaterThanOrEqualTo(1)));
+        
+        // Verify deletion
+        assertThat("Document 1 should not exist after clear", repository.exists(id1).await().indefinitely(), is(false));
+        assertThat("Document 2 should not exist after clear", repository.exists(id2).await().indefinitely(), is(false));
+    }
+    
+    @Test
+    void testClearSpecificTypes() {
+        // Given - Store different types of data
+        PipeDoc doc = PipeDoc.newBuilder().setId("clear-type-1").setTitle("Type Test").build();
+        String docId = repository.store(doc, Map.of()).await().indefinitely();
+        
+        // Get the type URL for PipeDoc
+        String pipeDocTypeUrl = Any.pack(doc).getTypeUrl();
+        
+        // When - Clear only PipeDoc type
+        Map<String, Long> deletedCounts = repository.clearAll(List.of(pipeDocTypeUrl))
+            .await().indefinitely();
+        
+        // Then
+        assertThat("Should have deleted counts for requested type", deletedCounts, hasKey(pipeDocTypeUrl));
+        assertThat("Should have deleted at least one document", deletedCounts.get(pipeDocTypeUrl), is(greaterThanOrEqualTo(1L)));
+        
+        // Verify deletion
+        assertThat("Document should not exist after clear", repository.exists(docId).await().indefinitely(), is(false));
+    }
 }

@@ -64,6 +64,9 @@ service FilesystemService {
   
   // Search operations
   rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
+  
+  // Format operations for filesystem
+  rpc FormatFilesystem(FormatFilesystemRequest) returns (FormatFilesystemResponse);
 }
 
 // Request and Response messages
@@ -160,4 +163,20 @@ message SearchNodesResponse {
   repeated Node nodes = 1;
   string next_page_token = 2;
   int32 total_count = 3;
+}
+
+// Format filesystem messages
+message FormatFilesystemRequest {
+  string confirmation = 1; // Must be "DELETE_FILESYSTEM_DATA" to proceed
+  repeated string type_urls = 2; // Optional: only delete nodes with these payload types
+  bool dry_run = 3; // If true, return what would be deleted without deleting
+}
+
+message FormatFilesystemResponse {
+  bool success = 1;
+  string message = 2;
+  int32 nodes_deleted = 3;
+  int32 folders_deleted = 4;
+  map<string, int32> deleted_by_type = 5; // Count by payload type URL
+  repeated string deleted_paths = 6; // Only populated if dry_run=true
 }

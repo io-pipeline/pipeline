@@ -93,4 +93,12 @@ public interface GenericRepositoryService {
      * Batch retrieve with automatic type detection
      */
     Uni<java.util.Map<String, Any>> batchGetAny(java.util.List<String> ids);
+    
+    /**
+     * Clear all data from the repository.
+     * This will delete all keys under the configured prefix.
+     * @param typeUrls Optional list of type URLs to filter deletion. If empty, deletes all types.
+     * @return Count of deleted items by type
+     */
+    Uni<java.util.Map<String, Long>> clearAll(java.util.List<String> typeUrls);
 }

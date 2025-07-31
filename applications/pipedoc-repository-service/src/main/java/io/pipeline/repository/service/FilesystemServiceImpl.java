@@ -7,6 +7,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.pipeline.repository.filesystem.*;
 import io.pipeline.repository.redis.RedisFilesystemNode;
+import io.pipeline.repository.config.RedisKeyConfig;
 import io.quarkus.grpc.GrpcService;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.hash.ReactiveHashCommands;
@@ -29,9 +30,9 @@ import java.util.stream.Collectors;
 public class FilesystemServiceImpl implements FilesystemService {
     
     private static final Logger LOG = Logger.getLogger(FilesystemServiceImpl.class);
-    private static final String NODE_PREFIX = "fs:node:";
-    private static final String CHILDREN_PREFIX = "fs:children:";
-    private static final String ROOT_NODES = "fs:roots";
+    private static final String NODE_PREFIX = "node:";
+    private static final String CHILDREN_PREFIX = "children:";
+    private static final String ROOT_NODES = "roots";
     
     @Inject
     ReactiveRedisDataSource redis;
@@ -41,6 +42,9 @@ public class FilesystemServiceImpl implements FilesystemService {
     
     @Inject
     SvgValidator svgValidator;
+    
+    @Inject
+    RedisKeyConfig keyConfig;
     
     private ReactiveHashCommands<String, String, String> hash() {
         return redis.hash(String.class, String.class, String.class);
@@ -52,6 +56,19 @@ public class FilesystemServiceImpl implements FilesystemService {
     
     private ReactiveKeyCommands<String> keys() {
         return redis.key(String.class);
+    }
+    
+    // Helper methods for jailed keys
+    private String nodeKey(String nodeId) {
+        return keyConfig.filesystemKey(NODE_PREFIX + nodeId);
+    }
+    
+    private String childrenKey(String parentId) {
+        return keyConfig.filesystemKey(CHILDREN_PREFIX + parentId);
+    }
+    
+    private String rootNodesKey() {
+        return keyConfig.filesystemKey(ROOT_NODES);
     }
     
     @Override
@@ -134,11 +151,11 @@ public class FilesystemServiceImpl implements FilesystemService {
             .flatMap(v -> {
                 // Update parent's children set
                 if (node.getParentId() != null) {
-                    return set().sadd(CHILDREN_PREFIX + node.getParentId(), nodeId)
+                    return set().sadd(childrenKey(node.getParentId()), nodeId)
                         .map(x -> toProto(node));
                 } else {
                     // Add to root nodes
-                    return set().sadd(ROOT_NODES, nodeId)
+                    return set().sadd(rootNodesKey(), nodeId)
                         .map(x -> toProto(node));
                 }
             });
@@ -172,7 +189,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         Uni<Set<String>> childIds;
         if (parentId == null || parentId.isEmpty()) {
             // Get root nodes
-            childIds = set().smembers(ROOT_NODES);
+            childIds = set().smembers(rootNodesKey());
         } else {
             // Validate parent exists
             childIds = validateNodeExists(parentId)
@@ -182,7 +199,7 @@ public class FilesystemServiceImpl implements FilesystemService {
                             Status.NOT_FOUND.withDescription("Parent node not found")
                         );
                     }
-                    return set().smembers(CHILDREN_PREFIX + parentId);
+                    return set().smembers(childrenKey(parentId));
                 });
         }
         
@@ -318,7 +335,7 @@ public class FilesystemServiceImpl implements FilesystemService {
     // Helper methods
     
     private Uni<Void> storeNode(RedisFilesystemNode node) {
-        String nodeKey = NODE_PREFIX + node.getId();
+        String nodeKey = nodeKey(node.getId());
         Map<String, String> nodeData = new HashMap<>();
         
         nodeData.put("id", node.getId());
@@ -343,7 +360,7 @@ public class FilesystemServiceImpl implements FilesystemService {
     }
     
     private Uni<RedisFilesystemNode> loadNode(String nodeId) {
-        String nodeKey = NODE_PREFIX + nodeId;
+        String nodeKey = nodeKey(nodeId);
         
         return hash().hgetall(nodeKey)
             .map(data -> {
@@ -415,7 +432,7 @@ public class FilesystemServiceImpl implements FilesystemService {
     }
     
     private Uni<Boolean> validateNodeExists(String nodeId) {
-        return redis.key(String.class).exists(NODE_PREFIX + nodeId);
+        return redis.key(String.class).exists(nodeKey(nodeId));
     }
     
     private Uni<DeleteNodeResponse> deleteNodeRecursive(RedisFilesystemNode node, boolean recursive) {
@@ -423,7 +440,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         
         if ("FOLDER".equals(node.getType())) {
             // Get children
-            return set().smembers(CHILDREN_PREFIX + node.getId())
+            return set().smembers(childrenKey(node.getId()))
                 .flatMap(childIds -> {
                     if (!childIds.isEmpty() && !recursive) {
                         throw new StatusRuntimeException(
@@ -472,14 +489,14 @@ public class FilesystemServiceImpl implements FilesystemService {
             .flatMap(v -> {
                 // Remove from parent's children or root nodes
                 if (node.getParentId() != null) {
-                    return set().srem(CHILDREN_PREFIX + node.getParentId(), node.getId());
+                    return set().srem(childrenKey(node.getParentId()), node.getId());
                 } else {
-                    return set().srem(ROOT_NODES, node.getId());
+                    return set().srem(rootNodesKey(), node.getId());
                 }
             })
             .flatMap(v -> {
                 // Delete the node data
-                return redis.key(String.class).del(NODE_PREFIX + node.getId())
+                return redis.key(String.class).del(nodeKey(node.getId()))
                     .map(count -> count > 0);
             });
     }
@@ -638,20 +655,20 @@ public class FilesystemServiceImpl implements FilesystemService {
                         // Remove from old parent's children
                         Uni<Void> removeFromOldParent;
                         if (oldParentId != null && !oldParentId.isEmpty()) {
-                            removeFromOldParent = set().srem(CHILDREN_PREFIX + oldParentId, node.getId())
+                            removeFromOldParent = set().srem(childrenKey(oldParentId), node.getId())
                                 .replaceWithVoid();
                         } else {
-                            removeFromOldParent = set().srem(ROOT_NODES, node.getId())
+                            removeFromOldParent = set().srem(rootNodesKey(), node.getId())
                                 .replaceWithVoid();
                         }
                         
                         // Add to new parent's children
                         Uni<Void> addToNewParent;
                         if (request.getNewParentId() != null && !request.getNewParentId().isEmpty()) {
-                            addToNewParent = set().sadd(CHILDREN_PREFIX + request.getNewParentId(), node.getId())
+                            addToNewParent = set().sadd(childrenKey(request.getNewParentId()), node.getId())
                                 .replaceWithVoid();
                         } else {
-                            addToNewParent = set().sadd(ROOT_NODES, node.getId())
+                            addToNewParent = set().sadd(rootNodesKey(), node.getId())
                                 .replaceWithVoid();
                         }
                         
@@ -769,10 +786,10 @@ public class FilesystemServiceImpl implements FilesystemService {
             .flatMap(v -> {
                 // Add to parent's children or root nodes
                 if (targetParentId != null && !targetParentId.isEmpty()) {
-                    return set().sadd(CHILDREN_PREFIX + targetParentId, newNodeId)
+                    return set().sadd(childrenKey(targetParentId), newNodeId)
                         .map(x -> toProto(newNode));
                 } else {
-                    return set().sadd(ROOT_NODES, newNodeId)
+                    return set().sadd(rootNodesKey(), newNodeId)
                         .map(x -> toProto(newNode));
                 }
             });
@@ -820,7 +837,7 @@ public class FilesystemServiceImpl implements FilesystemService {
      * Helper to get child nodes directly as RedisFilesystemNode objects.
      */
     private Uni<List<RedisFilesystemNode>> getChildNodes(String parentId) {
-        return set().smembers(CHILDREN_PREFIX + parentId)
+        return set().smembers(childrenKey(parentId))
             .flatMap(childIds -> {
                 if (childIds.isEmpty()) {
                     return Uni.createFrom().item(Collections.emptyList());
@@ -938,7 +955,7 @@ public class FilesystemServiceImpl implements FilesystemService {
                 });
         } else {
             // Get tree starting from all root nodes
-            return set().smembers(ROOT_NODES)
+            return set().smembers(rootNodesKey())
                 .flatMap(rootIds -> {
                     if (rootIds.isEmpty()) {
                         return Uni.createFrom().item(
@@ -995,7 +1012,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         
         // Only add children if we haven't reached max depth and node is a folder
         if (currentDepth < maxDepth && "FOLDER".equals(node.getType())) {
-            return set().smembers(CHILDREN_PREFIX + node.getId())
+            return set().smembers(childrenKey(node.getId()))
                 .flatMap(childIds -> {
                     if (childIds.isEmpty()) {
                         return Uni.createFrom().item(treeBuilder.build());
@@ -1039,7 +1056,7 @@ public class FilesystemServiceImpl implements FilesystemService {
      * Builds a list of TreeNode children for a given parent node.
      */
     private Uni<List<TreeNode>> buildChildrenTreeNodes(RedisFilesystemNode parentNode, int currentDepth, int maxDepth) {
-        return set().smembers(CHILDREN_PREFIX + parentNode.getId())
+        return set().smembers(childrenKey(parentNode.getId()))
             .flatMap(childIds -> {
                 if (childIds.isEmpty() || currentDepth >= maxDepth) {
                     return Uni.createFrom().item(Collections.emptyList());
@@ -1097,8 +1114,9 @@ public class FilesystemServiceImpl implements FilesystemService {
         List<String> searchPaths = request.getPathsList();
         int limit = request.getPageSize() > 0 ? request.getPageSize() : 100; // Default to 100 results
         
-        // Get all node keys
-        return keys().keys(NODE_PREFIX + "*")
+        // Get all node keys with jailed prefix
+        String keyPattern = keyConfig.filesystemKey(NODE_PREFIX) + "*";
+        return keys().keys(keyPattern)
             .flatMap(nodeKeys -> {
                 if (nodeKeys.isEmpty()) {
                     return Uni.createFrom().item(
@@ -1111,7 +1129,9 @@ public class FilesystemServiceImpl implements FilesystemService {
                 // Load and filter nodes
                 List<Uni<Node>> searchUnis = new ArrayList<>();
                 for (String nodeKey : nodeKeys) {
-                    String nodeId = nodeKey.substring(NODE_PREFIX.length());
+                    // Extract nodeId by removing the full prefix
+                    String fullPrefix = keyConfig.filesystemKey(NODE_PREFIX);
+                    String nodeId = nodeKey.substring(fullPrefix.length());
                     
                     searchUnis.add(
                         loadNode(nodeId)
@@ -1189,5 +1209,120 @@ public class FilesystemServiceImpl implements FilesystemService {
                             .build();
                     });
             });
+    }
+    
+    @Override
+    public Uni<FormatFilesystemResponse> formatFilesystem(FormatFilesystemRequest request) {
+        // Validate confirmation
+        if (!"DELETE_FILESYSTEM_DATA".equals(request.getConfirmation())) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Confirmation must be 'DELETE_FILESYSTEM_DATA'")
+                )
+            );
+        }
+        
+        List<String> typeUrls = request.getTypeUrlsList();
+        boolean dryRun = request.getDryRun();
+        
+        // Get all node keys with jailed prefix
+        String keyPattern = keyConfig.filesystemKey(NODE_PREFIX) + "*";
+        return keys().keys(keyPattern)
+            .flatMap(nodeKeys -> {
+                if (nodeKeys.isEmpty()) {
+                    return Uni.createFrom().item(
+                        FormatFilesystemResponse.newBuilder()
+                            .setSuccess(true)
+                            .setMessage(dryRun ? "No nodes found to delete" : "No nodes to delete")
+                            .setNodesDeleted(0)
+                            .setFoldersDeleted(0)
+                            .build()
+                    );
+                }
+                
+                // Track what would be deleted
+                Map<String, Integer> deletedByType = new HashMap<>();
+                List<String> deletedPaths = new ArrayList<>();
+                int[] counts = new int[]{0, 0}; // [nodes, folders]
+                
+                // Process each node
+                List<Uni<Boolean>> processUnis = new ArrayList<>();
+                for (String nodeKey : nodeKeys) {
+                    // Extract nodeId by removing the full prefix
+                    String fullPrefix = keyConfig.filesystemKey(NODE_PREFIX);
+                    String nodeId = nodeKey.substring(fullPrefix.length());
+                    
+                    processUnis.add(
+                        loadNode(nodeId)
+                            .flatMap(node -> {
+                                if (node == null) return Uni.createFrom().item(false);
+                                
+                                // Check if we should delete this node
+                                boolean shouldDelete = true;
+                                if (typeUrls != null && !typeUrls.isEmpty() && node.getPayloadTypeUrl() != null) {
+                                    shouldDelete = typeUrls.contains(node.getPayloadTypeUrl());
+                                }
+                                
+                                if (!shouldDelete) {
+                                    return Uni.createFrom().item(false);
+                                }
+                                
+                                // Track what we're deleting
+                                if (dryRun) {
+                                    String nodePath = node.getPath() + node.getName();
+                                    deletedPaths.add(nodePath);
+                                }
+                                
+                                if (node.getType().equals(Node.NodeType.FOLDER.name())) {
+                                    counts[1]++;
+                                } else {
+                                    counts[0]++;
+                                    if (node.getPayloadTypeUrl() != null) {
+                                        deletedByType.merge(node.getPayloadTypeUrl(), 1, Integer::sum);
+                                    }
+                                }
+                                
+                                // Actually delete if not dry run
+                                if (!dryRun) {
+                                    return deleteNodeInternal(node.getId(), true);
+                                }
+                                
+                                return Uni.createFrom().item(true);
+                            })
+                    );
+                }
+                
+                return Uni.combine().all().unis(processUnis)
+                    .collectFailures()
+                    .with(results -> {
+                        String message = dryRun ? 
+                            String.format("Would delete %d files and %d folders", counts[0], counts[1]) :
+                            String.format("Formatted filesystem. Deleted %d files and %d folders", counts[0], counts[1]);
+                        
+                        FormatFilesystemResponse.Builder response = FormatFilesystemResponse.newBuilder()
+                            .setSuccess(true)
+                            .setMessage(message)
+                            .setNodesDeleted(counts[0])
+                            .setFoldersDeleted(counts[1])
+                            .putAllDeletedByType(deletedByType);
+                        
+                        if (dryRun) {
+                            response.addAllDeletedPaths(deletedPaths);
+                        }
+                        
+                        return response.build();
+                    });
+            });
+    }
+    
+    private Uni<Boolean> deleteNodeInternal(String nodeId, boolean recursive) {
+        // This is called internally by formatFilesystem to delete nodes
+        DeleteNodeRequest request = DeleteNodeRequest.newBuilder()
+            .setId(nodeId)
+            .setRecursive(recursive)
+            .build();
+        
+        return deleteNode(request)
+            .map(response -> response.getSuccess());
     }
 }

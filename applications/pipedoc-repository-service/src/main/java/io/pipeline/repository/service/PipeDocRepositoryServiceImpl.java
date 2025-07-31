@@ -172,14 +172,9 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                 int startIndex = 0;
                 
                 // Simple pagination using page token as index
-                if (request.getPageToken() != null && !request.getPageToken().isEmpty()) {
-                    try {
-                        startIndex = Integer.parseInt(request.getPageToken());
-                    } catch (NumberFormatException e) {
-                        // Invalid page token, start from beginning
-                    }
-                }
-                
+                request.getPageToken();
+                startIndex = getStartIndex(request, startIndex);
+
                 int endIndex = Math.min(startIndex + pageSize, ids.size());
                 List<String> pageIds = ids.subList(startIndex, endIndex);
                 
@@ -229,7 +224,18 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                     });
             });
     }
-    
+
+    private static int getStartIndex(ListPipeDocsRequest request, int startIndex) {
+        if (!request.getPageToken().isEmpty()) {
+            try {
+                startIndex = Integer.parseInt(request.getPageToken());
+            } catch (NumberFormatException e) {
+                // Invalid page token, start from beginning
+            }
+        }
+        return startIndex;
+    }
+
     @Override
     public Uni<SaveProcessRequestResponse> saveProcessRequest(SaveProcessRequestRequest request) {
         try {
@@ -305,8 +311,8 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                 // Similar pagination as listPipeDocs
                 int pageSize = request.getPageSize() > 0 ? request.getPageSize() : 100;
                 int startIndex = 0;
-                
-                if (request.getPageToken() != null && !request.getPageToken().isEmpty()) {
+
+                if (!request.getPageToken().isEmpty()) {
                     try {
                         startIndex = Integer.parseInt(request.getPageToken());
                     } catch (NumberFormatException e) {
@@ -469,5 +475,103 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     public Uni<ImportPipeDocsResponse> importPipeDocs(Multi<ImportChunk> request) {
         // TODO: Implement import
         return Uni.createFrom().failure(new UnsupportedOperationException("Not implemented yet"));
+    }
+    
+    @Override
+    public Uni<FormatRepositoryResponse> formatRepository(FormatRepositoryRequest request) {
+        // Validate confirmation
+        if (!"DELETE_REPOSITORY_DATA".equals(request.getConfirmation())) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Confirmation must be 'DELETE_REPOSITORY_DATA'")
+                )
+            );
+        }
+        
+        boolean includeDocuments = request.getIncludeDocuments();
+        boolean includeRequests = request.getIncludeRequests();
+        boolean dryRun = request.getDryRun();
+        
+        // Prepare type URLs to clear
+        List<String> typeUrlsToClear = new ArrayList<>();
+        if (includeDocuments) {
+            typeUrlsToClear.add(Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl());
+        }
+        if (includeRequests) {
+            typeUrlsToClear.add(Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl());
+        }
+        
+        // If neither is specified, clear both
+        if (!includeDocuments && !includeRequests) {
+            typeUrlsToClear.add(Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl());
+            typeUrlsToClear.add(Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl());
+        }
+        
+        if (dryRun) {
+            // For dry run, count what would be deleted
+            List<Uni<List<String>>> countUnis = new ArrayList<>();
+            
+            if (includeDocuments || !includeRequests) {
+                countUnis.add(repository.listByType(PipeDoc.class));
+            }
+            if (includeRequests || !includeDocuments) {
+                countUnis.add(repository.listByType(ModuleProcessRequest.class));
+            }
+            
+            return Uni.combine().all().unis(countUnis)
+                .collectFailures()
+                .with(results -> {
+                    int docsCount = 0;
+                    int requestsCount = 0;
+                    List<String> deletedIds = new ArrayList<>();
+                    
+                    int index = 0;
+                    if (includeDocuments || !includeRequests) {
+                        List<String> docIds = (List<String>) results.get(index++);
+                        docsCount = docIds.size();
+                        deletedIds.addAll(docIds);
+                    }
+                    if (includeRequests || !includeDocuments) {
+                        List<String> requestIds = (List<String>) results.get(index);
+                        requestsCount = requestIds.size();
+                        deletedIds.addAll(requestIds);
+                    }
+                    
+                    String message = String.format("Would delete %d documents and %d requests", docsCount, requestsCount);
+                    
+                    return FormatRepositoryResponse.newBuilder()
+                        .setSuccess(true)
+                        .setMessage(message)
+                        .setDocumentsDeleted(docsCount)
+                        .setRequestsDeleted(requestsCount)
+                        .addAllDeletedIds(deletedIds)
+                        .build();
+                });
+        } else {
+            // Actually delete
+            return repository.clearAll(typeUrlsToClear)
+                .map(deletedCounts -> {
+                    String pipeDocTypeUrl = Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl();
+                    String requestTypeUrl = Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl();
+                    
+                    int docsDeleted = deletedCounts.getOrDefault(pipeDocTypeUrl, 0L).intValue();
+                    int requestsDeleted = deletedCounts.getOrDefault(requestTypeUrl, 0L).intValue();
+                    
+                    String message = String.format("Deleted %d documents and %d requests", docsDeleted, requestsDeleted);
+                    
+                    return FormatRepositoryResponse.newBuilder()
+                        .setSuccess(true)
+                        .setMessage(message)
+                        .setDocumentsDeleted(docsDeleted)
+                        .setRequestsDeleted(requestsDeleted)
+                        .build();
+                })
+                .onFailure().transform(e -> {
+                    LOG.error("Error formatting repository", e);
+                    return new StatusRuntimeException(
+                        Status.INTERNAL.withDescription("Failed to format repository: " + e.getMessage())
+                    );
+                });
+        }
     }
 }

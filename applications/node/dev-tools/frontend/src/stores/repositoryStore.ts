@@ -1,8 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { createRepositoryHealthClient } from '../services/connectService'
+import { createRepositoryHealthClient, filesystemService } from '../services/connectService'
 import type { PromiseClient } from '@connectrpc/connect'
 import type { Health } from '../gen/health/v1/health_pb'
+import { create } from '@bufbuild/protobuf'
+import { 
+  CreateNodeRequestSchema,
+  GetChildrenRequestSchema,
+  Node_NodeType
+} from '../gen/filesystem_service_pb'
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'error' | 'unknown'
 
@@ -106,6 +112,92 @@ export const useRepositoryStore = defineStore('repository', () => {
     }
   }
   
+  // Save file to repository
+  async function saveFile(path: string, content: string, mimeType = 'application/octet-stream') {
+    if (!isConnected.value) {
+      throw new Error('Repository not connected')
+    }
+    
+    try {
+      // Split path into parts
+      const pathParts = path.split('/')
+      const filename = pathParts.pop() || 'document.bin'
+      
+      // Create directories if needed
+      let currentParentId = ''
+      for (const part of pathParts) {
+        if (!part) continue
+        
+        console.log(`Checking/creating directory: ${part} with parentId: ${currentParentId}`)
+        
+        // Check if directory exists
+        const listRequest = create(GetChildrenRequestSchema, {
+          nodeId: currentParentId
+        })
+        
+        const listResponse = await filesystemService.getChildren(listRequest)
+        console.log('List response:', listResponse)
+        // The response has 'nodes' not 'children'
+        const existingDir = listResponse.nodes?.find(n => n.name === part && n.type === Node_NodeType.FOLDER)
+        
+        if (existingDir) {
+          currentParentId = existingDir.id
+        } else {
+          // Create directory
+          const createDirRequest = create(CreateNodeRequestSchema, {
+            parent_id: currentParentId,
+            name: part,
+            type: Node_NodeType.FOLDER
+          })
+          
+          const createdDir = await filesystemService.createNode(createDirRequest)
+          console.log('Created directory:', createdDir)
+          
+          if (!createdDir || !createdDir.id) {
+            throw new Error(`Failed to create directory: ${part}`)
+          }
+          currentParentId = createdDir.id
+        }
+      }
+      
+      // Create the file
+      // Import Any type
+      const { create: createAny } = await import('@bufbuild/protobuf')
+      const { AnySchema } = await import('@bufbuild/protobuf/wkt')
+      
+      // The content is base64 encoded ModuleProcessRequest protobuf binary
+      // Convert it back to bytes
+      const binaryData = Uint8Array.from(atob(content), c => c.charCodeAt(0))
+      
+      // Create Any message with the actual protobuf type
+      const anyPayload = create(AnySchema, {
+        typeUrl: 'type.googleapis.com/io.pipeline.process.ModuleProcessRequest',
+        value: binaryData  // This is already the serialized ModuleProcessRequest
+      })
+      
+      const createFileRequest = create(CreateNodeRequestSchema, {
+        parent_id: currentParentId,
+        name: filename,
+        type: Node_NodeType.FILE,
+        payload: anyPayload,
+        metadata: {
+          mimeType: mimeType
+        }
+      })
+      
+      const createdFile = await filesystemService.createNode(createFileRequest)
+      console.log('Created file:', createdFile)
+      
+      if (!createdFile) {
+        throw new Error(`Failed to create file: ${filename}`)
+      }
+      return createdFile
+    } catch (error) {
+      console.error('Failed to save file:', error)
+      throw error
+    }
+  }
+  
   function scheduleReconnect() {
     // Don't schedule if no address is configured
     if (!hasConfiguredAddress.value) return
@@ -192,6 +284,7 @@ export const useRepositoryStore = defineStore('repository', () => {
     setConnectionStatus,
     checkHealth,
     connect,
-    disconnect
+    disconnect,
+    saveFile
   }
 })

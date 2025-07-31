@@ -9,6 +9,7 @@ import io.quarkus.redis.datasource.keys.ReactiveKeyCommands;
 import io.quarkus.redis.datasource.set.ReactiveSetCommands;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.smallrye.mutiny.Uni;
+import io.pipeline.repository.config.RedisKeyConfig;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
  * Redis implementation of the generic repository.
  * Uses claim check pattern for efficient storage of large protobuf messages.
  * Provides both typed and Any-based operations for maximum flexibility.
+ * All keys are jailed under the configured pipeline prefix.
  */
 @ApplicationScoped
 public class RedisGenericRepository implements GenericRepositoryService {
@@ -33,6 +35,9 @@ public class RedisGenericRepository implements GenericRepositoryService {
     
     @Inject
     ReactiveRedisDataSource redis;
+    
+    @Inject
+    RedisKeyConfig keyConfig;
     
     private ReactiveHashCommands<String, String, String> hash() {
         return redis.hash(String.class, String.class, String.class);
@@ -48,6 +53,23 @@ public class RedisGenericRepository implements GenericRepositoryService {
     
     private ReactiveKeyCommands<String> keys() {
         return redis.key(String.class);
+    }
+    
+    // Helper methods for jailed keys
+    private String metadataKey(String id) {
+        return keyConfig.filesystemKey(METADATA_PREFIX + id);
+    }
+    
+    private String payloadKey(String id) {
+        return keyConfig.filesystemKey(PAYLOAD_PREFIX + id);
+    }
+    
+    private String typeIndexKey(String typeUrl) {
+        return keyConfig.filesystemKey(TYPE_INDEX_PREFIX + typeUrl);
+    }
+    
+    private String allIdsKey() {
+        return keyConfig.filesystemKey(ALL_IDS_SET);
     }
     
     @Override
@@ -75,21 +97,21 @@ public class RedisGenericRepository implements GenericRepositoryService {
         })
         .flatMap(fullMetadata -> {
             // Store payload - store the wrapped message's value, not the Any wrapper
-            String payloadKey = PAYLOAD_PREFIX + id;
+            String payloadKey = payloadKey(id);
             return value().set(payloadKey, message.getValue().toByteArray())
                 .flatMap(v -> {
                     // Store metadata
-                    String metaKey = METADATA_PREFIX + id;
+                    String metaKey = metadataKey(id);
                     return hash().hset(metaKey, fullMetadata);
                 })
                 .flatMap(v -> {
                     // Add to type index
-                    String typeKey = TYPE_INDEX_PREFIX + fullMetadata.get("_typeUrl");
+                    String typeKey = typeIndexKey(fullMetadata.get("_typeUrl"));
                     return set().sadd(typeKey, id);
                 })
                 .flatMap(v -> {
                     // Add to all IDs set
-                    return set().sadd(ALL_IDS_SET, id);
+                    return set().sadd(allIdsKey(), id);
                 })
                 .map(v -> id);
         });
@@ -114,8 +136,8 @@ public class RedisGenericRepository implements GenericRepositoryService {
     
     @Override
     public Uni<Any> getAny(String id) {
-        String payloadKey = PAYLOAD_PREFIX + id;
-        String metaKey = METADATA_PREFIX + id;
+        String payloadKey = payloadKey(id);
+        String metaKey = metadataKey(id);
         
         // First get metadata to know the type
         return hash().hget(metaKey, "_typeUrl")
@@ -149,7 +171,7 @@ public class RedisGenericRepository implements GenericRepositoryService {
                 }
                 
                 // Get existing metadata
-                String metaKey = METADATA_PREFIX + id;
+                String metaKey = metadataKey(id);
                 return hash().hgetall(metaKey)
                     .flatMap(existingMeta -> {
                         // Update metadata
@@ -161,7 +183,7 @@ public class RedisGenericRepository implements GenericRepositoryService {
                         updatedMeta.put("_size", String.valueOf(message.getSerializedSize()));
                         
                         // Update payload - store the wrapped message's value, not the Any wrapper
-                        String payloadKey = PAYLOAD_PREFIX + id;
+                        String payloadKey = payloadKey(id);
                         return value().set(payloadKey, message.getValue().toByteArray())
                             .flatMap(v -> hash().hset(metaKey, updatedMeta))
                             .map(v -> true);
@@ -171,8 +193,8 @@ public class RedisGenericRepository implements GenericRepositoryService {
     
     @Override
     public Uni<Boolean> delete(String id) {
-        String payloadKey = PAYLOAD_PREFIX + id;
-        String metaKey = METADATA_PREFIX + id;
+        String payloadKey = payloadKey(id);
+        String metaKey = metadataKey(id);
         
         // Get type for index cleanup
         return hash().hget(metaKey, "_typeUrl")
@@ -182,9 +204,9 @@ public class RedisGenericRepository implements GenericRepositoryService {
                 }
                 
                 // Delete from type index
-                String typeKey = TYPE_INDEX_PREFIX + typeUrl;
+                String typeKey = typeIndexKey(typeUrl);
                 return set().srem(typeKey, id)
-                    .flatMap(v -> set().srem(ALL_IDS_SET, id))
+                    .flatMap(v -> set().srem(allIdsKey(), id))
                     .flatMap(v -> keys().del(payloadKey, metaKey))
                     .map(deletedCount -> deletedCount > 0);
             });
@@ -204,7 +226,7 @@ public class RedisGenericRepository implements GenericRepositoryService {
     
     @Override
     public Uni<List<String>> listByTypeUrl(String typeUrl) {
-        String typeKey = TYPE_INDEX_PREFIX + typeUrl;
+        String typeKey = typeIndexKey(typeUrl);
         return set().smembers(typeKey)
             .map(members -> new ArrayList<>(members));
     }
@@ -212,12 +234,12 @@ public class RedisGenericRepository implements GenericRepositoryService {
     @Override
     public Uni<List<String>> searchByMetadata(Map<String, String> metadataFilters) {
         // Get all IDs and filter by metadata
-        return set().smembers(ALL_IDS_SET)
+        return set().smembers(allIdsKey())
             .flatMap(ids -> {
                 // Check each ID's metadata
                 List<Uni<String>> checks = ids.stream()
                     .map(id -> {
-                        String metaKey = METADATA_PREFIX + id;
+                        String metaKey = metadataKey(id);
                         return hash().hgetall(metaKey)
                             .map(meta -> {
                                 // Check if all filters match
@@ -240,26 +262,26 @@ public class RedisGenericRepository implements GenericRepositoryService {
     
     @Override
     public Uni<Map<String, String>> getMetadata(String id) {
-        String metaKey = METADATA_PREFIX + id;
+        String metaKey = metadataKey(id);
         return hash().hgetall(metaKey);
     }
     
     @Override
     public Uni<Boolean> exists(String id) {
-        String metaKey = METADATA_PREFIX + id;
+        String metaKey = metadataKey(id);
         return keys().exists(metaKey);
     }
     
     @Override
     public Uni<Long> getSize(String id) {
-        String metaKey = METADATA_PREFIX + id;
+        String metaKey = metadataKey(id);
         return hash().hget(metaKey, "_size")
             .map(size -> size != null ? Long.parseLong(size) : -1L);
     }
     
     @Override
     public Uni<String> getTypeUrl(String id) {
-        String metaKey = METADATA_PREFIX + id;
+        String metaKey = metadataKey(id);
         return hash().hget(metaKey, "_typeUrl");
     }
     
@@ -303,6 +325,79 @@ public class RedisGenericRepository implements GenericRepositoryService {
             return (T) method.invoke(null);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get default instance for " + messageClass.getName(), e);
+        }
+    }
+    
+    @Override
+    public Uni<Map<String, Long>> clearAll(List<String> typeUrls) {
+        if (typeUrls != null && !typeUrls.isEmpty()) {
+            // Clear specific types
+            List<Uni<Long>> clearOps = typeUrls.stream()
+                .map(typeUrl -> {
+                    String typeKey = typeIndexKey(typeUrl);
+                    return set().smembers(typeKey)
+                        .flatMap(ids -> {
+                            if (ids.isEmpty()) {
+                                return Uni.createFrom().item(0L);
+                            }
+                            
+                            // Delete all nodes of this type
+                            List<Uni<Boolean>> deleteOps = ids.stream()
+                                .map(this::delete)
+                                .collect(Collectors.toList());
+                            
+                            return Uni.combine().all().unis(deleteOps)
+                                .with(results -> results.stream()
+                                    .filter(Boolean.class::cast)
+                                    .count());
+                        });
+                })
+                .collect(Collectors.toList());
+            
+            return Uni.combine().all().unis(clearOps)
+                .with(results -> {
+                    Map<String, Long> resultMap = new HashMap<>();
+                    for (int i = 0; i < typeUrls.size(); i++) {
+                        resultMap.put(typeUrls.get(i), (Long) results.get(i));
+                    }
+                    return resultMap;
+                });
+        } else {
+            // Clear all data
+            return set().smembers(allIdsKey())
+                .flatMap(allIds -> {
+                    if (allIds.isEmpty()) {
+                        return Uni.createFrom().item(new HashMap<>());
+                    }
+                    
+                    // Get type counts before deletion
+                    Map<String, Long> typeCounts = new HashMap<>();
+                    
+                    // Collect all unique type URLs
+                    // First, get all type URLs to count by type
+                    List<Uni<String>> typeUrlOps = allIds.stream()
+                        .map(this::getTypeUrl)
+                        .collect(Collectors.toList());
+                    
+                    return Uni.combine().all().unis(typeUrlOps)
+                        .withUni(typeUrlResults -> {
+                            // Count by type
+                            for (Object typeUrl : typeUrlResults) {
+                                if (typeUrl != null) {
+                                    String typeUrlStr = typeUrl.toString();
+                                    typeCounts.merge(typeUrlStr, 1L, Long::sum);
+                                }
+                            }
+                            
+                            // Now delete all nodes
+                            List<Uni<Boolean>> deleteOps = allIds.stream()
+                                .map(this::delete)
+                                .collect(Collectors.toList());
+                            
+                            return Uni.combine().all().unis(deleteOps)
+                                .with(results -> typeCounts);
+                        });
+                });
         }
     }
 }

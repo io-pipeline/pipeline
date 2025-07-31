@@ -6,6 +6,7 @@ import io.pipeline.repository.filesystem.*;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @QuarkusTest
 public class FilesystemServiceTest {
+    
+    private static final Logger LOG = Logger.getLogger(FilesystemServiceTest.class);
     
     @GrpcClient("test-filesystem")
     MutinyFilesystemServiceGrpc.MutinyFilesystemServiceStub filesystemService;
@@ -232,5 +235,108 @@ public class FilesystemServiceTest {
         assertThat("Recursive delete should succeed", response.getSuccess(), is(true));
         assertThat("Should have deleted 4 nodes (folder + 3 children)", 
             response.getDeletedCount(), is(equalTo(4)));
+    }
+    
+    @Test
+    void testFormatFilesystem() {
+        // Given - Create some test data in an isolated test namespace
+        // Use a unique test prefix to prevent interference from other tests
+        String testPrefix = "format-test-" + System.currentTimeMillis() + "-";
+        
+        Node folder1 = filesystemService.createNode(
+            CreateNodeRequest.newBuilder()
+                .setName(testPrefix + "Test Folder 1")
+                .setType(Node.NodeType.FOLDER)
+                .build()
+        ).await().indefinitely();
+        
+        Node file1 = filesystemService.createNode(
+            CreateNodeRequest.newBuilder()
+                .setParentId(folder1.getId())
+                .setName(testPrefix + "test-file-1.txt")
+                .setType(Node.NodeType.FILE)
+                .build()
+        ).await().indefinitely();
+        
+        Node file2 = filesystemService.createNode(
+            CreateNodeRequest.newBuilder()
+                .setParentId(folder1.getId())
+                .setName(testPrefix + "test-file-2.txt")
+                .setType(Node.NodeType.FILE)
+                .build()
+        ).await().indefinitely();
+        
+        // Verify files exist
+        assertThat("File 1 with ID " + file1.getId() + " should exist before format operation", 
+            filesystemService.getNode(GetNodeRequest.newBuilder().setId(file1.getId()).build())
+                .await().indefinitely(), is(notNullValue()));
+        assertThat("File 2 with ID " + file2.getId() + " should exist before format operation", 
+            filesystemService.getNode(GetNodeRequest.newBuilder().setId(file2.getId()).build())
+                .await().indefinitely(), is(notNullValue()));
+        
+        // When - Format the filesystem with dry run first
+        FormatFilesystemRequest dryRunRequest = FormatFilesystemRequest.newBuilder()
+            .setConfirmation("DELETE_FILESYSTEM_DATA")
+            .setDryRun(true)
+            .build();
+        
+        FormatFilesystemResponse dryRunResponse = filesystemService.formatFilesystem(dryRunRequest)
+            .await().indefinitely();
+        
+        // Then - Verify dry run results with exact counts
+        LOG.debugf("Dry run response: %s", dryRunResponse);
+        assertThat("Dry run operation should succeed without errors", 
+            dryRunResponse.getSuccess(), is(true));
+        assertThat("Dry run should report exactly 2 files would be deleted (created file1 and file2)", 
+            dryRunResponse.getNodesDeleted(), is(equalTo(2)));
+        assertThat("Dry run should report exactly 1 folder would be deleted (created folder1)", 
+            dryRunResponse.getFoldersDeleted(), is(equalTo(1)));
+        
+        // Files should still exist after dry run
+        assertThat("File 1 with ID " + file1.getId() + " should still exist after dry run since no actual deletion occurred", 
+            filesystemService.getNode(GetNodeRequest.newBuilder().setId(file1.getId()).build())
+                .await().indefinitely(), is(notNullValue()));
+        assertThat("File 2 with ID " + file2.getId() + " should still exist after dry run since no actual deletion occurred", 
+            filesystemService.getNode(GetNodeRequest.newBuilder().setId(file2.getId()).build())
+                .await().indefinitely(), is(notNullValue()));
+        
+        // When - Actually format the filesystem
+        FormatFilesystemRequest formatRequest = FormatFilesystemRequest.newBuilder()
+            .setConfirmation("DELETE_FILESYSTEM_DATA")
+            .setDryRun(false)
+            .build();
+        
+        FormatFilesystemResponse formatResponse = filesystemService.formatFilesystem(formatRequest)
+            .await().indefinitely();
+        
+        // Then - Verify format results with exact counts
+        LOG.debugf("Format response: %s", formatResponse);
+        assertThat("Format operation should succeed without errors", 
+            formatResponse.getSuccess(), is(true));
+        assertThat("Format should delete exactly 2 files (file1 and file2 that were created)", 
+            formatResponse.getNodesDeleted(), is(equalTo(2)));
+        assertThat("Format should delete exactly 1 folder (folder1 that was created)", 
+            formatResponse.getFoldersDeleted(), is(equalTo(1)));
+        assertThat("Format response should contain a success message", 
+            formatResponse.getMessage(), containsString("Formatted filesystem"));
+        
+        // Files should no longer exist
+        Node deletedFile1 = filesystemService.getNode(GetNodeRequest.newBuilder().setId(file1.getId()).build())
+            .onFailure().recoverWithNull()
+            .await().indefinitely();
+        assertThat("File 1 with ID " + file1.getId() + " should be null after format operation deleted it", 
+            deletedFile1, is(nullValue()));
+        
+        Node deletedFile2 = filesystemService.getNode(GetNodeRequest.newBuilder().setId(file2.getId()).build())
+            .onFailure().recoverWithNull()
+            .await().indefinitely();
+        assertThat("File 2 with ID " + file2.getId() + " should be null after format operation deleted it", 
+            deletedFile2, is(nullValue()));
+        
+        Node deletedFolder = filesystemService.getNode(GetNodeRequest.newBuilder().setId(folder1.getId()).build())
+            .onFailure().recoverWithNull()
+            .await().indefinitely();
+        assertThat("Folder 1 with ID " + folder1.getId() + " should be null after format operation deleted it", 
+            deletedFolder, is(nullValue()));
     }
 }

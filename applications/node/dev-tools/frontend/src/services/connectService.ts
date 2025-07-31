@@ -152,3 +152,6 @@ export function createRepositoryHealthClient() {
 
 // Export the registry in case components need it
 export { typeRegistry };
+
+// Export filesystem service for convenience
+export const filesystemService = createFilesystemClient();

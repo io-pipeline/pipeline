@@ -105,8 +105,7 @@ async function testFilesystemConnection() {
     
     // Create request to get root children
     const request = create(GetChildrenRequestSchema, {
-      parentId: "",
-      pageSize: 10
+      nodeId: "" // Use nodeId instead of parentId
     })
     
     const response = await client.getChildren(request)
@@ -114,14 +113,14 @@ async function testFilesystemConnection() {
     testResult.value = {
       success: true,
       title: 'Connect Integration Working!',
-      message: `Successfully retrieved ${response.nodes.length} nodes from filesystem`,
+      message: `Successfully retrieved ${response.children.length} nodes from filesystem`,
       data: {
-        totalCount: response.totalCount,
-        nodes: response.nodes.map(node => ({
+        totalCount: response.children.length,
+        nodes: response.children.map(node => ({
           id: node.id,
           name: node.name,
-          type: node.type === 1 ? 'FOLDER' : 'FILE',
-          hasPayload: node.payload.case !== undefined
+          type: node.nodeType === Node_NodeType.FOLDER ? 'FOLDER' : 'FILE',
+          hasPayload: !!node.content
         }))
       }
     }
@@ -155,7 +154,7 @@ async function createFolder() {
     const request = create(CreateNodeRequestSchema, {
       parentId: "", // Root level
       name: newFolderName.value,
-      type: Node_NodeType.FOLDER,
+      nodeType: Node_NodeType.FOLDER,
       metadata: {
         createdBy: 'Connect Test',
         createdAt: new Date().toISOString()
@@ -167,11 +166,11 @@ async function createFolder() {
     testResult.value = {
       success: true,
       title: 'Folder Created Successfully!',
-      message: `Created folder "${response.name}" with ID: ${response.id}`,
+      message: `Created folder "${response.node?.name}" with ID: ${response.node?.id}`,
       data: {
-        id: response.id,
-        name: response.name,
-        path: response.path,
+        id: response.node?.id,
+        name: response.node?.name,
+        path: response.node?.path,
         type: 'FOLDER'
       }
     }

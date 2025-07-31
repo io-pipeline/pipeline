@@ -1,275 +1,426 @@
 <template>
   <div>
-
-      <v-file-input
-        v-model="fileData"
-        @update:model-value="handleFileChange"
-        label="Select file"
-        prepend-icon="mdi-upload"
-        accept=".txt,.pdf,.html,.htm,.docx,.doc,.json,.xml,.csv,.md"
-        show-size
-        variant="outlined"
-        :hint="fileData ? `${mimeType}` : 'Click to upload or drag and drop'"
-        persistent-hint
-        class="mb-4"
+    <!-- Use the native PipeDoc editor -->
+    <div v-show="!createdRequest">
+      <PipeDocEditorNative
+        :module-context="moduleContext"
+        :show-test-data-button="false"
+        @save="handleDocumentSave"
       />
-
-      <v-expand-transition>
-        <div v-if="fileData">
-          <v-text-field
-            v-model="docId"
-            label="Document ID"
-            placeholder="auto-generated"
-            variant="outlined"
-            density="compact"
-            class="mb-3"
-          />
-          
-          <v-text-field
-            v-model="streamId"
-            label="Stream ID"
-            placeholder="auto-generated"
-            variant="outlined"
-            density="compact"
-            class="mb-3"
-          />
-          
-          <v-text-field
-            v-model="title"
-            label="Title"
-            placeholder="Document title"
-            variant="outlined"
-            density="compact"
-            class="mb-3"
-          />
-        </div>
-      </v-expand-transition>
-
-      <v-alert
-        v-if="error"
-        type="error"
-        variant="tonal"
-        closable
-        @click:close="error = ''"
-        class="mb-4"
-      >
-        {{ error }}
-      </v-alert>
-      
-    <div class="mt-4 d-flex justify-end" v-if="fileData">
-      <v-btn
-        @click="clearFile"
-        variant="text"
-        class="mr-2"
-      >
-        Clear
-      </v-btn>
-      <v-btn
-        @click="createSeedRequest"
-        color="primary"
-        variant="flat"
-        :loading="processing"
-        :disabled="processing"
-      >
-        Create Module Process Request
-      </v-btn>
     </div>
     
-      <v-expand-transition>
-        <v-card v-if="createdRequest" class="mt-4">
-          <v-card-title>ModuleProcessRequest Output</v-card-title>
+    <!-- Created Request Output -->
+    <v-card v-show="createdRequest" class="mt-4">
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-package-variant-closed</v-icon>
+          ModuleProcessRequest Created
+          <v-spacer />
+          <v-chip size="small" color="success">
+            Ready to Process
+          </v-chip>
+        </v-card-title>
+        
+        <v-divider />
+        
+        <v-card-text>
+          <v-tabs v-model="outputTab" class="mb-4">
+            <v-tab value="summary">Summary</v-tab>
+            <v-tab value="json">JSON</v-tab>
+            <v-tab value="protobuf">Protobuf</v-tab>
+          </v-tabs>
           
-          <v-divider />
+          <v-tabs-window v-model="outputTab">
+            <!-- Summary Tab -->
+            <v-tabs-window-item value="summary">
+              <v-list density="compact">
+                <v-list-item>
+                  <v-list-item-title>Document ID</v-list-item-title>
+                  <v-list-item-subtitle>{{ createdRequest?.document?.id || 'N/A' }}</v-list-item-subtitle>
+                </v-list-item>
+                <v-list-item>
+                  <v-list-item-title>Stream ID</v-list-item-title>
+                  <v-list-item-subtitle>{{ createdRequest?.metadata?.stream_id || 'N/A' }}</v-list-item-subtitle>
+                </v-list-item>
+                <v-list-item>
+                  <v-list-item-title>Processing Step</v-list-item-title>
+                  <v-list-item-subtitle>{{ createdRequest?.metadata?.pipe_step_name || 'N/A' }}</v-list-item-subtitle>
+                </v-list-item>
+                <v-list-item v-if="createdRequest?.document?.blob">
+                  <v-list-item-title>File Size</v-list-item-title>
+                  <v-list-item-subtitle>{{ formatFileSize(createdRequest.document.blob.size) }}</v-list-item-subtitle>
+                </v-list-item>
+              </v-list>
+            </v-tabs-window-item>
+            
+            <!-- JSON Tab -->
+            <v-tabs-window-item value="json">
+              <CodeBlock
+                :code="JSON.stringify(createdRequest, null, 2)"
+                language="json"
+                title="Request JSON"
+                :show-save="true"
+                filename="module-process-request.json"
+              />
+            </v-tabs-window-item>
+            
+            <!-- Protobuf Tab -->
+            <v-tabs-window-item value="protobuf">
+              <v-alert type="info" variant="tonal" class="mb-4">
+                Binary protobuf format ready for processing
+              </v-alert>
+              <div class="d-flex justify-end">
+                <v-btn
+                  @click="downloadProtobuf"
+                  prepend-icon="mdi-download"
+                  variant="tonal"
+                >
+                  Download .bin file
+                </v-btn>
+              </div>
+            </v-tabs-window-item>
+          </v-tabs-window>
+        </v-card-text>
+        
+        <v-divider />
+        
+        <v-card-actions class="flex-column align-start pa-4">
+          <div class="text-h6 mb-3">What would you like to do with this request?</div>
           
-          <v-card-text>
-            <CodeBlock
-              :code="JSON.stringify(createdRequest, null, 2)"
-              language="json"
-              title="Request JSON"
-              :show-save="true"
-              filename="module-process-request.bin"
-            />
-          </v-card-text>
+          <v-row class="w-100">
+            <v-col cols="12" md="4">
+              <v-btn
+                block
+                size="large"
+                :color="savedToRepository ? 'primary' : 'success'"
+                variant="flat"
+                :prepend-icon="savedToRepository ? 'mdi-pencil' : 'mdi-cloud-upload'"
+                @click="savedToRepository ? goToDataSeeding() : saveToRepository()"
+                :disabled="!repositoryStore.isConnected"
+              >
+                {{ savedToRepository ? 'Edit in Repository' : 'Save to Repository' }}
+              </v-btn>
+              <div class="text-caption mt-1 text-center">
+                <template v-if="repositoryStore.isConnected">
+                  {{ savedToRepository ? 'Saved as' : 'Save as' }} {{ getRepositoryPath() }}
+                  <!-- Debug: blob.fileName = {{ createdRequest?.document?.blob?.fileName || 'none' }} -->
+                </template>
+                <template v-else>
+                  Repository not connected
+                </template>
+              </div>
+            </v-col>
+            
+            <v-col cols="12" md="4">
+              <v-btn
+                block
+                size="large"
+                color="primary"
+                variant="flat"
+                prepend-icon="mdi-download"
+                @click="downloadToDisk"
+              >
+                Download to Disk
+              </v-btn>
+              <div class="text-caption mt-1 text-center">
+                Save as {{ getDownloadFilename() }}
+              </div>
+            </v-col>
+            
+            <v-col cols="12" md="4">
+              <v-btn
+                block
+                size="large"
+                color="indigo"
+                variant="flat"
+                prepend-icon="mdi-play"
+                @click="processDocument"
+              >
+                Process Document
+              </v-btn>
+              <div class="text-caption mt-1 text-center">
+                Send to Process Document tab
+              </div>
+            </v-col>
+          </v-row>
           
-          <v-card-actions>
-            <v-spacer />
+          <v-divider class="my-4 w-100" />
+          
+          <div class="d-flex w-100 justify-space-between">
             <v-btn
-              color="primary"
-              variant="flat"
-              size="large"
-              prepend-icon="mdi-arrow-right"
-              @click="goToProcessDocument"
+              @click="copyToClipboard"
+              prepend-icon="mdi-content-copy"
+              variant="text"
             >
-              Process This Document
+              Copy JSON
             </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-expand-transition>
+            <v-btn
+              @click="clearRequest"
+              variant="tonal"
+            >
+              Create Another Request
+            </v-btn>
+          </div>
+        </v-card-actions>
+      </v-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, getCurrentInstance } from 'vue'
+import { useModuleStore } from '../stores/moduleStore'
+import { useRepositoryStore } from '../stores/repositoryStore'
+import { useNotification } from '../composables/useNotification'
+import PipeDocEditorNative from './PipeDocEditorNative.vue'
 import CodeBlock from './CodeBlock.vue'
+import { create, toBinary } from '@bufbuild/protobuf'
+import { 
+  ModuleProcessRequestSchema,
+  PipeDocSchema,
+  ProcessingMetadataSchema,
+  BlobSchema,
+  type ModuleProcessRequest
+} from '../gen/pipe_step_processor_service_pb'
 
-const props = defineProps<{
-  currentConfig?: any
-}>()
+const moduleStore = useModuleStore()
+const repositoryStore = useRepositoryStore()
+const { showSuccess, showError } = useNotification()
 
-const emit = defineEmits<{
-  'request-created': [request: any]
-}>()
-
-const fileData = ref<File | File[] | null>(null)
-const fileName = ref('')
-const fileSize = ref(0)
-const mimeType = ref('')
-const docId = ref('')
-const streamId = ref('')
-const title = ref('')
-const processing = ref(false)
-const error = ref('')
-const createdRequest = ref<any>(null)
-
-const handleFileChange = async (files: File | File[] | null) => {
-  // v-file-input with single file returns a File object, not an array
-  let file: File | null = null
-  
-  if (!files) {
-    clearFile()
-    return
-  }
-  
-  if (Array.isArray(files)) {
-    if (files.length === 0) {
-      clearFile()
-      return
-    }
-    file = files[0]
-  } else {
-    file = files
-  }
-  
-  try {
-    error.value = ''
-    
-    // Check if file is valid
-    if (!file || !(file instanceof File)) {
-      throw new Error('Invalid file object')
-    }
-    
-    fileName.value = file.name
-    fileSize.value = file.size
-    mimeType.value = file.type || 'application/octet-stream'
-    title.value = file.name.replace(/\.[^/.]+$/, '') // Remove extension
-  } catch (err) {
-    error.value = 'Error processing file: ' + (err as Error).message
-  }
+// Props
+interface Props {
+  currentConfig: any
 }
 
-const createSeedRequest = async () => {
-  if (!fileData.value) return
+const props = defineProps<Props>()
+
+// Emits
+const emit = defineEmits<{
+  'request-created': [request: any]
+  'process-document': [request: any]
+}>()
+
+// State
+const createdRequest = ref<any>(null)
+const outputTab = ref('summary')
+const savedToRepository = ref(false)
+
+// Computed
+const moduleContext = computed(() => {
+  if (!moduleStore.activeModule) return null
   
-  let file: File
-  if (Array.isArray(fileData.value)) {
-    if (fileData.value.length === 0) return
-    file = fileData.value[0]
-  } else {
-    file = fileData.value
+  // Extract the module type from capabilities
+  let moduleType = undefined
+  if (moduleStore.activeModule.capabilities && moduleStore.activeModule.capabilities.length > 0) {
+    // Get the first capability type (e.g., "PARSER", "CHUNKER", etc.)
+    moduleType = moduleStore.activeModule.capabilities[0]
   }
   
-  processing.value = true
-  error.value = ''
-  
+  return {
+    name: moduleStore.activeModule.name,
+    address: moduleStore.activeModuleAddress,
+    type: moduleType
+  }
+})
+
+const repositoryPath = computed(() => {
+  return getRepositoryPath()
+})
+
+// Handle document save from editor
+const handleDocumentSave = async (pipeDoc: any) => {
   try {
-    // Read file as base64
-    const reader = new FileReader()
-    const fileData64 = await new Promise<string>((resolve, reject) => {
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1] // Remove data:mime;base64, prefix
-        resolve(base64)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-    
-    // Create PipeDoc with file data (client-side)
-    const pipeDoc = {
-      id: docId.value || `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: title.value || file.name,
-      source_uri: `file://${file.name}`,
-      source_mime_type: file.type || 'application/octet-stream',
-      document_type: 'seed-data',
-      blob: {
-        data: fileData64,
-        mime_type: file.type || 'application/octet-stream',
-        size: file.size,
-        file_name: file.name
-      },
-      metadata: {
-        source: 'dev-tool-seed-builder',
-        created_at: new Date().toISOString(),
-        file_name: file.name,
-        file_size: file.size,
-        mime_type: file.type || 'application/octet-stream'
-      }
-    }
-    
     // Create the ModuleProcessRequest
     const request = {
       document: pipeDoc,
+      metadata: {
+        stream_id: `stream-${Date.now()}`,
+        pipe_step_name: moduleStore.activeModule?.name || 'unknown',
+        processing_timestamp: new Date().toISOString()
+      },
       config: {
         custom_json_config: props.currentConfig || {}
-      },
-      metadata: {
-        pipeline_name: 'dev-tools-test',
-        pipe_step_name: 'manual-test',
-        stream_id: streamId.value || `stream-${Date.now()}`,
-        current_hop_number: 1,
-        context_params: {
-          'source': 'seed-data-builder',
-          'test_mode': 'true'
-        }
       }
     }
     
     createdRequest.value = request
-    // Don't emit immediately - wait for user to click "Process This Document"
+    showSuccess('Process request created successfully')
     
-  } catch (err) {
-    error.value = 'Error creating request: ' + (err as Error).message
-  } finally {
-    processing.value = false
+    // Don't emit here - just show the options
+  } catch (error) {
+    showError(`Failed to create request: ${error}`)
   }
 }
 
-const clearFile = () => {
-  fileData.value = null
-  fileName.value = ''
-  fileSize.value = 0
-  mimeType.value = ''
-  docId.value = ''
-  streamId.value = ''
-  title.value = ''
+// Clear the created request
+const clearRequest = () => {
   createdRequest.value = null
-  error.value = ''
+  outputTab.value = 'summary'
+  savedToRepository.value = false
 }
 
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-const goToProcessDocument = () => {
-  if (createdRequest.value) {
-    emit('request-created', createdRequest.value)
+// Navigate to data seeding tab
+const goToDataSeeding = () => {
+  // Navigate to the data seeding tab
+  const appInstance = getCurrentInstance()?.proxy?.$parent?.$parent
+  if (appInstance && appInstance.activeTab !== undefined) {
+    appInstance.activeTab = 'data-seeding'
   }
+}
+
+// Get repository path for saving
+const getRepositoryPath = () => {
+  if (!createdRequest.value || !moduleStore.activeModule) return ''
+  
+  // Use the actual module name, convert to lowercase
+  const moduleName = moduleStore.activeModule.name.toLowerCase().replace(/[^a-zA-Z0-9-_]/g, '_')
+  const date = new Date()
+  const dateStr = date.toISOString().split('T')[0].replace(/-/g, '')
+  
+  // Check if we have a blob with fileName
+  const blobFileName = createdRequest.value.document?.blob?.fileName
+  
+  let filename
+  if (blobFileName) {
+    // Keep the original filename and just append .bin
+    filename = `${blobFileName}.bin`
+  } else {
+    // Fallback to document title
+    const title = createdRequest.value.document.title.replace(/[^a-zA-Z0-9-_\.]/g, '_')
+    filename = `${title}.bin`
+  }
+  
+  return `${moduleName}/${dateStr}/${filename}`
+}
+
+// Get download filename  
+const getDownloadFilename = () => {
+  if (!createdRequest.value) return 'document.bin'
+  
+  // Use the original filename if available, otherwise use title
+  if (createdRequest.value.document.blob?.fileName) {
+    // Keep the original filename and just append .bin
+    return `${createdRequest.value.document.blob.fileName}.bin`
+  } else {
+    const docName = createdRequest.value.document.title.replace(/[^a-zA-Z0-9-_\.]/g, '_')
+    return `${docName}.bin`
+  }
+}
+
+// Save to repository service
+const saveToRepository = async () => {
+  if (!createdRequest.value || !repositoryStore.isConnected) return
+  
+  try {
+    const path = getRepositoryPath()
+    console.log('Saving to repository path:', path)
+    console.log('Request to save:', createdRequest.value)
+    
+    // Prepare the data for protobuf - convert base64 blob data to Uint8Array
+    const requestForProto = JSON.parse(JSON.stringify(createdRequest.value))
+    if (requestForProto.document?.blob?.data) {
+      // Convert base64 string to Uint8Array for protobuf bytes field
+      const base64Data = requestForProto.document.blob.data
+      const binaryString = atob(base64Data)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      requestForProto.document.blob.data = bytes
+    }
+    
+    // Create protobuf message
+    const message = create(ModuleProcessRequestSchema, requestForProto)
+    const bytes = toBinary(ModuleProcessRequestSchema, message)
+    
+    // Convert to base64 for storage
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    
+    await repositoryStore.saveFile(path, base64, 'application/octet-stream')
+    savedToRepository.value = true
+    showSuccess(`Saved to repository: ${path}`)
+  } catch (error) {
+    console.error('Save to repository error:', error)
+    showError(`Failed to save to repository: ${error}`)
+  }
+}
+
+// Download to disk
+const downloadToDisk = () => {
+  downloadProtobuf()
+}
+
+// Process document - send to process tab
+const processDocument = () => {
+  if (createdRequest.value) {
+    console.log('Sending request to process tab:', createdRequest.value)
+    emit('process-document', createdRequest.value)
+    showSuccess('Switching to Process Document tab...')
+  }
+}
+
+// Download as protobuf binary
+const downloadProtobuf = async () => {
+  if (!createdRequest.value) return
+  
+  try {
+    // Prepare the data for protobuf - convert base64 blob data to Uint8Array
+    const requestForProto = JSON.parse(JSON.stringify(createdRequest.value))
+    if (requestForProto.document?.blob?.data) {
+      // Convert base64 string to Uint8Array for protobuf bytes field
+      const base64Data = requestForProto.document.blob.data
+      const binaryString = atob(base64Data)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      requestForProto.document.blob.data = bytes
+    }
+    
+    // Create protobuf message
+    const message = create(ModuleProcessRequestSchema, requestForProto)
+    const bytes = toBinary(ModuleProcessRequestSchema, message)
+    
+    // Create download
+    const blob = new Blob([bytes], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = getDownloadFilename()
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    
+    showSuccess('Downloaded protobuf binary')
+  } catch (error) {
+    console.error('Download error:', error)
+    showError(`Failed to create protobuf: ${error}`)
+  }
+}
+
+// Copy JSON to clipboard
+const copyToClipboard = async () => {
+  if (!createdRequest.value) return
+  
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(createdRequest.value, null, 2))
+    showSuccess('JSON copied to clipboard')
+  } catch (error) {
+    showError('Failed to copy to clipboard')
+  }
+}
+
+// Format file size
+const formatFileSize = (bytes: number) => {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 </script>
 
 <style scoped>
-/* Styles handled by CodeBlock component */
+.v-tabs {
+  margin-bottom: 0 !important;
+}
 </style>

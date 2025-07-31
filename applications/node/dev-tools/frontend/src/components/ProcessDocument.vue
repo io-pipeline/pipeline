@@ -39,7 +39,7 @@
             language="json"
             title="Request JSON"
             :show-save="true"
-            filename="module-process-request.bin"
+            filename="module-process-request.json"
           />
           
           <v-btn
@@ -131,10 +131,11 @@ const binFile = ref<File | null>(null)
 
 // Watch for external request updates
 watch(() => props.createdRequest, (newRequest) => {
+  console.log('ProcessDocument received createdRequest:', newRequest)
   if (newRequest) {
     localRequest.value = newRequest
   }
-})
+}, { immediate: true })
 
 const handleRequestCreated = (request: any) => {
   localRequest.value = request
@@ -145,9 +146,19 @@ const handleBinFileUpload = async (file: File | null) => {
   if (!file) return
   
   try {
-    // Read the .bin file as text (it contains JSON)
-    const text = await file.text()
-    const parsed = JSON.parse(text)
+    // Read the .bin file as binary
+    const arrayBuffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(arrayBuffer)
+    
+    // Import protobuf schemas
+    const { fromBinary } = await import('@bufbuild/protobuf')
+    const { ModuleProcessRequestSchema } = await import('../gen/pipe_step_processor_service_pb')
+    
+    // Decode protobuf
+    const message = fromBinary(ModuleProcessRequestSchema, bytes)
+    
+    // Convert to plain object
+    const parsed = JSON.parse(JSON.stringify(message))
     
     // Validate it's a ModuleProcessRequest
     if (!parsed.document || !parsed.metadata) {

@@ -40,10 +40,10 @@
             <v-tab value="config" prepend-icon="mdi-cog-outline">
               Module Config
             </v-tab>
-            <v-tab v-if="!databaseStore.isConnected" value="data" prepend-icon="mdi-database-outline">
-              Data Seeding
+            <v-tab value="pipedoc" prepend-icon="mdi-file-document-plus-outline">
+              PipeDoc Generator
             </v-tab>
-            <v-tab v-else value="data-enhanced" prepend-icon="mdi-database-plus-outline">
+            <v-tab v-if="repositoryStore.isConnected" value="data-seeding" prepend-icon="mdi-database-plus-outline">
               Data Seeding
             </v-tab>
             <v-tab value="process" prepend-icon="mdi-file-document-outline">
@@ -88,34 +88,35 @@
             />
           </v-tabs-window-item>
           
-          <!-- Data Seeding Tab (Basic) -->
-          <v-tabs-window-item value="data">
+          <!-- PipeDoc Generator Tab -->
+          <v-tabs-window-item value="pipedoc">
             <div v-if="moduleStore.activeModule">
               <v-alert
                 type="info"
                 variant="tonal"
                 class="mb-4"
               >
-                <v-alert-title>Test Data Creation</v-alert-title>
-                <div>Create seed data to test {{ moduleStore.activeModule.name }} with your current configuration</div>
+                <v-alert-title>PipeDoc Generator</v-alert-title>
+                <div>Create test documents to test {{ moduleStore.activeModule.name }} with your current configuration</div>
               </v-alert>
               
               <SeedDataBuilder
                 :current-config="currentConfig"
                 @request-created="handleRequestCreated"
+                @process-document="handleProcessDocument"
               />
             </div>
             <v-empty-state
               v-else
-              icon="mdi-database-outline"
+              icon="mdi-file-document-plus-outline"
               headline="No module selected"
-              text="Select a module from the registry to create test data"
+              text="Select a module from the registry to generate test documents"
             />
           </v-tabs-window-item>
           
-          <!-- Data Seeding Tab (Enhanced with MongoDB) -->
-          <v-tabs-window-item value="data-enhanced">
-            <DataSeedingEnhanced />
+          <!-- Data Seeding Tab (Repository Filesystem Browser) -->
+          <v-tabs-window-item value="data-seeding">
+            <RepositoryDataSeeding />
           </v-tabs-window-item>
           
           <!-- Process Document Tab -->
@@ -228,6 +229,45 @@
                 </v-card-text>
               </v-card>
               
+              <!-- Redis Management -->
+              <v-card class="mt-4">
+                <v-card-title>Redis Management</v-card-title>
+                <v-card-subtitle>Manage Redis cache data</v-card-subtitle>
+                
+                <v-divider />
+                
+                <v-card-text>
+                  <h3 class="text-h6 mb-2">Redis Cache</h3>
+                  <p class="text-body-2 mb-4">Clear all data from Redis cache (localhost:6379)</p>
+                  
+                  <v-row>
+                    <v-col cols="12" sm="6">
+                      <v-btn
+                        color="error"
+                        variant="flat"
+                        block
+                        @click="clearRedisData"
+                        prepend-icon="mdi-database-remove"
+                        :loading="clearingRedis"
+                      >
+                        Clear All Redis Data
+                      </v-btn>
+                    </v-col>
+                  </v-row>
+                  
+                  <v-alert
+                    v-if="redisCleared"
+                    :type="redisCleared.type"
+                    variant="tonal"
+                    closable
+                    @click:close="redisCleared = null"
+                    class="mt-4"
+                  >
+                    {{ redisCleared.message }}
+                  </v-alert>
+                </v-card-text>
+              </v-card>
+              
               <!-- Connect Integration Test -->
               <ConnectHealthCheck class="mt-4" />
             </v-container>
@@ -249,7 +289,7 @@ import ConfigSelector from './components/ConfigSelector.vue'
 import UniversalConfigCard from './components/UniversalConfigCard.vue'
 import SeedDataBuilder from './components/SeedDataBuilder.vue'
 import ProcessDocument from './components/ProcessDocument.vue'
-import DataSeedingEnhanced from './components/DataSeedingEnhanced.vue'
+import RepositoryDataSeeding from './components/RepositoryDataSeeding.vue'
 import ConnectHealthCheck from './components/ConnectHealthCheck.vue'
 import RepositoryConnectionStatus from './components/RepositoryConnectionStatus.vue'
 import RepositoryConfigDialog from './components/RepositoryConfigDialog.vue'
@@ -305,7 +345,14 @@ const handleConfigUpdate = (newConfig: any) => {
 // Handle seed data request creation
 const handleRequestCreated = (request: any) => {
   createdRequest.value = request
-  // Switch to Process Document tab with proper timing
+  // Don't automatically switch tabs - let the user choose what to do
+  // They can click "Process Document" if they want to switch
+}
+
+// Handle process document request
+const handleProcessDocument = (request: any) => {
+  createdRequest.value = request
+  // Switch to Process Document tab
   nextTick(() => {
     activeTab.value = 'process'
   })

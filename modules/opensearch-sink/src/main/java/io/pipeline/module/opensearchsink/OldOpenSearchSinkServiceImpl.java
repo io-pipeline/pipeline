@@ -7,11 +7,13 @@ import io.pipeline.data.model.*;
 import io.pipeline.data.module.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
-import jakarta.inject.Singleton;
-import jakarta.inject.Inject;
 import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.mapping.DynamicMapping;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperation;
@@ -20,45 +22,34 @@ import org.opensearch.client.opensearch.core.bulk.IndexOperation;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.ExistsRequest;
 import org.opensearch.client.opensearch.indices.IndexSettings;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
-import org.opensearch.client.opensearch._types.mapping.DynamicMapping;
 
-import java.util.Map;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.ArrayList;
-import java.io.StringReader;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 
 /**
  * Implementation of the OpenSearch sink service.
  * This service indexes documents with embeddings into OpenSearch.
  * It supports dynamic field tracking, multiple chunking styles, and vector models.
  */
-@Singleton
-@GrpcService
-@PipelineAutoRegister(
-    moduleType = "opensearch",
-    useHttpPort = true,
-    metadata = {"category=sink", "type=vector-search"}
-)
-public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
-    
-    private static final Logger LOG = Logger.getLogger(OpenSearchSinkServiceImpl.class);
-    
+public class OldOpenSearchSinkServiceImpl {
+
+    private static final Logger LOG = Logger.getLogger(OldOpenSearchSinkServiceImpl.class);
+
     private final OpenSearchClient openSearchClient;
-    
+
     @Inject
     OpenSearchSettings settings;
-    
+
     @ConfigProperty(name = "opensearch.default.index-prefix", defaultValue = "pipeline")
     String defaultIndexPrefix;
-    
+
     @ConfigProperty(name = "opensearch.default.vector-dimension", defaultValue = "768")
     int defaultVectorDimension;
-    
-    public OpenSearchSinkServiceImpl(OpenSearchClient openSearchClient) {
+
+    public OldOpenSearchSinkServiceImpl(OpenSearchClient openSearchClient) {
         this.openSearchClient = openSearchClient;
     }
     
@@ -71,7 +62,6 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
                  settings.getClusterName(), settings.getPipelineName());
     }
     
-    @Override
     public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         return Uni.createFrom().item(() -> {
             try {
@@ -550,7 +540,6 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
         return responseBuilder.build();
     }
     
-    @Override
     public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
         LOG.info("OpenSearch sink service registration requested");
         
@@ -588,8 +577,7 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
             return Uni.createFrom().item(responseBuilder.build());
         }
     }
-    
-    @Override
+
     public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         LOG.debug("TestProcessData called - proxying to processData");
         return processData(request);

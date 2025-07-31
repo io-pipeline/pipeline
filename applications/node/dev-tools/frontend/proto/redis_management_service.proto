@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package io.pipeline.devtools.redis;
+
+option java_package = "io.pipeline.devtools.redis";
+option java_multiple_files = true;
+
+service RedisManagementService {
+  // Clear all data from Redis
+  rpc ClearAll(ClearAllRequest) returns (ClearAllResponse);
+  
+  // Get Redis statistics
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+}
+
+message ClearAllRequest {
+  // Optional confirmation token to prevent accidental clears
+  string confirmation = 1;
+}
+
+message ClearAllResponse {
+  bool success = 1;
+  string message = 2;
+  int32 keys_deleted = 3;
+}
+
+message GetStatsRequest {}
+
+message GetStatsResponse {
+  int32 key_count = 1;
+  int64 memory_usage_bytes = 2;
+  map<string, int32> key_type_counts = 3;
+}
