@@ -103,7 +103,7 @@ message PipeDoc {
   //binary data and associated metadata
   optional Blob blob = 15;
   //optional metadata
-  map<string,string> metadata = 16;
+  map<string,string> metadata = 16; //THIS is <string, string>
 }
 
 // --- Binary Data Handling ---

@@ -147,7 +147,7 @@ public class ParserServiceImpl implements PipeStepProcessor {
         LOG.debug("Parser service registration requested");
 
         ServiceRegistrationResponse.Builder responseBuilder = ServiceRegistrationResponse.newBuilder()
-                .setModuleName("parser");
+                .setModuleName("parser").setCapabilities(Capabilities.newBuilder().addTypes(CapabilityType.PARSER).build());
 
         // Use SchemaExtractorService to get the dynamically generated ParserConfig schema
         Optional<String> schemaOptional = schemaExtractorService.getFullOpenApiDocument();

@@ -10,49 +10,6 @@
           </v-card-title>
           
           <v-card-text>
-            <!-- File Upload -->
-            <v-file-input
-              v-model="selectedFile"
-              label="Select file"
-              prepend-icon="mdi-paperclip"
-              accept="*/*"
-              show-size
-              @change="handleFileSelect"
-              class="mb-4"
-            />
-            
-            <!-- Metadata Fields -->
-            <v-text-field
-              v-model="documentName"
-              label="Document Name"
-              hint="A descriptive name for this test document"
-              persistent-hint
-              required
-              :rules="[v => !!v || 'Name is required']"
-              class="mb-2"
-            />
-            
-            <v-textarea
-              v-model="documentDescription"
-              label="Description"
-              hint="What is this document for?"
-              persistent-hint
-              rows="2"
-              class="mb-2"
-            />
-            
-            <v-combobox
-              v-model="documentTags"
-              label="Tags"
-              hint="Add tags for easy filtering"
-              persistent-hint
-              multiple
-              chips
-              closable-chips
-              clearable
-              class="mb-4"
-            />
-            
             <!-- Module Selection -->
             <v-select
               v-model="selectedModuleId"
@@ -65,16 +22,35 @@
               class="mb-4"
             />
             
-            <!-- Module Configuration -->
+            <!-- Adaptive PipeDoc Form -->
             <v-expand-transition>
-              <div v-if="selectedModuleId && moduleConfig">
+              <div v-if="selectedModuleId">
                 <v-divider class="mb-4" />
-                <h4 class="text-h6 mb-2">Module Configuration</h4>
-                <UniversalConfigCard
-                  :schema="moduleConfig.schema"
-                  :initial-data="{}"
-                  @data-change="handleConfigChange"
+                
+                <!-- Use ParserDocEditor for PARSER modules -->
+                <ParserDocEditor 
+                  v-if="isParserModule"
+                  ref="docEditor"
+                  @document-ready="handleDocumentReady"
                 />
+                
+                <!-- Use regular PipeDocEditor for other modules -->
+                <PipeDocEditor 
+                  v-else
+                  ref="docEditor"
+                  @document-ready="handleDocumentReady"
+                />
+                
+                <!-- Module Configuration -->
+                <div v-if="moduleConfig?.schema" class="mt-4">
+                  <v-divider class="mb-4" />
+                  <h4 class="text-h6 mb-2">Module Configuration</h4>
+                  <UniversalConfigCard
+                    :schema="moduleConfig.schema"
+                    :initial-data="{}"
+                    @data-change="handleConfigChange"
+                  />
+                </div>
               </div>
             </v-expand-transition>
           </v-card-text>
@@ -84,7 +60,7 @@
             <v-btn
               color="primary"
               variant="elevated"
-              :disabled="!canCreateSeed"
+              :disabled="!selectedModuleId"
               @click="createAndSaveSeed"
             >
               <v-icon start>mdi-content-save</v-icon>
@@ -245,7 +221,7 @@
         </v-card-title>
         
         <v-card-text>
-          <pre>{{ JSON.stringify(selectedDocument, null, 2) }}</pre>
+          <pre>{{ formatDocumentForDisplay(selectedDocument) }}</pre>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -289,15 +265,16 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useModuleStore } from '@/stores/moduleStore'
 import { useNotification } from '@/composables/useNotification'
 import UniversalConfigCard from '@/components/UniversalConfigCard.vue'
+import ParserDocEditor from '@/components/ParserDocEditor.vue'
+import PipeDocEditor from '@/components/PipeDocEditor.vue'
 
 const moduleStore = useModuleStore()
 const { showSuccess, showError } = useNotification()
 
-// File upload state
-const selectedFile = ref<File | null>(null)
-const documentName = ref('')
-const documentDescription = ref('')
-const documentTags = ref<string[]>([])
+// Document editor reference
+const docEditor = ref<any>(null)
+const documentReady = ref(false)
+const pipeDocData = ref<any>(null)
 
 // Module state
 const selectedModuleId = ref('')
@@ -327,11 +304,10 @@ const availableModules = computed(() =>
   }))
 )
 
-const canCreateSeed = computed(() => 
-  selectedFile.value && 
-  documentName.value && 
-  selectedModuleId.value
-)
+const isParserModule = computed(() => {
+  const module = moduleStore.connectedModules.find(m => m.address === selectedModuleId.value)
+  return module?.capabilities?.includes('PARSER') || false
+})
 
 const allTags = computed(() => {
   const tags = new Set<string>()
@@ -368,13 +344,9 @@ const filteredDocuments = computed(() => {
 const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
 
 // Methods
-const handleFileSelect = (event: Event | File) => {
-  const file = event instanceof File ? event : (event.target as HTMLInputElement)?.files?.[0]
-  if (file) {
-    selectedFile.value = file
-    // Always set document name to filename (without extension)
-    documentName.value = file.name.replace(/\.[^/.]+$/, '')
-  }
+const handleDocumentReady = (data: any) => {
+  pipeDocData.value = data
+  documentReady.value = true
 }
 
 const loadModuleConfig = async (moduleId: string) => {
@@ -389,43 +361,49 @@ const handleConfigChange = (data: any) => {
 }
 
 const createAndSaveSeed = async () => {
-  if (!selectedFile.value || !documentName.value) return
+  if (!selectedModuleId.value || !docEditor.value) return
   
   try {
-    const formData = new FormData()
-    formData.append('file', selectedFile.value)
-    formData.append('docId', `doc-${Date.now()}`)
-    formData.append('title', documentName.value)
-    formData.append('config', JSON.stringify(configData.value))
+    // Get the PipeDoc data from the editor
+    const docData = docEditor.value.pipeDoc || pipeDocData.value
     
-    // Create the seed data
-    const seedResponse = await fetch('http://localhost:3000/api/seed/create', {
-      method: 'POST',
-      body: formData
-    })
+    if (!docData) {
+      showError('Please complete the document form')
+      return
+    }
     
-    if (!seedResponse.ok) throw new Error('Failed to create seed data')
+    // Get module info
+    const module = moduleStore.connectedModules.find(m => m.address === selectedModuleId.value)
+    const moduleCapabilities = module?.capabilities || []
     
-    const { request } = await seedResponse.json()
-    
-    // Save to repository
+    // Save to repository with module metadata
     const tags: Record<string, string> = {
       module: selectedModuleId.value,
+      moduleName: module?.name || 'unknown',
       type: 'seed-data'
     }
-    documentTags.value.forEach(tag => {
-      tags[tag] = 'true'
+    
+    // Add capability tags
+    moduleCapabilities.forEach(cap => {
+      tags[`capability-${cap.toLowerCase()}`] = 'true'
     })
+    
+    // Add document tags if any
+    if (docData.tags?.length > 0) {
+      docData.tags.forEach((tag: string) => {
+        tags[tag] = 'true'
+      })
+    }
     
     const saveResponse = await fetch('http://localhost:3000/api/repository/save-seed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        document: request.document,
+        document: docData,
         config: configData.value,
         metadata: {
-          name: documentName.value,
-          description: documentDescription.value,
+          name: docData.title || 'Untitled',
+          description: docData.description || '',
           moduleId: selectedModuleId.value,
           tags
         }
@@ -521,16 +499,46 @@ const deleteDocument = async (doc: any) => {
 }
 
 const resetForm = () => {
-  selectedFile.value = null
-  documentName.value = ''
-  documentDescription.value = ''
-  documentTags.value = []
+  documentReady.value = false
+  pipeDocData.value = null
   configData.value = {}
+  if (docEditor.value?.resetForm) {
+    docEditor.value.resetForm()
+  }
 }
 
 const formatDate = (timestamp: any) => {
   if (!timestamp || !timestamp.seconds) return 'Unknown'
   return new Date(parseInt(timestamp.seconds) * 1000).toLocaleString()
+}
+
+const formatDocumentForDisplay = (doc: any) => {
+  // Create a copy of the document to avoid modifying the original
+  const displayDoc = JSON.parse(JSON.stringify(doc))
+  
+  // Mask blob data if it exists
+  if (displayDoc.document?.blob?.data) {
+    const blobSize = displayDoc.document.blob.size || 'unknown'
+    displayDoc.document.blob.data = `<blob data masked - ${blobSize} bytes>`
+  }
+  
+  // Also mask any other large base64 data fields that might exist
+  const maskLargeStrings = (obj: any) => {
+    for (const key in obj) {
+      if (typeof obj[key] === 'string' && obj[key].length > 1000) {
+        // Check if it looks like base64
+        if (/^[A-Za-z0-9+/=]+$/.test(obj[key].substring(0, 100))) {
+          obj[key] = `<large data masked - ${obj[key].length} chars>`
+        }
+      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        maskLargeStrings(obj[key])
+      }
+    }
+  }
+  
+  maskLargeStrings(displayDoc)
+  
+  return JSON.stringify(displayDoc, null, 2)
 }
 
 // Watch for page changes

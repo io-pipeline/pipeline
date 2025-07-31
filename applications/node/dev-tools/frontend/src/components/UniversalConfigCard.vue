@@ -94,6 +94,7 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import { JsonForms } from '@jsonforms/vue'
 import { vanillaRenderers } from '@jsonforms/vue-vanilla'
+// For now, keep using our custom renderers until the package is built
 import { vuetifyRenderers } from '../renderers/vue-vuetify/renderers'
 import { generateUISchema, generateCategorizedUISchema } from '../utils/uiSchemaGenerator'
 import { customRenderers } from '../renderers'

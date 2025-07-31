@@ -1,0 +1,4 @@
+packages:
+  - 'dev-tools/frontend'
+  - 'dev-tools/backend'
+  - 'libraries/*'

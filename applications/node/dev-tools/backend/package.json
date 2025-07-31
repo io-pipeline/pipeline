@@ -1,5 +1,5 @@
 {
-  "name": "pipeline-dev-tools-backend",
+  "name": "@pipeline/dev-tools-backend",
   "version": "1.0.0",
   "description": "Developer tools backend for Pipeline module development",
   "main": "dist/index.js",
@@ -20,7 +20,8 @@
     "@types/multer": "^2.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "@pipeline/protobuf-forms": "workspace:*"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

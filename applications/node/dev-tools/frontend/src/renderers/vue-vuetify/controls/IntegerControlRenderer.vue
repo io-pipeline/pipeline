@@ -36,7 +36,6 @@ import {
   type RendererProps,
 } from '@jsonforms/vue';
 import { defineComponent } from 'vue';
-import { VNumberInput } from 'vuetify/components';
 import { determineClearValue, useVuetifyControl } from '../util';
 import { default as ControlWrapper } from './ControlWrapper.vue';
 import { DisabledIconFocus } from './directives';
@@ -45,7 +44,6 @@ const controlRenderer = defineComponent({
   name: 'integer-control-renderer',
   components: {
     ControlWrapper,
-    VNumberInput,
   },
   directives: {
     DisabledIconFocus,

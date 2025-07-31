@@ -107,7 +107,7 @@ export const useModuleStore = defineStore('modules', {
           version: registration.version,
           description: registration.description,
           schema: registration.schema,
-          capabilities: [], // TODO: get capabilities from schema
+          capabilities: registration.capabilities || [],
           status: 'connected',
           healthStatus: 'UNKNOWN',
           lastChecked: new Date()

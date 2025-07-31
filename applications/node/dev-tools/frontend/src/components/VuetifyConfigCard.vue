@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { JsonForms } from '@jsonforms/vue'
-import { vuetifyRenderers } from '../renderers/vue-vuetify/renderers'
+import { vuetifyRenderers } from '@jsonforms/vue-vuetify/src/renderers'
 
 const props = defineProps<{
   schema?: any

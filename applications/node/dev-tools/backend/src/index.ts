@@ -8,6 +8,7 @@ import { storageService } from './services/storageService';
 import * as fs from 'fs';
 import seedRoutes from './routes/seedRoutes';
 import repositoryRoutes from './routes/repositoryRoutes';
+import schemaRoutes from './routes/schemaRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -170,12 +171,18 @@ app.post('/api/module-schema', async (req, res) => {
 
             try {
                 const transformedSchema = await transformSchemaForUI(response.json_config_schema);
+                
+                // Extract capabilities if available
+                const capabilities = response.capabilities?.types || [];
+                
                 res.json({
-                    moduleInfo: {
-                        name: response.name,
-                        description: response.description,
-                        schema: transformedSchema
-                    }
+                    module_name: response.module_name,
+                    version: response.version,
+                    description: response.description,
+                    schema: transformedSchema,
+                    capabilities: capabilities,
+                    display_name: response.display_name,
+                    tags: response.tags || []
                 });
             } catch (schemaError) {
                 console.error('Schema transformation error:', schemaError);
@@ -374,6 +381,7 @@ app.get('/api/test-documents', async (req, res) => {
 // Mount routes
 app.use('/api/seed', seedRoutes);
 app.use('/api/repository', repositoryRoutes);
+app.use('/api/schema', schemaRoutes);
 
 // Initialize and start server
 async function startServer() {

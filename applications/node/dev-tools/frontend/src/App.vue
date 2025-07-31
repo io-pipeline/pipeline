@@ -207,6 +207,19 @@
                   </v-alert>
                 </v-card-text>
               </v-card>
+              
+              <!-- MongoDB Filesystem Browser -->
+              <v-card class="mt-4">
+                <v-card-title>MongoDB Filesystem Browser</v-card-title>
+                <v-card-subtitle>Browse and manage documents in a virtual filesystem</v-card-subtitle>
+                <v-divider />
+                <v-card-text>
+                  <!-- Placeholder for filesystem browser -->
+                  <v-alert type="info" variant="tonal">
+                    Filesystem browser coming soon...
+                  </v-alert>
+                </v-card-text>
+              </v-card>
             </v-container>
           </v-tabs-window-item>
         </v-tabs-window>

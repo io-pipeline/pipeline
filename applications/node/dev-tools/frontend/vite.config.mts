@@ -1,9 +1,11 @@
 // Plugins
+import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import Vue from '@vitejs/plugin-vue'
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 import Fonts from 'unplugin-fonts/vite'
 import VueRouter from 'unplugin-vue-router/vite'
+import { VueRouterAutoImports } from 'unplugin-vue-router'
 
 // Utilities
 import { defineConfig } from 'vite'
@@ -14,6 +16,20 @@ export default defineConfig({
   plugins: [
     VueRouter({
       dts: 'src/typed-router.d.ts',
+    }),
+    AutoImport({
+      imports: [
+        'vue',
+        VueRouterAutoImports,
+        {
+          pinia: ['defineStore', 'storeToRefs'],
+        },
+      ],
+      dts: 'src/auto-imports.d.ts',
+      eslintrc: {
+        enabled: true,
+      },
+      vueTemplate: true,
     }),
     Vue({
       template: { transformAssetUrls },
@@ -58,6 +74,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('src', import.meta.url)),
+      '@pipeline/filesystem-browser': fileURLToPath(new URL('../../libraries/filesystem-browser/src', import.meta.url)),
+      '@pipeline/grpc-stubs': fileURLToPath(new URL('../../libraries/grpc-stubs/src', import.meta.url)),
+      '@pipeline/grpc-web-client': fileURLToPath(new URL('../../libraries/grpc-web-client/src', import.meta.url))
     },
     extensions: [
       '.js',

@@ -1,0 +1,22 @@
+{
+  "name": "@pipeline/node-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pipeline Node.js applications and libraries workspace",
+  "workspaces": [
+    "dev-tools/frontend",
+    "dev-tools/backend",
+    "libraries/*"
+  ],
+  "scripts": {
+    "dev-tools:dev": "npm run dev --workspace=@pipeline/dev-tools-backend & npm run dev --workspace=@pipeline/dev-tools-frontend",
+    "dev-tools:build": "npm run build --workspace=@pipeline/dev-tools-backend && npm run build --workspace=@pipeline/dev-tools-frontend",
+    "install:all": "npm install",
+    "clean": "npm run clean --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

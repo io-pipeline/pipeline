@@ -1,0 +1,48 @@
+{
+  "name": "@pipeline/protobuf-forms",
+  "version": "0.1.0",
+  "description": "Type-safe form generation for Protocol Buffer messages",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./vue": {
+      "import": "./src/vue.ts",
+      "types": "./src/vue.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "generate-types": "npx ts-proto --proto_path=./proto --ts_proto_out=./src/generated --ts_proto_opt=esModuleInterop=true,outputEncodeMethods=false,outputJsonMethods=true,outputPartialMethods=false pipe_step_processor_service.proto"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.6.2",
+    "@protobuf-ts/runtime": "^2.9.4",
+    "protobufjs": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "ts-proto": "^2.5.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "@jsonforms/core": "^3.4.0",
+    "@jsonforms/vue": "^3.4.0",
+    "@jsonforms/vue-vuetify": "^3.4.0",
+    "vue": "^3.4.0"
+  }
+}

@@ -72,8 +72,38 @@ message ServiceRegistrationResponse {
   repeated string dependencies = 14;
   // Flexible key-value pairs for any other developer-defined metadata.
   map<string, string> metadata = 15;
+  
+  // Module capabilities for UI adaptation
+  Capabilities capabilities = 16;
 }
 
+// Capabilities that describe the module's operational characteristics
+message Capabilities {
+  // List of capability types this module supports
+  repeated CapabilityType types = 1;
+  // Reserved for future capability-specific configuration
+}
+
+// Enumeration of module capability types
+enum CapabilityType {
+  // Default behavior - full editor
+  CAPABILITY_TYPE_UNSPECIFIED = 0;
+  
+  // Module converts raw input (files, URLs) to documents
+  PARSER = 1;
+  
+  // Future capabilities (commented until needed):
+  // TRANSFORM = 2;           // Document to document modifications
+  // EXTRACTOR = 3;           // One document to many
+  // CHUNKER = 4;             // Splits content, owns SemanticResults
+  // EMBEDDER = 5;            // Creates embeddings, owns Embedding
+  // ENRICHER = 6;            // Adds metadata
+  // SINK = 7;                // Outputs to external systems
+  // FILTER = 8;              // Conditional routing
+  // CONNECTOR_GIGO = 9;      // Simple data acceptance
+  // CONNECTOR_SOURCE_AWARE = 10;  // Tracks source state
+  // CONNECTOR_EXPLORATORY = 11;   // Discovers data dynamically
+}
 
 // Contains metadata provided by the pipeline engine for context.
 // This data is generally for informational purposes, logging, tracing, or advanced conditional logic.
