@@ -1,34 +1,30 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
+import { useRepositoryStore } from './repositoryStore'
 
 export const useDatabaseStore = defineStore('database', () => {
-  // State
-  const repositoryHealthy = ref(false)
-  const repositoryChecking = ref(false)
+  const repositoryStore = useRepositoryStore()
   
-  // Computed - simplified to use repository service health
-  const isConnected = computed(() => repositoryHealthy.value)
-  const isMongoConnected = computed(() => repositoryHealthy.value)
-  const storageType = computed(() => repositoryHealthy.value ? 'mongodb' : 'localStorage')
+  // Default mode is localStorage, transforms to repository when connected
+  const isConnected = computed(() => repositoryStore.isConnected)
+  const isMongoConnected = computed(() => repositoryStore.isConnected)
+  const storageType = computed(() => repositoryStore.isConnected ? 'repository' : 'localStorage')
+  
+  // For backwards compatibility with components
+  const repositoryHealthy = computed(() => repositoryStore.isConnected)
+  const repositoryChecking = computed(() => repositoryStore.isConnecting)
   
   async function checkRepositoryHealth() {
-    try {
-      const response = await fetch('http://localhost:3000/api/repository-health')
-      const data = await response.json()
-      repositoryHealthy.value = data.healthy
-    } catch (error) {
-      repositoryHealthy.value = false
-    }
+    await repositoryStore.checkHealth()
   }
   
   async function init() {
-    await checkRepositoryHealth()
-    // Poll repository health every 5 seconds
-    setInterval(checkRepositoryHealth, 5000)
+    // Don't auto-connect to repository - keep local storage as default
+    // Repository connection is opt-in through admin panel
   }
   
   return {
-    // State
+    // State (computed for backwards compatibility)
     repositoryHealthy,
     repositoryChecking,
     

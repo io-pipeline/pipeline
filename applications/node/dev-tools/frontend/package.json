@@ -12,6 +12,9 @@
     "lint": "eslint . --fix"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.6.2",
+    "@connectrpc/connect": "^2.0.3",
+    "@connectrpc/connect-web": "^2.0.3",
     "@fontsource/roboto": "5.2.6",
     "@jsonforms/core": "^3.6.0",
     "@jsonforms/vue": "^3.6.0",
@@ -31,6 +34,8 @@
     "vuetify": "^3.9.1"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.55.1",
+    "@bufbuild/protoc-gen-es": "^2.6.2",
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.9.0",
     "@vitejs/plugin-vue": "^5.2.3",

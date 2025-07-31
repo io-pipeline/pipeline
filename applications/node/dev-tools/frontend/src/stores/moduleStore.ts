@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { moduleService } from '../services/moduleService'
+import { moduleConnectService } from '../services/moduleConnectService'
 
 // Persistence key
 const STORAGE_KEY = 'pipeline-dev-tools-state'
@@ -21,6 +21,7 @@ interface ModuleState {
   activeModuleAddress: string
   currentConfigId: string
   currentConfig: any
+  healthWatchers: Map<string, () => void> // Store cleanup functions for health watchers
 }
 
 export const useModuleStore = defineStore('modules', {
@@ -28,7 +29,8 @@ export const useModuleStore = defineStore('modules', {
     modules: new Map(),
     activeModuleAddress: '',
     currentConfigId: '',
-    currentConfig: {}
+    currentConfig: {},
+    healthWatchers: new Map()
   }),
 
   getters: {
@@ -68,10 +70,15 @@ export const useModuleStore = defineStore('modules', {
               restoredModules.set(address, {
                 ...module,
                 lastChecked: new Date(module.lastChecked),
-                healthStatus: module.healthStatus || 'UNKNOWN'
+                healthStatus: 'UNKNOWN' // Always reset to UNKNOWN until we check
               })
             })
             this.modules = restoredModules
+            
+            // Start health watchers for all modules after loading
+            restoredModules.forEach((module, address) => {
+              this.startHealthWatcher(address)
+            })
           }
           // Restore active module
           if (state.activeModule) {
@@ -99,7 +106,7 @@ export const useModuleStore = defineStore('modules', {
     // Connect to a module
     async connectModule(address: string) {
       try {
-        const registration = await moduleService.getModuleSchema(address)
+        const registration = await moduleConnectService.getModuleSchema(address)
         
         const module: ConnectedModule = {
           address,
@@ -115,8 +122,8 @@ export const useModuleStore = defineStore('modules', {
         
         this.modules.set(address, module)
         
-        // Check health status
-        await this.checkModuleHealth(address)
+        // Start health watcher for this module
+        this.startHealthWatcher(address)
         
         return module
       } catch (error: any) {
@@ -136,7 +143,7 @@ export const useModuleStore = defineStore('modules', {
     // Check module health
     async checkModuleHealth(address: string) {
       try {
-        const health = await moduleService.checkModuleHealth(address)
+        const health = await moduleConnectService.checkModuleHealth(address)
         const module = this.modules.get(address)
         if (module) {
           module.healthStatus = health.status as any
@@ -162,6 +169,9 @@ export const useModuleStore = defineStore('modules', {
 
     // Remove module
     removeModule(address: string) {
+      // Stop health watcher first
+      this.stopHealthWatcher(address)
+      
       this.modules.delete(address)
       if (this.activeModuleAddress === address) {
         this.activeModuleAddress = ''
@@ -182,6 +192,42 @@ export const useModuleStore = defineStore('modules', {
     // Set current config ID
     setCurrentConfigId(configId: string) {
       this.currentConfigId = configId
+    },
+    
+    // Start health watcher for a module
+    startHealthWatcher(address: string) {
+      // Stop any existing watcher
+      this.stopHealthWatcher(address)
+      
+      // Start new watcher
+      const cleanup = moduleConnectService.watchModuleHealth(
+        address,
+        (status, serving) => {
+          const module = this.modules.get(address)
+          if (module) {
+            module.healthStatus = status as any
+            module.lastChecked = new Date()
+            this.modules.set(address, { ...module })
+          }
+        }
+      )
+      
+      this.healthWatchers.set(address, cleanup)
+    },
+    
+    // Stop health watcher for a module
+    stopHealthWatcher(address: string) {
+      const cleanup = this.healthWatchers.get(address)
+      if (cleanup) {
+        cleanup()
+        this.healthWatchers.delete(address)
+      }
+    },
+    
+    // Stop all health watchers
+    stopAllHealthWatchers() {
+      this.healthWatchers.forEach(cleanup => cleanup())
+      this.healthWatchers.clear()
     }
   }
 })

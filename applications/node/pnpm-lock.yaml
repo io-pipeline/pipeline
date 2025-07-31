@@ -20,6 +20,18 @@ importers:
       '@apidevtools/json-schema-ref-parser':
         specifier: ^11.7.3
         version: 11.9.3
+      '@bufbuild/protobuf':
+        specifier: ^2.6.2
+        version: 2.6.2
+      '@connectrpc/connect':
+        specifier: ^2.0.3
+        version: 2.0.3(@bufbuild/protobuf@2.6.2)
+      '@connectrpc/connect-express':
+        specifier: ^2.0.3
+        version: 2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect-node@2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2)))(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))(express@4.21.2)
+      '@connectrpc/connect-node':
+        specifier: ^2.0.3
+        version: 2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))
       '@grpc/grpc-js':
         specifier: ^1.12.4
         version: 1.13.4
@@ -42,6 +54,12 @@ importers:
         specifier: ^2.0.2
         version: 2.0.2
     devDependencies:
+      '@bufbuild/buf':
+        specifier: ^1.55.1
+        version: 1.55.1
+      '@bufbuild/protoc-gen-es':
+        specifier: ^2.6.2
+        version: 2.6.2(@bufbuild/protobuf@2.6.2)
       '@types/cors':
         specifier: ^2.8.17
         version: 2.8.19
@@ -60,6 +78,15 @@ importers:
 
   dev-tools/frontend:
     dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^2.6.2
+        version: 2.6.2
+      '@connectrpc/connect':
+        specifier: ^2.0.3
+        version: 2.0.3(@bufbuild/protobuf@2.6.2)
+      '@connectrpc/connect-web':
+        specifier: ^2.0.3
+        version: 2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))
       '@fontsource/roboto':
         specifier: 5.2.6
         version: 5.2.6
@@ -74,7 +101,7 @@ importers:
         version: 3.6.0(@jsonforms/core@3.6.0)(@jsonforms/vue@3.6.0(@jsonforms/core@3.6.0)(vue@3.5.18(typescript@5.8.3)))(vue@3.5.18(typescript@5.8.3))
       '@jsonforms/vue-vuetify':
         specifier: github:eclipsesource/jsonforms#issues/2434-vuertify-version-update&path:/packages/vue-vuetify
-        version: https://codeload.github.com/eclipsesource/jsonforms/tar.gz/cfeca5ab9f62abf092c66680d4a73d20ff66079b#path:/packages/vue-vuetify(@jsonforms/core@3.6.0)(@jsonforms/vue@3.6.0(@jsonforms/core@3.6.0)(vue@3.5.18(typescript@5.8.3)))(ajv@8.17.1)(dayjs@1.11.13)(lodash@4.17.21)(maska@2.1.11)(vue@3.5.18(typescript@5.8.3))(vuetify@3.9.3)
+        version: https://codeload.github.com/eclipsesource/jsonforms/tar.gz/b2dfc6c7ef04328962902628440cdd2daef2512e#path:/packages/vue-vuetify(@jsonforms/core@3.6.0)(@jsonforms/vue@3.6.0(@jsonforms/core@3.6.0)(vue@3.5.18(typescript@5.8.3)))(ajv@8.17.1)(dayjs@1.11.13)(lodash@4.17.21)(maska@2.1.11)(vue@3.5.18(typescript@5.8.3))(vuetify@3.9.3)
       '@mdi/font':
         specifier: 7.4.47
         version: 7.4.47
@@ -112,6 +139,12 @@ importers:
         specifier: ^3.9.1
         version: 3.9.3(typescript@5.8.3)(vite-plugin-vuetify@2.1.1)(vue@3.5.18(typescript@5.8.3))
     devDependencies:
+      '@bufbuild/buf':
+        specifier: ^1.55.1
+        version: 1.55.1
+      '@bufbuild/protoc-gen-es':
+        specifier: ^2.6.2
+        version: 2.6.2(@bufbuild/protobuf@2.6.2)
       '@tsconfig/node22':
         specifier: ^22.0.0
         version: 22.0.2
@@ -235,14 +268,101 @@ packages:
     resolution: {integrity: sha512-ruv7Ae4J5dUYULmeXw1gmb7rYRz57OWCPM57pHojnLq/3Z1CK2lNSLTCVjxVk1F/TZHwOZZrOWi0ur95BbLxNQ==}
     engines: {node: '>=6.9.0'}
 
+  '@bufbuild/buf-darwin-arm64@1.55.1':
+    resolution: {integrity: sha512-g76yEF2ALyjj+R8KVoIjPPS7zaPy6VDWg2b5PCCK04fKTbe5jyzOdYdvNyuM5hO8xpRPBjBrqO6LUAfS+0aRCQ==}
+    engines: {node: '>=12'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@bufbuild/buf-darwin-x64@1.55.1':
+    resolution: {integrity: sha512-hCkatzlV7DwHWEyzzcpsZgLtxABidT/EYBmLTy6oSCHimOJzR1c5ezKe75tX7myDAfV0HZExIM7+cSsWg3dTPg==}
+    engines: {node: '>=12'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@bufbuild/buf-linux-aarch64@1.55.1':
+    resolution: {integrity: sha512-hA4jGPZ2N+FUZt03w+hPt6YsbhAdOh2gNKBQnuysj8kdTqZ4mw1wCOUoRg9h7eqOr/2XCcOibWYO36H2eS2OYQ==}
+    engines: {node: '>=12'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@bufbuild/buf-linux-armv7@1.55.1':
+    resolution: {integrity: sha512-npnzJSAZRUdh8+fmgsbXt+dogA+iU/i/qWh+3XhdLXW220nWpd1jAXcpquaVfer8EwMEcYjqVf8FA7IXOgjGXw==}
+    engines: {node: '>=12'}
+    cpu: [arm]
+    os: [linux]
+
+  '@bufbuild/buf-linux-x64@1.55.1':
+    resolution: {integrity: sha512-/48IjSA1kh/8kZl1bcDkikgH+9BMnPhhVqad+R7+3ttYOFqifet3n+hf2ipA26NtTpTfvOSRXj1tdx/80x0I1g==}
+    engines: {node: '>=12'}
+    cpu: [x64]
+    os: [linux]
+
+  '@bufbuild/buf-win32-arm64@1.55.1':
+    resolution: {integrity: sha512-CE+jAN1ikRTIdny6Q/geccKsLhy4QEXzUaJUfAiUXqjSW2u/Et7+p9Wh6xUgXcSuIoz1aw8MVuCESrNMBt6LBg==}
+    engines: {node: '>=12'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@bufbuild/buf-win32-x64@1.55.1':
+    resolution: {integrity: sha512-C4VYS96YBJkLhIKH6yh8BqHgIjqGe+G6yuAOOKxWsYdx3QbT5LYOr38AP1bzkFm0Gz9jOOr5n0pmAFwsOLYjiw==}
+    engines: {node: '>=12'}
+    cpu: [x64]
+    os: [win32]
+
+  '@bufbuild/buf@1.55.1':
+    resolution: {integrity: sha512-V9tpe2XlRVyq33cct2lNz9nDDQG95WbPKlxQkMKt5i7tPsfqE3vzbGiEC96K0QJWhIU28OkjYD8+1SyYKBWVYg==}
+    engines: {node: '>=12'}
+    hasBin: true
+
   '@bufbuild/protobuf@2.6.2':
     resolution: {integrity: sha512-vLu7SRY84CV/Dd+NUdgtidn2hS5hSMUC1vDBY0VcviTdgRYkU43vIz3vIFbmx14cX1r+mM7WjzE5Fl1fGEM0RQ==}
+
+  '@bufbuild/protoc-gen-es@2.6.2':
+    resolution: {integrity: sha512-23oadoLfK9E+p5jLulwz9fRf8oE4JiwbMp7/CXdogNhuADJxpbfnCV+2ByJgG+QTU+uaGQBro79XqO2CQdzRMQ==}
+    engines: {node: '>=14'}
+    hasBin: true
+    peerDependencies:
+      '@bufbuild/protobuf': 2.6.2
+    peerDependenciesMeta:
+      '@bufbuild/protobuf':
+        optional: true
+
+  '@bufbuild/protoplugin@2.6.2':
+    resolution: {integrity: sha512-EYVPnRXOkWuqBDqRYhLsquOnk5SGU2Ce3lAOBDEZyntHwu0xcjcIZeTI+as+HnArtcJwrXK0u6x3Rtmt2IcHlA==}
 
   '@clack/core@0.4.2':
     resolution: {integrity: sha512-NYQfcEy8MWIxrT5Fj8nIVchfRFA26yYKJcvBS7WlUIlw2OmQOY9DhGGXMovyI5J5PpxrCPGkgUi207EBrjpBvg==}
 
   '@clack/prompts@0.10.1':
     resolution: {integrity: sha512-Q0T02vx8ZM9XSv9/Yde0jTmmBQufZhPJfYAg2XrrrxWWaZgq1rr8nU8Hv710BQ1dhoP8rtY7YUdpGej2Qza/cw==}
+
+  '@connectrpc/connect-express@2.0.3':
+    resolution: {integrity: sha512-luXOcl1RzRI5mE3dSs+B9omL3FKpv8W/a4Q5TMFMYFHn+/bTT6bLFbSkL/GQmBvgj+nUTwYUSBLDYIVllJ/9rg==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.2.0
+      '@connectrpc/connect': 2.0.3
+      '@connectrpc/connect-node': 2.0.3
+      express: ^4.18.2 || ^5.0.1
+
+  '@connectrpc/connect-node@2.0.3':
+    resolution: {integrity: sha512-GZ8WXBCeoZY31wzmnrrV4IA0nvYzEwqt9yHg304b7y/ovKh0IEbBuSWbee/hJu2Tt7PD0C8D4WUwheECCeLpQA==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.2.0
+      '@connectrpc/connect': 2.0.3
+
+  '@connectrpc/connect-web@2.0.3':
+    resolution: {integrity: sha512-w4LZ2Ci+NW/kcMoHnoczJgyGTmxuv/MQ+tTm2UNL40HimXKWYCAna/fV0AbHRnTiteiwEBpeSCaxF34MetzhAw==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.2.0
+      '@connectrpc/connect': 2.0.3
+
+  '@connectrpc/connect@2.0.3':
+    resolution: {integrity: sha512-jAbVMHVtDCydGt2P20VpmLjbLtERqSV0RMSyQF3k2zhK8pzQ2QaCAcyVhufClqrOAFZUKL5BqVYtttaxvhmRgg==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.2.0
 
   '@emnapi/core@1.4.5':
     resolution: {integrity: sha512-XsLw1dEOpkSX/WucdqUhPWP7hDxSvZiY+fsUC14h+FtQ2Ifni4znbBt8punRX+Uj2JG/uDb8nEHVKvrVlvdZ5Q==}
@@ -687,8 +807,8 @@ packages:
       vue: ^3.4.21
       vuetify: ^3.6.6
 
-  '@jsonforms/vue-vuetify@https://codeload.github.com/eclipsesource/jsonforms/tar.gz/cfeca5ab9f62abf092c66680d4a73d20ff66079b#path:/packages/vue-vuetify':
-    resolution: {path: /packages/vue-vuetify, tarball: https://codeload.github.com/eclipsesource/jsonforms/tar.gz/cfeca5ab9f62abf092c66680d4a73d20ff66079b}
+  '@jsonforms/vue-vuetify@https://codeload.github.com/eclipsesource/jsonforms/tar.gz/b2dfc6c7ef04328962902628440cdd2daef2512e#path:/packages/vue-vuetify':
+    resolution: {path: /packages/vue-vuetify, tarball: https://codeload.github.com/eclipsesource/jsonforms/tar.gz/b2dfc6c7ef04328962902628440cdd2daef2512e}
     version: 3.6.0
     peerDependencies:
       '@jsonforms/core': 3.6.0
@@ -986,6 +1106,11 @@ packages:
   '@typescript-eslint/visitor-keys@8.38.0':
     resolution: {integrity: sha512-pWrTcoFNWuwHlA9CvlfSsGWs14JxfN1TH25zM5L7o0pRLhsoZkDnTsXfQRJBEWJoV5DL0jf+Z+sxiud+K0mq1g==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@typescript/vfs@1.6.1':
+    resolution: {integrity: sha512-JwoxboBh7Oz1v38tPbkrZ62ZXNHAk9bJ7c9x0eI5zBfBnBYGhURdbnh7Z4smN/MV48Y5OCcZb58n972UtbazsA==}
+    peerDependencies:
+      typescript: '*'
 
   '@unrs/resolver-binding-android-arm-eabi@1.11.1':
     resolution: {integrity: sha512-ppLRUgHVaGRWUx0R0Ut06Mjo9gBaBkg3v/8AxusGLhsIotbBLuRk51rAzqLC8gq6NyyAojEXglNjzf6R948DNw==}
@@ -2964,6 +3089,11 @@ packages:
       eslint: ^8.57.0 || ^9.0.0
       typescript: '>=4.8.4 <5.9.0'
 
+  typescript@5.4.5:
+    resolution: {integrity: sha512-vcI4UpRgg81oIRUFwR0WSIHKt11nJ7SAVlYNIu+QpqeyXP+gpQJy/Z4+F0aGxSE4MqwjyXvW/TzgkLAx2AGHwQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
     engines: {node: '>=14.17'}
@@ -3331,7 +3461,54 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
+  '@bufbuild/buf-darwin-arm64@1.55.1':
+    optional: true
+
+  '@bufbuild/buf-darwin-x64@1.55.1':
+    optional: true
+
+  '@bufbuild/buf-linux-aarch64@1.55.1':
+    optional: true
+
+  '@bufbuild/buf-linux-armv7@1.55.1':
+    optional: true
+
+  '@bufbuild/buf-linux-x64@1.55.1':
+    optional: true
+
+  '@bufbuild/buf-win32-arm64@1.55.1':
+    optional: true
+
+  '@bufbuild/buf-win32-x64@1.55.1':
+    optional: true
+
+  '@bufbuild/buf@1.55.1':
+    optionalDependencies:
+      '@bufbuild/buf-darwin-arm64': 1.55.1
+      '@bufbuild/buf-darwin-x64': 1.55.1
+      '@bufbuild/buf-linux-aarch64': 1.55.1
+      '@bufbuild/buf-linux-armv7': 1.55.1
+      '@bufbuild/buf-linux-x64': 1.55.1
+      '@bufbuild/buf-win32-arm64': 1.55.1
+      '@bufbuild/buf-win32-x64': 1.55.1
+
   '@bufbuild/protobuf@2.6.2': {}
+
+  '@bufbuild/protoc-gen-es@2.6.2(@bufbuild/protobuf@2.6.2)':
+    dependencies:
+      '@bufbuild/protoplugin': 2.6.2
+    optionalDependencies:
+      '@bufbuild/protobuf': 2.6.2
+    transitivePeerDependencies:
+      - supports-color
+
+  '@bufbuild/protoplugin@2.6.2':
+    dependencies:
+      '@bufbuild/protobuf': 2.6.2
+      '@typescript/vfs': 1.6.1(typescript@5.4.5)
+      typescript: 5.4.5
+    transitivePeerDependencies:
+      - supports-color
 
   '@clack/core@0.4.2':
     dependencies:
@@ -3343,6 +3520,27 @@ snapshots:
       '@clack/core': 0.4.2
       picocolors: 1.1.1
       sisteransi: 1.0.5
+
+  '@connectrpc/connect-express@2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect-node@2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2)))(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))(express@4.21.2)':
+    dependencies:
+      '@bufbuild/protobuf': 2.6.2
+      '@connectrpc/connect': 2.0.3(@bufbuild/protobuf@2.6.2)
+      '@connectrpc/connect-node': 2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))
+      express: 4.21.2
+
+  '@connectrpc/connect-node@2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))':
+    dependencies:
+      '@bufbuild/protobuf': 2.6.2
+      '@connectrpc/connect': 2.0.3(@bufbuild/protobuf@2.6.2)
+
+  '@connectrpc/connect-web@2.0.3(@bufbuild/protobuf@2.6.2)(@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2))':
+    dependencies:
+      '@bufbuild/protobuf': 2.6.2
+      '@connectrpc/connect': 2.0.3(@bufbuild/protobuf@2.6.2)
+
+  '@connectrpc/connect@2.0.3(@bufbuild/protobuf@2.6.2)':
+    dependencies:
+      '@bufbuild/protobuf': 2.6.2
 
   '@emnapi/core@1.4.5':
     dependencies:
@@ -3649,7 +3847,7 @@ snapshots:
       vue: 3.5.18(typescript@5.8.3)
       vuetify: 3.9.3(typescript@5.8.3)(vite-plugin-vuetify@2.1.1)(vue@3.5.18(typescript@5.8.3))
 
-  '@jsonforms/vue-vuetify@https://codeload.github.com/eclipsesource/jsonforms/tar.gz/cfeca5ab9f62abf092c66680d4a73d20ff66079b#path:/packages/vue-vuetify(@jsonforms/core@3.6.0)(@jsonforms/vue@3.6.0(@jsonforms/core@3.6.0)(vue@3.5.18(typescript@5.8.3)))(ajv@8.17.1)(dayjs@1.11.13)(lodash@4.17.21)(maska@2.1.11)(vue@3.5.18(typescript@5.8.3))(vuetify@3.9.3)':
+  '@jsonforms/vue-vuetify@https://codeload.github.com/eclipsesource/jsonforms/tar.gz/b2dfc6c7ef04328962902628440cdd2daef2512e#path:/packages/vue-vuetify(@jsonforms/core@3.6.0)(@jsonforms/vue@3.6.0(@jsonforms/core@3.6.0)(vue@3.5.18(typescript@5.8.3)))(ajv@8.17.1)(dayjs@1.11.13)(lodash@4.17.21)(maska@2.1.11)(vue@3.5.18(typescript@5.8.3))(vuetify@3.9.3)':
     dependencies:
       '@jsonforms/core': 3.6.0
       '@jsonforms/vue': 3.6.0(@jsonforms/core@3.6.0)(vue@3.5.18(typescript@5.8.3))
@@ -3949,6 +4147,13 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.38.0
       eslint-visitor-keys: 4.2.1
+
+  '@typescript/vfs@1.6.1(typescript@5.4.5)':
+    dependencies:
+      debug: 4.4.1
+      typescript: 5.4.5
+    transitivePeerDependencies:
+      - supports-color
 
   '@unrs/resolver-binding-android-arm-eabi@1.11.1':
     optional: true
@@ -5980,6 +6185,8 @@ snapshots:
       typescript: 5.8.3
     transitivePeerDependencies:
       - supports-color
+
+  typescript@5.4.5: {}
 
   typescript@5.8.3: {}
 

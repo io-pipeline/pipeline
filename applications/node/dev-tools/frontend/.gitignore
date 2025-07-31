@@ -2,6 +2,9 @@
 node_modules
 /dist
 
+# Generated protobuf TypeScript files
+src/gen/
+
 # local env files
 .env.local
 .env.*.local

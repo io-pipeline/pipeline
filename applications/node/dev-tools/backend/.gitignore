@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Generated protobuf TypeScript files
+src/gen/
+
 # TypeScript build output
 dist/
 *.tsbuildinfo
@@ -43,6 +46,9 @@ output.txt
 
 # Local storage file
 .pipeline-dev-tools-storage.json
+
+# Local storage directory
+dev-tools-data/
 
 # MongoDB data directory
 mongodb-data/

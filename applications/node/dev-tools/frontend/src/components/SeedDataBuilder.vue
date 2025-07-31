@@ -182,26 +182,57 @@ const createSeedRequest = async () => {
   error.value = ''
   
   try {
-    // Create FormData for file upload
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('docId', docId.value || '')
-    formData.append('streamId', streamId.value || '')
-    formData.append('title', title.value || fileName.value)
-    formData.append('config', JSON.stringify(props.currentConfig || {}))
-    
-    // Upload file and create request
-    const response = await fetch('http://localhost:3000/api/seed/create', {
-      method: 'POST',
-      body: formData
+    // Read file as base64
+    const reader = new FileReader()
+    const fileData64 = await new Promise<string>((resolve, reject) => {
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1] // Remove data:mime;base64, prefix
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
     })
     
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.details || error.error || 'Failed to create seed data')
+    // Create PipeDoc with file data (client-side)
+    const pipeDoc = {
+      id: docId.value || `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: title.value || file.name,
+      source_uri: `file://${file.name}`,
+      source_mime_type: file.type || 'application/octet-stream',
+      document_type: 'seed-data',
+      blob: {
+        data: fileData64,
+        mime_type: file.type || 'application/octet-stream',
+        size: file.size,
+        file_name: file.name
+      },
+      metadata: {
+        source: 'dev-tool-seed-builder',
+        created_at: new Date().toISOString(),
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type || 'application/octet-stream'
+      }
     }
     
-    const { request } = await response.json()
+    // Create the ModuleProcessRequest
+    const request = {
+      document: pipeDoc,
+      config: {
+        custom_json_config: props.currentConfig || {}
+      },
+      metadata: {
+        pipeline_name: 'dev-tools-test',
+        pipe_step_name: 'manual-test',
+        stream_id: streamId.value || `stream-${Date.now()}`,
+        current_hop_number: 1,
+        context_params: {
+          'source': 'seed-data-builder',
+          'test_mode': 'true'
+        }
+      }
+    }
+    
     createdRequest.value = request
     // Don't emit immediately - wait for user to click "Process This Document"
     

@@ -1,3 +1,8 @@
+// IMPORTANT: This service provides LOCAL FILE STORAGE functionality for the dev tools.
+// DO NOT DELETE - This is the core storage layer that saves module configurations,
+// test documents, and pipeline chains to the local filesystem when not connected
+// to a repository service. This enables the app to work offline and without external dependencies.
+
 import { TestDocument, PipelineChain, BatchJob } from '../models/TestDocument';
 import * as fs from 'fs/promises';
 import * as path from 'path';

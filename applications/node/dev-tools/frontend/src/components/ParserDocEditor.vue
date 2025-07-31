@@ -215,6 +215,7 @@ import { customRenderers } from '../renderers'
 import MetadataEditor from './MetadataEditor.vue'
 import type { PipeDoc } from '@pipeline/protobuf-forms'
 import type { JsonSchema } from '@pipeline/protobuf-forms'
+import { schemaConnectService } from '../services/schemaConnectService'
 
 // State
 const tab = ref('metadata')
@@ -237,14 +238,10 @@ const pipeDoc = ref<Partial<PipeDoc>>({
   documentStatus: 'PENDING'
 })
 
-// Load schema
+// Load schema using Connect service
 onMounted(async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/schema/proto/PipeDoc')
-    if (!response.ok) {
-      throw new Error(`Failed to load schema: ${response.statusText}`)
-    }
-    schema.value = await response.json()
+    schema.value = await schemaConnectService.getMessageSchema('PipeDoc')
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load schema'
   }

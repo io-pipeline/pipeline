@@ -111,6 +111,7 @@ import { ref, watch } from 'vue'
 import SeedDataBuilder from './SeedDataBuilder.vue'
 import CodeBlock from './CodeBlock.vue'
 import { useModuleStore } from '../stores/moduleStore'
+import { moduleConnectService } from '../services/moduleConnectService'
 
 const props = defineProps<{
   currentConfig?: any
@@ -180,23 +181,13 @@ const processDocument = async () => {
   processingResult.value = null
   
   try {
-    const response = await fetch('http://localhost:3000/api/module-execute', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        address: moduleStore.activeModuleAddress,
-        request: localRequest.value
-      })
-    })
+    // Use Connect service to execute the request
+    const response = await moduleConnectService.executeRequest(
+      moduleStore.activeModuleAddress,
+      localRequest.value
+    )
     
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.details || error.error || 'Failed to process document')
-    }
-    
-    processingResult.value = await response.json()
+    processingResult.value = response
   } catch (err) {
     processingError.value = 'Error processing document: ' + (err as Error).message
   } finally {

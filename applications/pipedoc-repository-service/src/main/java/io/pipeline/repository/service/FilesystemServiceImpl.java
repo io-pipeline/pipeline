@@ -188,6 +188,15 @@ public class FilesystemServiceImpl implements FilesystemService {
         
         return childIds
             .flatMap(ids -> {
+                // Handle empty result set
+                if (ids.isEmpty()) {
+                    return Uni.createFrom().item(
+                        GetChildrenResponse.newBuilder()
+                            .setTotalCount(0)
+                            .build()
+                    );
+                }
+                
                 // Load all child nodes
                 List<Uni<Node>> nodeUnis = ids.stream()
                     .map(id -> loadNode(id).map(this::toProto))

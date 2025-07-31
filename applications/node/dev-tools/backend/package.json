@@ -15,15 +15,21 @@
   "license": "ISC",
   "dependencies": {
     "@apidevtools/json-schema-ref-parser": "^11.7.3",
+    "@bufbuild/protobuf": "^2.6.2",
+    "@connectrpc/connect": "^2.0.3",
+    "@connectrpc/connect-express": "^2.0.3",
+    "@connectrpc/connect-node": "^2.0.3",
     "@grpc/grpc-js": "^1.12.4",
     "@grpc/proto-loader": "^0.7.13",
+    "@pipeline/protobuf-forms": "workspace:*",
     "@types/multer": "^2.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "multer": "^2.0.2",
-    "@pipeline/protobuf-forms": "workspace:*"
+    "multer": "^2.0.2"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.55.1",
+    "@bufbuild/protoc-gen-es": "^2.6.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",

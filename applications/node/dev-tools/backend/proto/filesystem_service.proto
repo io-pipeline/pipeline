@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package io.pipeline.repository.filesystem;
+
+// Import the 'Any' type, which allows us to embed arbitrary message types.
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_package = "io.pipeline.repository.filesystem";
+option java_multiple_files = true;
+option java_outer_classname = "FilesystemServiceProto";
+
+// The central Node message, representing a file or a folder in the virtual filesystem.
+message Node {
+  enum NodeType {
+    NODE_TYPE_UNSPECIFIED = 0;
+    FOLDER = 1;
+    FILE = 2;
+  }
+
+  string id = 1;         // Unique identifier (MongoDB ObjectId as a string)
+  string parent_id = 2;  // ID of the parent folder (empty for root)
+  string name = 3;       // Display name of the node
+  NodeType type = 4;     // Whether this is a FOLDER or a FILE
+  
+  // If the node is a FILE, this field holds the specific data payload.
+  // For PipeDoc storage, this would be the PipeDoc message
+  google.protobuf.Any payload = 5;
+  
+  // Metadata
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  int64 size = 8;        // Size in bytes (for files)
+  string mime_type = 9;  // MIME type (for files)
+  
+  // Path information (materialized path for efficient queries)
+  string path = 10;      // Ancestor path, e.g., ",root_id,folder_id,"
+  
+  // Additional metadata as key-value pairs
+  map<string, string> metadata = 11;
+  
+  // Visual and type information
+  string icon_svg = 12;     // SVG icon for visual representation
+  string service_type = 13; // Service interface type (e.g., "PipeStepProcessor", "Parser")
+  string payload_type = 14; // Actual payload type (e.g., "ModuleProcessRequest", "ModuleProcessResponse")
+}
+
+// Service definition for filesystem operations
+service FilesystemService {
+  // Node CRUD operations
+  rpc CreateNode(CreateNodeRequest) returns (Node);
+  rpc GetNode(GetNodeRequest) returns (Node);
+  rpc UpdateNode(UpdateNodeRequest) returns (Node);
+  rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
+  
+  // Navigation operations
+  rpc GetChildren(GetChildrenRequest) returns (GetChildrenResponse);
+  rpc GetPath(GetPathRequest) returns (GetPathResponse);
+  rpc GetTree(GetTreeRequest) returns (GetTreeResponse);
+  
+  // Move and copy operations
+  rpc MoveNode(MoveNodeRequest) returns (Node);
+  rpc CopyNode(CopyNodeRequest) returns (Node);
+  
+  // Search operations
+  rpc SearchNodes(SearchNodesRequest) returns (SearchNodesResponse);
+}
+
+// Request and Response messages
+
+message CreateNodeRequest {
+  string parent_id = 1;     // Parent folder ID (empty for root)
+  string name = 2;          // Node name
+  Node.NodeType type = 3;   // FOLDER or FILE
+  google.protobuf.Any payload = 4;  // File content (for FILE type)
+  map<string, string> metadata = 5; // Additional metadata
+}
+
+message GetNodeRequest {
+  string id = 1;
+}
+
+message UpdateNodeRequest {
+  string id = 1;
+  string name = 2;          // New name (optional)
+  google.protobuf.Any payload = 3;  // New content (optional, for files)
+  map<string, string> metadata = 4; // Updated metadata (optional)
+}
+
+message DeleteNodeRequest {
+  string id = 1;
+  bool recursive = 2;       // Delete children for folders
+}
+
+message DeleteNodeResponse {
+  bool success = 1;
+  int32 deleted_count = 2;  // Number of nodes deleted (including children)
+}
+
+message GetChildrenRequest {
+  string parent_id = 1;     // Parent folder ID (empty for root)
+  int32 page_size = 2;      // Pagination
+  string page_token = 3;    // Pagination token
+  string order_by = 4;      // Sort field (name, created_at, etc.)
+  bool ascending = 5;       // Sort order
+}
+
+message GetChildrenResponse {
+  repeated Node nodes = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message GetPathRequest {
+  string id = 1;            // Node ID to get path for
+}
+
+message GetPathResponse {
+  repeated Node ancestors = 1;  // Path from root to node (inclusive)
+}
+
+message GetTreeRequest {
+  string root_id = 1;       // Starting node (empty for absolute root)
+  int32 max_depth = 2;      // Maximum depth to traverse
+}
+
+message GetTreeResponse {
+  Node root = 1;
+  repeated TreeNode children = 2;
+}
+
+message TreeNode {
+  Node node = 1;
+  repeated TreeNode children = 2;
+}
+
+message MoveNodeRequest {
+  string node_id = 1;
+  string new_parent_id = 2;
+  string new_name = 3;      // Optional rename during move
+}
+
+message CopyNodeRequest {
+  string node_id = 1;
+  string target_parent_id = 2;
+  string new_name = 3;      // Optional rename during copy
+  bool deep = 4;            // Deep copy for folders
+}
+
+message SearchNodesRequest {
+  string query = 1;         // Search query
+  repeated string paths = 2;  // Limit search to these paths
+  repeated Node.NodeType types = 3;  // Filter by node types
+  map<string, string> metadata_filters = 4;  // Filter by metadata
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message SearchNodesResponse {
+  repeated Node nodes = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}

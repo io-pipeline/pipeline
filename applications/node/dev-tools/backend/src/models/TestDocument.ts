@@ -1,3 +1,8 @@
+// IMPORTANT: DO NOT DELETE - These interfaces define the data structures for
+// local storage of test documents, pipeline configurations, and batch jobs.
+// Used by storageService.ts to persist user data to the local filesystem.
+// This allows the dev tools to work without external database dependencies.
+
 import { ObjectId } from 'mongodb';
 
 export interface TestDocument {

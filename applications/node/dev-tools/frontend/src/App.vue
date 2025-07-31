@@ -10,20 +10,10 @@
         <!-- Status Indicators -->
         <div class="d-flex align-center">
           <!-- Repository Service Status -->
-          <v-tooltip location="bottom">
-            <template v-slot:activator="{ props }">
-              <v-btn
-                v-bind="props"
-                :icon="getRepositoryIcon()"
-                :color="getRepositoryStatusColor()"
-                variant="text"
-                size="small"
-                @click="checkRepositoryHealth"
-                class="mr-2"
-              />
-            </template>
-            <span>{{ getRepositoryStatusText() }}</span>
-          </v-tooltip>
+          <RepositoryConnectionStatus 
+            @click="showRepositoryConfig = true"
+            class="mr-3"
+          />
           
           <v-btn
             :icon="theme.global.name.value === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night'"
@@ -148,8 +138,38 @@
           <!-- Admin Tab -->
           <v-tabs-window-item value="admin">
             <v-container fluid>
-              <!-- Storage Management -->
+              <!-- Repository Configuration -->
               <v-card>
+                <v-card-title>Repository Service Configuration</v-card-title>
+                <v-card-subtitle>Configure connection to the document repository</v-card-subtitle>
+                <v-divider />
+                <v-card-text>
+                  <div class="d-flex align-center mb-4">
+                    <RepositoryConnectionStatus 
+                      :show-address="true"
+                      @click="showRepositoryConfig = true"
+                      class="mr-3"
+                    />
+                    <v-btn
+                      color="primary"
+                      variant="tonal"
+                      @click="showRepositoryConfig = true"
+                    >
+                      Configure Connection
+                    </v-btn>
+                  </div>
+                  <v-alert
+                    type="info"
+                    variant="tonal"
+                    density="compact"
+                  >
+                    The repository service manages document storage. Connection will automatically retry if disconnected.
+                  </v-alert>
+                </v-card-text>
+              </v-card>
+              
+              <!-- Storage Management -->
+              <v-card class="mt-4">
                 <v-card-title>Storage Management</v-card-title>
                 <v-card-subtitle>Administrative functions and debugging tools</v-card-subtitle>
                 
@@ -208,28 +228,21 @@
                 </v-card-text>
               </v-card>
               
-              <!-- MongoDB Filesystem Browser -->
-              <v-card class="mt-4">
-                <v-card-title>MongoDB Filesystem Browser</v-card-title>
-                <v-card-subtitle>Browse and manage documents in a virtual filesystem</v-card-subtitle>
-                <v-divider />
-                <v-card-text>
-                  <!-- Placeholder for filesystem browser -->
-                  <v-alert type="info" variant="tonal">
-                    Filesystem browser coming soon...
-                  </v-alert>
-                </v-card-text>
-              </v-card>
+              <!-- Connect Integration Test -->
+              <ConnectHealthCheck class="mt-4" />
             </v-container>
           </v-tabs-window-item>
         </v-tabs-window>
       </v-container>
     </v-main>
+    
+    <!-- Repository Configuration Dialog -->
+    <RepositoryConfigDialog v-model="showRepositoryConfig" />
   </v-app>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useTheme } from 'vuetify'
 import ModuleRegistry from './components/ModuleRegistry.vue'
 import ConfigSelector from './components/ConfigSelector.vue'
@@ -237,14 +250,19 @@ import UniversalConfigCard from './components/UniversalConfigCard.vue'
 import SeedDataBuilder from './components/SeedDataBuilder.vue'
 import ProcessDocument from './components/ProcessDocument.vue'
 import DataSeedingEnhanced from './components/DataSeedingEnhanced.vue'
+import ConnectHealthCheck from './components/ConnectHealthCheck.vue'
+import RepositoryConnectionStatus from './components/RepositoryConnectionStatus.vue'
+import RepositoryConfigDialog from './components/RepositoryConfigDialog.vue'
 import { useModuleStore } from './stores/moduleStore'
 import { useConfigStore } from './stores/configStore'
 import { useDatabaseStore } from './stores/databaseStore'
+import { useRepositoryStore } from './stores/repositoryStore'
 
 const theme = useTheme()
 const moduleStore = useModuleStore()
 const configStore = useConfigStore()
 const databaseStore = useDatabaseStore()
+const repositoryStore = useRepositoryStore()
 
 // Toggle theme
 const toggleTheme = () => {
@@ -257,9 +275,6 @@ onMounted(() => {
   moduleStore.init()
   configStore.init()
   databaseStore.init()
-  checkRepositoryHealth()
-  // Check repository health periodically
-  setInterval(checkRepositoryHealth, 30000) // every 30 seconds
 })
 
 const activeTab = ref('registry')
@@ -267,8 +282,7 @@ const currentConfig = ref<any>({})
 const configSelector = ref<any>(null)
 const createdRequest = ref<any>(null)
 const storageCleared = ref('')
-const repositoryHealthy = ref(false)
-const repositoryChecking = ref(false)
+const showRepositoryConfig = ref(false)
 
 // Handle config selection
 const handleConfigSelected = (config: any) => {
@@ -310,38 +324,6 @@ const navigateToAdmin = () => {
   })
 }
 
-// Repository Service health check
-const checkRepositoryHealth = async () => {
-  repositoryChecking.value = true
-  try {
-    const response = await fetch('http://localhost:3000/api/repository-health')
-    const data = await response.json()
-    repositoryHealthy.value = data.healthy
-  } catch (error) {
-    repositoryHealthy.value = false
-  } finally {
-    repositoryChecking.value = false
-  }
-}
-
-// Repository status helpers
-const getRepositoryIcon = () => {
-  if (repositoryChecking.value) return 'mdi-loading'
-  if (repositoryHealthy.value) return 'mdi-server-network'
-  return 'mdi-server-network-off'
-}
-
-const getRepositoryStatusColor = () => {
-  if (repositoryChecking.value) return 'blue'
-  if (repositoryHealthy.value) return 'green'
-  return 'red'
-}
-
-const getRepositoryStatusText = () => {
-  if (repositoryChecking.value) return 'Checking repository service...'
-  if (repositoryHealthy.value) return 'Repository Service Connected'
-  return 'Repository Service Offline'
-}
 
 
 // Admin functions

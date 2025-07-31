@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { JsonForms } from '@jsonforms/vue'
 import { vanillaRenderers } from '@jsonforms/vue-vanilla'
 // For now, keep using our custom renderers until the package is built
@@ -59,6 +59,7 @@ import {
   type PipeDoc 
 } from '@pipeline/protobuf-forms'
 import type { JsonSchema } from '@pipeline/protobuf-forms'
+import { schemaConnectService } from '../services/schemaConnectService'
 
 // State
 const tab = ref('form')
@@ -78,24 +79,13 @@ const pipeDoc = ref<Partial<PipeDoc>>({
   // Don't initialize metadata - let user add entries as needed
 })
 
-// Load schema from backend API
+// Load schema using Connect service
 onMounted(async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/schema/proto/PipeDoc')
-    if (!response.ok) {
-      throw new Error(`Failed to load schema: ${response.statusText}`)
-    }
-    
-    schema.value = await response.json()
-    console.log('Loaded PipeDoc schema from protobuf:', schema.value)
-    
-    // Debug: Check metadata field schema
-    if (schema.value.properties?.metadata) {
-      console.log('Metadata field schema:', JSON.stringify(schema.value.properties.metadata, null, 2))
-    }
+    schema.value = await schemaConnectService.getMessageSchema('PipeDoc')
+    console.log('Loaded PipeDoc schema via Connect')
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load schema'
-    console.error('Schema loading error:', err)
   }
 })
 
