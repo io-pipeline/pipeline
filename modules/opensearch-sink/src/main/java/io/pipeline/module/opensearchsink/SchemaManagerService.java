@@ -44,7 +44,7 @@ public class SchemaManagerService {
 
     public String determineIndexName(String documentType) {
         String baseName = (documentType == null || documentType.isEmpty()) ? "documents" : documentType;
-        return defaultIndexPrefix + "-" + baseName.toLowerCase().replaceAll("[^a-z0-9_\\-", "_");
+        return defaultIndexPrefix + "-" + baseName.toLowerCase().replaceAll("[^a-z0-9_\\-]", "_");
     }
 
     public Uni<Void> ensureIndexExists(String indexName) {

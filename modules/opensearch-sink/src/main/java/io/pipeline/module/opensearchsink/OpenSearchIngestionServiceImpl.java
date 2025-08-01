@@ -3,6 +3,9 @@ package io.pipeline.module.opensearchsink;
 import io.pipeline.ingestion.proto.IngestionRequest;
 import io.pipeline.ingestion.proto.IngestionResponse;
 import io.pipeline.ingestion.proto.MutinyOpenSearchIngestionGrpc;
+import io.pipeline.module.opensearchsink.service.DocumentConverterService;
+import io.pipeline.module.opensearchsink.service.OpenSearchRepository;
+import io.pipeline.module.opensearchsink.service.SchemaManagerService;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -30,14 +33,18 @@ public class OpenSearchIngestionServiceImpl extends MutinyOpenSearchIngestionGrp
 
     @Override
     public Multi<IngestionResponse> streamDocuments(Multi<IngestionRequest> requestStream) {
+        // For now, we process each request individually.
+        // We will add buffering logic later based on the configuration.
         return requestStream.onItem().transformToUniAndMerge(this::processSingleRequest);
     }
 
     private Uni<IngestionResponse> processSingleRequest(IngestionRequest request) {
-        String indexName = schemaManager.determineIndexName(request.getDocument().getDocumentType());
+        if (!request.hasDocument()) {
+            return Uni.createFrom().item(buildResponse(request, false, "IngestionRequest has no document."));
+        }
 
-        return schemaManager.ensureIndexExists(indexName)
-                .onItem().transform(v -> documentConverter.prepareBulkOperations(request.getDocument(), indexName))
+        return schemaManager.ensureSchemaIsReady(request.getDocument())
+                .onItem().transform(v -> documentConverter.prepareBulkOperations(request.getDocument()))
                 .onItem().transformToUni(openSearchRepository::bulk)
                 .onItem().transform(bulkResponse -> {
                     if (bulkResponse.errors()) {
@@ -55,9 +62,10 @@ public class OpenSearchIngestionServiceImpl extends MutinyOpenSearchIngestionGrp
     }
 
     private IngestionResponse buildResponse(IngestionRequest request, boolean success, String message) {
+        String docId = request.hasDocument() ? request.getDocument().getId() : "";
         return IngestionResponse.newBuilder()
                 .setRequestId(request.getRequestId())
-                .setDocumentId(request.getDocument().getId())
+                .setDocumentId(docId)
                 .setSuccess(success)
                 .setMessage(message)
                 .build();

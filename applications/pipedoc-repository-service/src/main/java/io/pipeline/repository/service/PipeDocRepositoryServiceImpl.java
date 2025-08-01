@@ -7,10 +7,13 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.ModuleProcessRequest;
+import io.pipeline.data.module.ModuleProcessResponse;
 import io.pipeline.repository.v1.*;
+import io.pipeline.repository.filesystem.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -19,84 +22,135 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Redis-based implementation of PipeDocRepository using the generic repository.
+ * Filesystem-based implementation of PipeDocRepository using the FilesystemService.
  * Provides full CRUD operations for PipeDocs and ModuleProcessRequests.
+ * Organizes documents in a hierarchical folder structure.
  */
 @GrpcService
 public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.PipeDocRepositoryImplBase {
     
     private static final Logger LOG = Logger.getLogger(PipeDocRepositoryServiceImpl.class);
     
+    // Standard folder names
+    private static final String PIPEDOCS_FOLDER = "PipeDocs";
+    private static final String REQUESTS_FOLDER = "Process Requests";
+    private static final String SEED_DATA_FOLDER = "Seed Data";
+    
     @Inject
-    GenericRepositoryService repository;
+    RepositoryFilesystemHelper filesystemHelper;
+    
+    @Inject
+    @GrpcService
+    FilesystemServiceImpl filesystemService;
     
     @Override
     public Uni<CreatePipeDocResponse> createPipeDoc(CreatePipeDocRequest request) {
-        try {
-            // Extract metadata
-            Map<String, String> metadata = new HashMap<>(request.getTagsMap());
-            metadata.put("_description", request.getDescription());
-            
-            // Extract searchable fields from PipeDoc
-            PipeDoc doc = request.getDocument();
-            metadata.put("documentId", doc.getId());
-            if (doc.hasSourceUri()) {
-                metadata.put("sourceUri", doc.getSourceUri());
-            }
-            if (doc.hasTitle()) {
-                metadata.put("title", doc.getTitle());
-            }
-            
-            // Store the document
-            return repository.store(doc, metadata)
-                .map(storageId -> {
-                    // Build response
-                    StoredPipeDoc stored = StoredPipeDoc.newBuilder()
-                        .setStorageId(storageId)
-                        .setDocument(doc)
-                        .putAllTags(request.getTagsMap())
-                        .setDescription(request.getDescription())
-                        .setCreatedAt(instantToTimestamp(Instant.now()))
-                        .setUpdatedAt(instantToTimestamp(Instant.now()))
-                        .build();
-                    
-                    return CreatePipeDocResponse.newBuilder()
-                        .setStorageId(storageId)
-                        .setStoredDocument(stored)
-                        .build();
-                })
-                .onFailure().transform(e -> {
-                    LOG.error("Error creating PipeDoc", e);
-                    return new StatusRuntimeException(
-                        Status.INTERNAL.withDescription("Failed to create PipeDoc: " + e.getMessage())
-                    );
-                });
-            
-        } catch (Exception e) {
-            LOG.error("Error creating PipeDoc", e);
-            return Uni.createFrom().failure(
-                new StatusRuntimeException(
-                    Status.INTERNAL.withDescription("Failed to create PipeDoc: " + e.getMessage())
-                )
-            );
-        }
+        return ensureFolderStructure()
+            .flatMap(ignored -> {
+                // Get or create the appropriate folder
+                return getOrCreatePipeDocFolderUni()
+                    .flatMap(parentFolderId -> {
+                        try {
+                            // Save using filesystem helper - wrap in Uni to run on worker thread
+                            PipeDoc doc = request.getDocument();
+                            return Uni.createFrom().item(() -> {
+                                // First save the document
+                                Node node = filesystemHelper.savePipeDoc(parentFolderId, doc, "Repository");
+                                
+                                // Then update with additional metadata (tags and description)
+                                Map<String, String> additionalMetadata = new HashMap<>(node.getMetadataMap());
+                                additionalMetadata.putAll(request.getTagsMap());
+                                additionalMetadata.put("description", request.getDescription());
+                                
+                                UpdateNodeRequest updateRequest = UpdateNodeRequest.newBuilder()
+                                    .setId(node.getId())
+                                    .setName(node.getName())
+                                    // Don't include payload - it's already stored
+                                    .putAllMetadata(additionalMetadata)
+                                    .build();
+                                
+                                return filesystemService.updateNode(updateRequest)
+                                    .await().indefinitely();
+                            }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                            .map(node -> {
+                                // Build response
+                                StoredPipeDoc stored = StoredPipeDoc.newBuilder()
+                                    .setStorageId(node.getId())
+                                    .setDocument(doc)
+                                    .putAllTags(request.getTagsMap())
+                                    .setDescription(request.getDescription())
+                                    .setCreatedAt(instantToTimestamp(Instant.now()))
+                                    .setUpdatedAt(instantToTimestamp(Instant.now()))
+                                    .build();
+                                
+                                return CreatePipeDocResponse.newBuilder()
+                                    .setStorageId(node.getId())
+                                    .setStoredDocument(stored)
+                                    .build();
+                            });
+                        } catch (Exception e) {
+                            LOG.error("Error creating PipeDoc", e);
+                            return Uni.createFrom().failure(
+                                new StatusRuntimeException(
+                                    Status.INTERNAL.withDescription("Failed to create PipeDoc: " + e.getMessage())
+                                )
+                            );
+                        }
+                    });
+            });    
     }
     
     @Override
     public Uni<StoredPipeDoc> getPipeDoc(GetPipeDocRequest request) {
-        return repository.get(request.getStorageId(), PipeDoc.class)
-            .flatMap(doc -> {
-                if (doc == null) {
+        return filesystemService.getNode(
+                GetNodeRequest.newBuilder()
+                    .setId(request.getStorageId())
+                    .build()
+            )
+            .flatMap(node -> {
+                try {
+                    LOG.debugf("Retrieved node: id=%s, name=%s, hasPayload=%s, payloadTypeUrl=%s", 
+                        node.getId(), node.getName(), node.hasPayload(), 
+                        node.hasPayload() ? node.getPayload().getTypeUrl() : "N/A");
+                    
+                    // Extract PipeDoc from node
+                    PipeDoc doc = filesystemHelper.extractPipeDoc(node);
+                    if (doc == null) {
+                        return Uni.createFrom().failure(
+                            new StatusRuntimeException(
+                                Status.NOT_FOUND.withDescription("Node does not contain a PipeDoc")
+                            )
+                        );
+                    }
+                    
+                    LOG.debugf("Extracted PipeDoc: id=%s, title=%s", doc.getId(), doc.getTitle());
+                    
+                    // Build StoredPipeDoc from node metadata
+                    Map<String, String> tags = new HashMap<>(node.getMetadataMap());
+                    String description = tags.remove("description");
+                    if (description == null) {
+                        description = "";
+                    }
+                    
+                    StoredPipeDoc stored = StoredPipeDoc.newBuilder()
+                        .setStorageId(node.getId())
+                        .setDocument(doc)
+                        .putAllTags(tags)
+                        .setDescription(description)
+                        .setCreatedAt(node.getCreatedAt())
+                        .setUpdatedAt(node.getUpdatedAt())
+                        .build();
+                    
+                    return Uni.createFrom().item(stored);
+                    
+                } catch (Exception e) {
+                    LOG.error("Error extracting PipeDoc from node", e);
                     return Uni.createFrom().failure(
                         new StatusRuntimeException(
-                            Status.NOT_FOUND.withDescription("PipeDoc not found with id: " + request.getStorageId())
+                            Status.INTERNAL.withDescription("Failed to extract PipeDoc: " + e.getMessage())
                         )
                     );
                 }
-                
-                // Get metadata
-                return repository.getMetadata(request.getStorageId())
-                    .map(metadata -> buildStoredPipeDoc(request.getStorageId(), doc, metadata));
             })
             .onFailure().transform(e -> {
                 if (e instanceof StatusRuntimeException) {
@@ -104,100 +158,137 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                 }
                 LOG.error("Error retrieving PipeDoc", e);
                 return new StatusRuntimeException(
-                    Status.INTERNAL.withDescription("Failed to retrieve PipeDoc: " + e.getMessage())
+                    Status.NOT_FOUND.withDescription("PipeDoc not found with id: " + request.getStorageId())
                 );
             });
     }
     
     @Override
     public Uni<StoredPipeDoc> updatePipeDoc(UpdatePipeDocRequest request) {
-        // First check if exists
-        return repository.exists(request.getStorageId())
-            .flatMap(exists -> {
-                if (!exists) {
-                    return Uni.createFrom().failure(
-                        new StatusRuntimeException(
-                            Status.NOT_FOUND.withDescription("PipeDoc not found with id: " + request.getStorageId())
-                        )
-                    );
-                }
-                
+        // Get existing node first
+        return filesystemService.getNode(
+                GetNodeRequest.newBuilder()
+                    .setId(request.getStorageId())
+                    .build()
+            )
+            .flatMap(existingNode -> {
                 // Prepare updated metadata
                 Map<String, String> metadata = new HashMap<>(request.getTagsMap());
-                metadata.put("_description", request.getDescription());
-                
-                // Extract searchable fields
-                PipeDoc doc = request.getDocument();
-                metadata.put("documentId", doc.getId());
-                if (doc.hasSourceUri()) {
-                    metadata.put("sourceUri", doc.getSourceUri());
-                }
-                if (doc.hasTitle()) {
-                    metadata.put("title", doc.getTitle());
+                metadata.put("description", request.getDescription());
+                metadata.put("documentId", request.getDocument().getId());
+                if (request.getDocument().hasSourceUri()) {
+                    metadata.put("sourceUri", request.getDocument().getSourceUri());
                 }
                 
-                // Update
-                return repository.update(request.getStorageId(), doc, metadata)
-                    .map(success -> {
-                        if (!success) {
-                            throw new StatusRuntimeException(
-                                Status.INTERNAL.withDescription("Failed to update document")
-                            );
+                // Update the node
+                UpdateNodeRequest updateRequest = UpdateNodeRequest.newBuilder()
+                    .setId(request.getStorageId())
+                    .setName(request.getDocument().getTitle() != null ? 
+                        request.getDocument().getTitle() : existingNode.getName())
+                    .setPayload(Any.pack(request.getDocument()))
+                    .putAllMetadata(metadata)
+                    .build();
+                
+                return filesystemService.updateNode(updateRequest)
+                    .map(updatedNode -> {
+                        // Build StoredPipeDoc from updated node
+                        Map<String, String> tags = new HashMap<>(updatedNode.getMetadataMap());
+                        String description = tags.remove("description");
+                        if (description == null) {
+                            description = "";
                         }
-                        return buildStoredPipeDoc(request.getStorageId(), doc, metadata);
+                        
+                        return StoredPipeDoc.newBuilder()
+                            .setStorageId(updatedNode.getId())
+                            .setDocument(request.getDocument())
+                            .putAllTags(tags)
+                            .setDescription(description)
+                            .setCreatedAt(existingNode.getCreatedAt())
+                            .setUpdatedAt(instantToTimestamp(Instant.now()))
+                            .build();
                     });
+            })
+            .onFailure().<StoredPipeDoc>transform(e -> {
+                if (e instanceof StatusRuntimeException) {
+                    return e;
+                }
+                LOG.error("Error updating PipeDoc", e);
+                return new StatusRuntimeException(
+                    Status.NOT_FOUND.withDescription("PipeDoc not found with id: " + request.getStorageId())
+                );
             });
     }
     
     @Override
     public Uni<Empty> deletePipeDoc(DeletePipeDocRequest request) {
-        return repository.delete(request.getStorageId())
-            .map(deleted -> {
-                if (!deleted) {
+        return filesystemService.deleteNode(
+                DeleteNodeRequest.newBuilder()
+                    .setId(request.getStorageId())
+                    .build()
+            )
+            .map(response -> {
+                if (!response.getSuccess()) {
                     throw new StatusRuntimeException(
                         Status.NOT_FOUND.withDescription("PipeDoc not found with id: " + request.getStorageId())
                     );
                 }
                 return Empty.getDefaultInstance();
+            })
+            .onFailure().transform(e -> {
+                if (e instanceof StatusRuntimeException) {
+                    return e;
+                }
+                LOG.error("Error deleting PipeDoc", e);
+                return new StatusRuntimeException(
+                    Status.NOT_FOUND.withDescription("PipeDoc not found with id: " + request.getStorageId())
+                );
             });
     }
     
     @Override
     public Uni<ListPipeDocsResponse> listPipeDocs(ListPipeDocsRequest request) {
-        // For now, list all PipeDocs - filtering can be added later
-        return repository.listByType(PipeDoc.class)
-            .flatMap(ids -> {
-                // Paginate if needed
-                int pageSize = request.getPageSize() > 0 ? request.getPageSize() : 100;
-                int startIndex = 0;
+        // Get the PipeDocs folder
+        return getOrCreatePipeDocFolderUni()
+            .flatMap(folderId -> {
+                // Search for all PipeDoc nodes in the folder
+                SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+                    .setQuery("") // Empty query to get all
+                    .addPaths("/" + PIPEDOCS_FOLDER)
+                    .addTypes(Node.NodeType.FILE)
+                    .setPageSize(request.getPageSize() > 0 ? request.getPageSize() : 100)
+                    .build();
                 
-                // Simple pagination using page token as index
-                request.getPageToken();
-                startIndex = getStartIndex(request, startIndex);
-
-                int endIndex = Math.min(startIndex + pageSize, ids.size());
-                List<String> pageIds = ids.subList(startIndex, endIndex);
-                
-                // Batch get the documents
-                return repository.batchGetAny(pageIds)
-                    .flatMap(anyMap -> {
+                return filesystemService.searchNodes(searchRequest)
+                    .flatMap(searchResponse -> {
+                        // Convert nodes to StoredPipeDocs
                         List<Uni<StoredPipeDoc>> docUnis = new ArrayList<>();
                         
-                        for (Map.Entry<String, Any> entry : anyMap.entrySet()) {
-                            String id = entry.getKey();
-                            Any any = entry.getValue();
-                            
-                            if (any.is(PipeDoc.class)) {
-                                Uni<StoredPipeDoc> docUni = repository.getMetadata(id)
-                                    .map(metadata -> {
-                                        try {
-                                            PipeDoc doc = any.unpack(PipeDoc.class);
-                                            return buildStoredPipeDoc(id, doc, metadata);
-                                        } catch (Exception e) {
-                                            LOG.error("Failed to unpack PipeDoc", e);
-                                            return null;
+                        for (Node node : searchResponse.getNodesList()) {
+                            if (node.hasPayload()) {
+                                Uni<StoredPipeDoc> docUni = Uni.createFrom().item(() -> {
+                                    try {
+                                        PipeDoc doc = filesystemHelper.extractPipeDoc(node);
+                                        if (doc != null) {
+                                            Map<String, String> tags = new HashMap<>(node.getMetadataMap());
+                                            String description = tags.remove("description");
+                                            if (description == null) {
+                                                description = "";
+                                            }
+                                            
+                                            return StoredPipeDoc.newBuilder()
+                                                .setStorageId(node.getId())
+                                                .setDocument(doc)
+                                                .putAllTags(tags)
+                                                .setDescription(description)
+                                                .setCreatedAt(node.getCreatedAt())
+                                                .setUpdatedAt(node.getUpdatedAt())
+                                                .build();
                                         }
-                                    });
+                                    } catch (Exception e) {
+                                        LOG.error("Failed to extract PipeDoc from node", e);
+                                    }
+                                    return null;
+                                });
                                 docUnis.add(docUni);
                             }
                         }
@@ -210,139 +301,191 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                                     .collect(Collectors.toList());
                                 
                                 // Build response
-                                ListPipeDocsResponse.Builder responseBuilder = ListPipeDocsResponse.newBuilder()
+                                return ListPipeDocsResponse.newBuilder()
                                     .addAllDocuments(docs)
-                                    .setTotalCount(ids.size());
-                                
-                                // Set next page token if there are more results
-                                if (endIndex < ids.size()) {
-                                    responseBuilder.setNextPageToken(String.valueOf(endIndex));
-                                }
-                                
-                                return responseBuilder.build();
+                                    .setTotalCount(searchResponse.getTotalCount())
+                                    .build();
                             });
                     });
             });
     }
 
-    private static int getStartIndex(ListPipeDocsRequest request, int startIndex) {
-        if (!request.getPageToken().isEmpty()) {
-            try {
-                startIndex = Integer.parseInt(request.getPageToken());
-            } catch (NumberFormatException e) {
-                // Invalid page token, start from beginning
-            }
-        }
-        return startIndex;
-    }
 
     @Override
     public Uni<SaveProcessRequestResponse> saveProcessRequest(SaveProcessRequestRequest request) {
-        try {
-            // Extract metadata
-            Map<String, String> metadata = new HashMap<>(request.getTagsMap());
-            metadata.put("_name", request.getName());
-            metadata.put("_description", request.getDescription());
-            metadata.put("_type", "ProcessRequest");
-            
-            // Extract additional searchable fields
-            ModuleProcessRequest processRequest = request.getRequest();
-            if (processRequest.hasDocument()) {
-                metadata.put("documentId", processRequest.getDocument().getId());
-            }
-            if (processRequest.hasMetadata()) {
-                metadata.put("pipelineName", processRequest.getMetadata().getPipelineName());
-                metadata.put("stepName", processRequest.getMetadata().getPipeStepName());
-            }
-            
-            // Store the request
-            return repository.store(processRequest, metadata)
-                .map(storageId -> {
-                    // Build response
-                    StoredProcessRequest stored = StoredProcessRequest.newBuilder()
-                        .setStorageId(storageId)
-                        .setRequest(processRequest)
-                        .setName(request.getName())
-                        .setDescription(request.getDescription())
-                        .putAllTags(request.getTagsMap())
-                        .setCreatedAt(instantToTimestamp(Instant.now()))
-                        .setUpdatedAt(instantToTimestamp(Instant.now()))
-                        .build();
-                    
-                    return SaveProcessRequestResponse.newBuilder()
-                        .setStorageId(storageId)
-                        .setStoredRequest(stored)
-                        .build();
-                });
-            
-        } catch (Exception e) {
-            LOG.error("Error saving ProcessRequest", e);
-            return Uni.createFrom().failure(
-                new StatusRuntimeException(
-                    Status.INTERNAL.withDescription("Failed to save ProcessRequest: " + e.getMessage())
-                )
-            );
-        }
+        return ensureFolderStructure()
+            .flatMap(ignored -> {
+                // Get or create the requests folder
+                return getOrCreateRequestsFolderUni()
+                    .flatMap(parentFolderId -> {
+                        try {
+                            // Create metadata
+                            Map<String, String> metadata = new HashMap<>(request.getTagsMap());
+                            metadata.put("name", request.getName());
+                            metadata.put("description", request.getDescription());
+                            
+                            // Save using filesystem helper - wrap in Uni to run on worker thread
+                            ModuleProcessRequest processRequest = request.getRequest();
+                            String moduleName = processRequest.hasMetadata() ? 
+                                processRequest.getMetadata().getPipeStepName() : "Unknown";
+                            
+                            return Uni.createFrom().item(() -> 
+                                filesystemHelper.saveModuleRequest(parentFolderId, processRequest, moduleName)
+                            ).runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                            .map(node -> {
+                                // Build response
+                                StoredProcessRequest stored = StoredProcessRequest.newBuilder()
+                                    .setStorageId(node.getId())
+                                    .setRequest(processRequest)
+                                    .setName(request.getName())
+                                    .setDescription(request.getDescription())
+                                    .putAllTags(request.getTagsMap())
+                                    .setCreatedAt(instantToTimestamp(Instant.now()))
+                                    .setUpdatedAt(instantToTimestamp(Instant.now()))
+                                    .build();
+                                
+                                return SaveProcessRequestResponse.newBuilder()
+                                    .setStorageId(node.getId())
+                                    .setStoredRequest(stored)
+                                    .build();
+                            });
+                        } catch (Exception e) {
+                            LOG.error("Error saving ProcessRequest", e);
+                            return Uni.createFrom().failure(
+                                new StatusRuntimeException(
+                                    Status.INTERNAL.withDescription("Failed to save ProcessRequest: " + e.getMessage())
+                                )
+                            );
+                        }
+                    });
+            });
     }
     
     @Override
     public Uni<StoredProcessRequest> getProcessRequest(GetProcessRequestRequest request) {
-        return repository.get(request.getStorageId(), ModuleProcessRequest.class)
-            .flatMap(processRequest -> {
-                if (processRequest == null) {
+        return filesystemService.getNode(
+                GetNodeRequest.newBuilder()
+                    .setId(request.getStorageId())
+                    .build()
+            )
+            .flatMap(node -> {
+                try {
+                    // Extract ModuleProcessRequest from node
+                    if (!node.hasPayload() || !node.getPayload().is(ModuleProcessRequest.class)) {
+                        return Uni.createFrom().failure(
+                            new StatusRuntimeException(
+                                Status.NOT_FOUND.withDescription("Node does not contain a ProcessRequest")
+                            )
+                        );
+                    }
+                    
+                    ModuleProcessRequest processRequest = node.getPayload().unpack(ModuleProcessRequest.class);
+                    
+                    // Build StoredProcessRequest from node metadata
+                    Map<String, String> metadata = node.getMetadataMap();
+                    String name = metadata.getOrDefault("name", "");
+                    String description = metadata.getOrDefault("description", "");
+                    
+                    // Extract tags (exclude internal metadata)
+                    Map<String, String> tags = new HashMap<>();
+                    for (Map.Entry<String, String> entry : metadata.entrySet()) {
+                        if (!entry.getKey().equals("name") && 
+                            !entry.getKey().equals("description") &&
+                            !entry.getKey().equals("module") &&
+                            !entry.getKey().equals("pipelineName") &&
+                            !entry.getKey().equals("stepName") &&
+                            !entry.getKey().equals("streamId")) {
+                            tags.put(entry.getKey(), entry.getValue());
+                        }
+                    }
+                    
+                    StoredProcessRequest stored = StoredProcessRequest.newBuilder()
+                        .setStorageId(node.getId())
+                        .setRequest(processRequest)
+                        .setName(name)
+                        .setDescription(description)
+                        .putAllTags(tags)
+                        .setCreatedAt(node.getCreatedAt())
+                        .setUpdatedAt(node.getUpdatedAt())
+                        .build();
+                    
+                    return Uni.createFrom().item(stored);
+                    
+                } catch (Exception e) {
+                    LOG.error("Error extracting ProcessRequest from node", e);
                     return Uni.createFrom().failure(
                         new StatusRuntimeException(
-                            Status.NOT_FOUND.withDescription("ProcessRequest not found with id: " + request.getStorageId())
+                            Status.INTERNAL.withDescription("Failed to extract ProcessRequest: " + e.getMessage())
                         )
                     );
                 }
-                
-                // Get metadata
-                return repository.getMetadata(request.getStorageId())
-                    .map(metadata -> buildStoredProcessRequest(request.getStorageId(), processRequest, metadata));
+            })
+            .onFailure().transform(e -> {
+                if (e instanceof StatusRuntimeException) {
+                    return e;
+                }
+                LOG.error("Error retrieving ProcessRequest", e);
+                return new StatusRuntimeException(
+                    Status.NOT_FOUND.withDescription("ProcessRequest not found with id: " + request.getStorageId())
+                );
             });
     }
     
     @Override
     public Uni<ListProcessRequestsResponse> listProcessRequests(ListProcessRequestsRequest request) {
-        // List all ModuleProcessRequests
-        return repository.listByType(ModuleProcessRequest.class)
-            .flatMap(ids -> {
-                // Similar pagination as listPipeDocs
-                int pageSize = request.getPageSize() > 0 ? request.getPageSize() : 100;
-                int startIndex = 0;
-
-                if (!request.getPageToken().isEmpty()) {
-                    try {
-                        startIndex = Integer.parseInt(request.getPageToken());
-                    } catch (NumberFormatException e) {
-                        // Invalid page token
-                    }
-                }
+        // Get the requests folder
+        return getOrCreateRequestsFolderUni()
+            .flatMap(folderId -> {
+                // Search for all ProcessRequest nodes in the folder
+                SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+                    .setQuery("") // Empty query to get all
+                    .addPaths("/" + REQUESTS_FOLDER)
+                    .addTypes(Node.NodeType.FILE)
+                    .setPageSize(request.getPageSize() > 0 ? request.getPageSize() : 100)
+                    .build();
                 
-                int endIndex = Math.min(startIndex + pageSize, ids.size());
-                List<String> pageIds = ids.subList(startIndex, endIndex);
-                
-                // Batch get
-                return repository.batchGetAny(pageIds)
-                    .flatMap(anyMap -> {
+                return filesystemService.searchNodes(searchRequest)
+                    .flatMap(searchResponse -> {
+                        // Convert nodes to StoredProcessRequests
                         List<Uni<StoredProcessRequest>> requestUnis = new ArrayList<>();
                         
-                        for (Map.Entry<String, Any> entry : anyMap.entrySet()) {
-                            String id = entry.getKey();
-                            Any any = entry.getValue();
-                            
-                            if (any.is(ModuleProcessRequest.class)) {
-                                Uni<StoredProcessRequest> requestUni = repository.getMetadata(id)
-                                    .map(metadata -> {
-                                        try {
-                                            ModuleProcessRequest req = any.unpack(ModuleProcessRequest.class);
-                                            return buildStoredProcessRequest(id, req, metadata);
-                                        } catch (Exception e) {
-                                            LOG.error("Failed to unpack ModuleProcessRequest", e);
-                                            return null;
+                        for (Node node : searchResponse.getNodesList()) {
+                            if (node.hasPayload() && node.getPayload().is(ModuleProcessRequest.class)) {
+                                Uni<StoredProcessRequest> requestUni = Uni.createFrom().item(() -> {
+                                    try {
+                                        ModuleProcessRequest processRequest = node.getPayload().unpack(ModuleProcessRequest.class);
+                                        
+                                        Map<String, String> metadata = node.getMetadataMap();
+                                        String name = metadata.getOrDefault("name", "");
+                                        String description = metadata.getOrDefault("description", "");
+                                        
+                                        // Extract tags
+                                        Map<String, String> tags = new HashMap<>();
+                                        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+                                            if (!entry.getKey().equals("name") && 
+                                                !entry.getKey().equals("description") &&
+                                                !entry.getKey().equals("module") &&
+                                                !entry.getKey().equals("pipelineName") &&
+                                                !entry.getKey().equals("stepName") &&
+                                                !entry.getKey().equals("streamId")) {
+                                                tags.put(entry.getKey(), entry.getValue());
+                                            }
                                         }
-                                    });
+                                        
+                                        return StoredProcessRequest.newBuilder()
+                                            .setStorageId(node.getId())
+                                            .setRequest(processRequest)
+                                            .setName(name)
+                                            .setDescription(description)
+                                            .putAllTags(tags)
+                                            .setCreatedAt(node.getCreatedAt())
+                                            .setUpdatedAt(node.getUpdatedAt())
+                                            .build();
+                                    } catch (Exception e) {
+                                        LOG.error("Failed to extract ProcessRequest from node", e);
+                                        return null;
+                                    }
+                                });
                                 requestUnis.add(requestUni);
                             }
                         }
@@ -354,15 +497,10 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                                     .map(o -> (StoredProcessRequest) o)
                                     .collect(Collectors.toList());
                                 
-                                ListProcessRequestsResponse.Builder responseBuilder = ListProcessRequestsResponse.newBuilder()
+                                return ListProcessRequestsResponse.newBuilder()
                                     .addAllRequests(requests)
-                                    .setTotalCount(ids.size());
-                                
-                                if (endIndex < ids.size()) {
-                                    responseBuilder.setNextPageToken(String.valueOf(endIndex));
-                                }
-                                
-                                return responseBuilder.build();
+                                    .setTotalCount(searchResponse.getTotalCount())
+                                    .build();
                             });
                     });
             });
@@ -370,84 +508,98 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     
     @Override
     public Uni<Empty> deleteProcessRequest(DeleteProcessRequestRequest request) {
-        return repository.delete(request.getStorageId())
-            .map(deleted -> {
-                if (!deleted) {
+        return filesystemService.deleteNode(
+                DeleteNodeRequest.newBuilder()
+                    .setId(request.getStorageId())
+                    .build()
+            )
+            .map(response -> {
+                if (!response.getSuccess()) {
                     throw new StatusRuntimeException(
                         Status.NOT_FOUND.withDescription("ProcessRequest not found with id: " + request.getStorageId())
                     );
                 }
                 return Empty.getDefaultInstance();
+            })
+            .onFailure().transform(e -> {
+                if (e instanceof StatusRuntimeException) {
+                    return e;
+                }
+                LOG.error("Error deleting ProcessRequest", e);
+                return new StatusRuntimeException(
+                    Status.NOT_FOUND.withDescription("ProcessRequest not found with id: " + request.getStorageId())
+                );
             });
     }
     
     // Helper methods
     
-    private StoredPipeDoc buildStoredPipeDoc(String storageId, PipeDoc doc, Map<String, String> metadata) {
-        StoredPipeDoc.Builder builder = StoredPipeDoc.newBuilder()
-            .setStorageId(storageId)
-            .setDocument(doc);
-        
-        // Extract tags and description from metadata
-        Map<String, String> tags = new HashMap<>();
-        String description = "";
-        
-        for (Map.Entry<String, String> entry : metadata.entrySet()) {
-            if (entry.getKey().equals("_description")) {
-                description = entry.getValue();
-            } else if (!entry.getKey().startsWith("_")) {
-                tags.put(entry.getKey(), entry.getValue());
-            }
-        }
-        
-        builder.putAllTags(tags);
-        builder.setDescription(description);
-        
-        // Set timestamps from metadata
-        if (metadata.containsKey("_createdAt")) {
-            builder.setCreatedAt(instantToTimestamp(Instant.parse(metadata.get("_createdAt"))));
-        }
-        if (metadata.containsKey("_updatedAt")) {
-            builder.setUpdatedAt(instantToTimestamp(Instant.parse(metadata.get("_updatedAt"))));
-        }
-        
-        return builder.build();
+    private Uni<Void> ensureFolderStructure() {
+        // Create standard folders if they don't exist - run on worker thread
+        return Uni.createFrom().item(() -> {
+                try {
+                    filesystemHelper.createStandardFolders();
+                } catch (Exception e) {
+                    LOG.debug("Standard folders may already exist", e);
+                }
+                return null;
+            })
+            .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+            .replaceWithVoid();
     }
     
-    private StoredProcessRequest buildStoredProcessRequest(String storageId, ModuleProcessRequest request, Map<String, String> metadata) {
-        StoredProcessRequest.Builder builder = StoredProcessRequest.newBuilder()
-            .setStorageId(storageId)
-            .setRequest(request);
+    private Uni<String> getOrCreatePipeDocFolderUni() {
+        // Search for existing folder
+        SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+            .setQuery(PIPEDOCS_FOLDER)
+            .addTypes(Node.NodeType.FOLDER)
+            .setPageSize(1)
+            .build();
         
-        // Extract fields from metadata
-        if (metadata.containsKey("_name")) {
-            builder.setName(metadata.get("_name"));
-        }
-        if (metadata.containsKey("_description")) {
-            builder.setDescription(metadata.get("_description"));
-        }
+        return filesystemService.searchNodes(searchRequest)
+            .flatMap(response -> {
+                if (response.getNodesCount() > 0) {
+                    return Uni.createFrom().item(response.getNodes(0).getId());
+                }
+                
+                // Create if not exists - run on worker thread to avoid blocking event loop
+                return Uni.createFrom().item(() -> {
+                    Node folder = filesystemHelper.createFolder(null, PIPEDOCS_FOLDER, 
+                        Map.of("type", "pipedocs", "description", "Storage for PipeDoc documents"));
+                    return folder.getId();
+                }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+            })
+            .onFailure().transform(e -> {
+                LOG.error("Error getting/creating PipeDocs folder", e);
+                return new RuntimeException("Failed to get/create PipeDocs folder", e);
+            });
+    }
+    
+    private Uni<String> getOrCreateRequestsFolderUni() {
+        // Search for existing folder
+        SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+            .setQuery(REQUESTS_FOLDER)
+            .addTypes(Node.NodeType.FOLDER)
+            .setPageSize(1)
+            .build();
         
-        // Extract tags
-        Map<String, String> tags = new HashMap<>();
-        for (Map.Entry<String, String> entry : metadata.entrySet()) {
-            if (!entry.getKey().startsWith("_") && 
-                !entry.getKey().equals("documentId") &&
-                !entry.getKey().equals("pipelineName") &&
-                !entry.getKey().equals("stepName")) {
-                tags.put(entry.getKey(), entry.getValue());
-            }
-        }
-        builder.putAllTags(tags);
-        
-        // Set timestamps
-        if (metadata.containsKey("_createdAt")) {
-            builder.setCreatedAt(instantToTimestamp(Instant.parse(metadata.get("_createdAt"))));
-        }
-        if (metadata.containsKey("_updatedAt")) {
-            builder.setUpdatedAt(instantToTimestamp(Instant.parse(metadata.get("_updatedAt"))));
-        }
-        
-        return builder.build();
+        return filesystemService.searchNodes(searchRequest)
+            .flatMap(response -> {
+                if (response.getNodesCount() > 0) {
+                    return Uni.createFrom().item(response.getNodes(0).getId());
+                }
+                
+                // Create if not exists - run on worker thread to avoid blocking event loop
+                return Uni.createFrom().item(() -> {
+                    Node folder = filesystemHelper.createFolder(null, REQUESTS_FOLDER, 
+                        Map.of("type", "requests", "description", "Storage for process requests"));
+                    return folder.getId();
+                }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+            })
+            .onFailure().transform(e -> {
+                LOG.error("Error getting/creating Process Requests folder", e);
+                return new RuntimeException("Failed to get/create Process Requests folder", e);
+            });
     }
     
     private Timestamp instantToTimestamp(Instant instant) {
@@ -492,86 +644,69 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
         boolean includeRequests = request.getIncludeRequests();
         boolean dryRun = request.getDryRun();
         
-        // Prepare type URLs to clear
-        List<String> typeUrlsToClear = new ArrayList<>();
-        if (includeDocuments) {
-            typeUrlsToClear.add(Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl());
-        }
-        if (includeRequests) {
-            typeUrlsToClear.add(Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl());
-        }
-        
         // If neither is specified, clear both
         if (!includeDocuments && !includeRequests) {
-            typeUrlsToClear.add(Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl());
-            typeUrlsToClear.add(Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl());
+            includeDocuments = true;
+            includeRequests = true;
         }
         
-        if (dryRun) {
-            // For dry run, count what would be deleted
-            List<Uni<List<String>>> countUnis = new ArrayList<>();
-            
-            if (includeDocuments || !includeRequests) {
-                countUnis.add(repository.listByType(PipeDoc.class));
-            }
-            if (includeRequests || !includeDocuments) {
-                countUnis.add(repository.listByType(ModuleProcessRequest.class));
-            }
-            
-            return Uni.combine().all().unis(countUnis)
-                .collectFailures()
-                .with(results -> {
-                    int docsCount = 0;
-                    int requestsCount = 0;
-                    List<String> deletedIds = new ArrayList<>();
-                    
-                    int index = 0;
-                    if (includeDocuments || !includeRequests) {
-                        List<String> docIds = (List<String>) results.get(index++);
-                        docsCount = docIds.size();
-                        deletedIds.addAll(docIds);
-                    }
-                    if (includeRequests || !includeDocuments) {
-                        List<String> requestIds = (List<String>) results.get(index);
-                        requestsCount = requestIds.size();
-                        deletedIds.addAll(requestIds);
-                    }
-                    
-                    String message = String.format("Would delete %d documents and %d requests", docsCount, requestsCount);
-                    
-                    return FormatRepositoryResponse.newBuilder()
-                        .setSuccess(true)
-                        .setMessage(message)
-                        .setDocumentsDeleted(docsCount)
-                        .setRequestsDeleted(requestsCount)
-                        .addAllDeletedIds(deletedIds)
-                        .build();
-                });
-        } else {
-            // Actually delete
-            return repository.clearAll(typeUrlsToClear)
-                .map(deletedCounts -> {
-                    String pipeDocTypeUrl = Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl();
-                    String requestTypeUrl = Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl();
-                    
-                    int docsDeleted = deletedCounts.getOrDefault(pipeDocTypeUrl, 0L).intValue();
-                    int requestsDeleted = deletedCounts.getOrDefault(requestTypeUrl, 0L).intValue();
-                    
-                    String message = String.format("Deleted %d documents and %d requests", docsDeleted, requestsDeleted);
-                    
-                    return FormatRepositoryResponse.newBuilder()
-                        .setSuccess(true)
-                        .setMessage(message)
-                        .setDocumentsDeleted(docsDeleted)
-                        .setRequestsDeleted(requestsDeleted)
-                        .build();
-                })
-                .onFailure().transform(e -> {
-                    LOG.error("Error formatting repository", e);
-                    return new StatusRuntimeException(
-                        Status.INTERNAL.withDescription("Failed to format repository: " + e.getMessage())
-                    );
-                });
+        // Use the filesystem FormatFilesystem to clear repository folders
+        List<String> typeUrls = new ArrayList<>();
+        if (includeDocuments) {
+            typeUrls.add(Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl());
         }
+        if (includeRequests) {
+            typeUrls.add(Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl());
+            typeUrls.add(Any.pack(ModuleProcessResponse.getDefaultInstance()).getTypeUrl());
+        }
+        
+        // Create FormatFilesystem request to clear specific types
+        FormatFilesystemRequest formatRequest = FormatFilesystemRequest.newBuilder()
+            .setConfirmation("DELETE_FILESYSTEM_DATA")
+            .setDryRun(dryRun)
+            .addAllTypeUrls(typeUrls)
+            .build();
+        
+        return filesystemService.formatFilesystem(formatRequest)
+            .map(formatResponse -> {
+                // Extract counts by type
+                int docsDeleted = 0;
+                int requestsDeleted = 0;
+                
+                String pipeDocTypeUrl = Any.pack(PipeDoc.getDefaultInstance()).getTypeUrl();
+                String requestTypeUrl = Any.pack(ModuleProcessRequest.getDefaultInstance()).getTypeUrl();
+                String responseTypeUrl = Any.pack(ModuleProcessResponse.getDefaultInstance()).getTypeUrl();
+                
+                for (Map.Entry<String, Integer> entry : formatResponse.getDeletedByTypeMap().entrySet()) {
+                    if (entry.getKey().equals(pipeDocTypeUrl)) {
+                        docsDeleted = entry.getValue();
+                    } else if (entry.getKey().equals(requestTypeUrl) || entry.getKey().equals(responseTypeUrl)) {
+                        requestsDeleted += entry.getValue();
+                    }
+                }
+                
+                String message = dryRun ?
+                    String.format("Would delete %d documents and %d requests", docsDeleted, requestsDeleted) :
+                    String.format("Deleted %d documents and %d requests", docsDeleted, requestsDeleted);
+                
+                FormatRepositoryResponse.Builder responseBuilder = FormatRepositoryResponse.newBuilder()
+                    .setSuccess(formatResponse.getSuccess())
+                    .setMessage(message)
+                    .setDocumentsDeleted(docsDeleted)
+                    .setRequestsDeleted(requestsDeleted);
+                
+                // Add deleted IDs for dry run
+                if (dryRun) {
+                    responseBuilder.addAllDeletedIds(formatResponse.getDeletedPathsList());
+                }
+                
+                return responseBuilder.build();
+            })
+            .onFailure().transform(e -> {
+                LOG.error("Error formatting repository", e);
+                return new StatusRuntimeException(
+                    Status.INTERNAL.withDescription("Failed to format repository: " + e.getMessage())
+                );
+            });
     }
 }

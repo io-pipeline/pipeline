@@ -172,13 +172,14 @@ public class FilesystemServiceImpl implements FilesystemService {
         }
         
         return loadNode(request.getId())
-            .map(node -> {
+            .flatMap(node -> {
                 if (node == null) {
                     throw new StatusRuntimeException(
                         Status.NOT_FOUND.withDescription("Node not found")
                     );
                 }
-                return toProto(node);
+                // Convert to proto and load payload if present
+                return toProtoWithPayload(node);
             });
     }
     
@@ -550,6 +551,34 @@ public class FilesystemServiceImpl implements FilesystemService {
         // The payload can be retrieved separately when needed
         
         return builder.build();
+    }
+    
+    private Uni<Node> toProtoWithPayload(RedisFilesystemNode entity) {
+        if (entity == null) {
+            return Uni.createFrom().nullItem();
+        }
+        
+        // First convert to proto without payload
+        Node nodeWithoutPayload = toProto(entity);
+        
+        // If there's no payload reference, return as is
+        if (entity.getPayloadRef() == null || !"FILE".equals(entity.getType())) {
+            return Uni.createFrom().item(nodeWithoutPayload);
+        }
+        
+        // Load the payload from the repository
+        return payloadRepository.getAny(entity.getPayloadRef())
+            .map(payload -> {
+                if (payload == null) {
+                    return nodeWithoutPayload;
+                }
+                
+                // Create a new builder from the existing node and add the payload
+                return nodeWithoutPayload.toBuilder()
+                    .setPayload(payload)
+                    .build();
+            })
+            .onFailure().recoverWithItem(nodeWithoutPayload);
     }
     
     private Timestamp instantToTimestamp(Instant instant) {

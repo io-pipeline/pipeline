@@ -98,7 +98,9 @@ public class RedisGenericRepository implements GenericRepositoryService {
         .flatMap(fullMetadata -> {
             // Store payload - store the wrapped message's value, not the Any wrapper
             String payloadKey = payloadKey(id);
-            return value().set(payloadKey, message.getValue().toByteArray())
+            byte[] payloadBytes = message.getValue().toByteArray();
+            LOG.debugf("Storing payload for id=%s, key=%s, size=%d bytes", id, payloadKey, payloadBytes.length);
+            return value().set(payloadKey, payloadBytes)
                 .flatMap(v -> {
                     // Store metadata
                     String metaKey = metadataKey(id);
@@ -143,16 +145,20 @@ public class RedisGenericRepository implements GenericRepositoryService {
         return hash().hget(metaKey, "_typeUrl")
             .flatMap(typeUrl -> {
                 if (typeUrl == null) {
+                    LOG.debugf("No type URL found for id=%s", id);
                     return Uni.createFrom().nullItem();
                 }
                 
+                LOG.debugf("Getting payload for id=%s, key=%s, typeUrl=%s", id, payloadKey, typeUrl);
                 // Then get the payload
                 return value().get(payloadKey)
                     .map(bytes -> {
                         if (bytes == null) {
+                            LOG.warnf("No payload bytes found for id=%s at key=%s", id, payloadKey);
                             return null;
                         }
                         
+                        LOG.debugf("Retrieved payload for id=%s, size=%d bytes", id, bytes.length);
                         // Wrap in Any
                         return Any.newBuilder()
                             .setTypeUrl(typeUrl)

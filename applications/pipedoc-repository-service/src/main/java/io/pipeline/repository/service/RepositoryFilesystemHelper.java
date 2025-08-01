@@ -57,6 +57,10 @@ public class RepositoryFilesystemHelper {
      * Save a PipeDoc to the filesystem
      */
     public Node savePipeDoc(String parentId, PipeDoc pipeDoc, String moduleName) {
+        LOG.debugf("Saving PipeDoc: id=%s, title=%s, body=%s", 
+            pipeDoc.getId(), pipeDoc.getTitle(), 
+            pipeDoc.getBody() != null ? pipeDoc.getBody().substring(0, Math.min(pipeDoc.getBody().length(), 50)) : "null");
+        
         String name = pipeDoc.getTitle() != null && !pipeDoc.getTitle().isEmpty() ? 
             pipeDoc.getTitle() : "Untitled Document";
         
@@ -70,6 +74,7 @@ public class RepositoryFilesystemHelper {
         
         // Create Any wrapper for PipeDoc
         Any payload = Any.pack(pipeDoc);
+        LOG.debugf("Packed payload: typeUrl=%s, size=%d bytes", payload.getTypeUrl(), payload.getValue().size());
         
         CreateNodeRequest request = CreateNodeRequest.newBuilder()
             .setParentId(parentId != null ? parentId : "")
@@ -161,12 +166,19 @@ public class RepositoryFilesystemHelper {
      */
     public PipeDoc extractPipeDoc(Node node) throws InvalidProtocolBufferException {
         if (node.getType() != Node.NodeType.FILE || !node.hasPayload()) {
+            LOG.debugf("Node %s: type=%s, hasPayload=%s", node.getId(), node.getType(), node.hasPayload());
             return null;
         }
         
         Any payload = node.getPayload();
+        LOG.debugf("Payload typeUrl=%s, size=%d bytes", payload.getTypeUrl(), payload.getValue().size());
+        
         if (payload.is(PipeDoc.class)) {
-            return payload.unpack(PipeDoc.class);
+            PipeDoc doc = payload.unpack(PipeDoc.class);
+            LOG.debugf("Unpacked PipeDoc: id=%s, title=%s, body=%s", 
+                doc.getId(), doc.getTitle(), 
+                doc.getBody() != null ? doc.getBody().substring(0, Math.min(doc.getBody().length(), 50)) : "null");
+            return doc;
         }
         
         // If it's a ModuleProcessRequest, extract the document
