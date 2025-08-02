@@ -4,18 +4,13 @@ import com.google.protobuf.Any;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.PipeStream;
 import io.pipeline.data.module.ModuleProcessRequest;
-import io.pipeline.data.module.ModuleProcessResponse;
 import io.pipeline.repository.filesystem.*;
 import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.QuarkusTestProfile;
-import io.quarkus.test.junit.TestProfile;
 import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 

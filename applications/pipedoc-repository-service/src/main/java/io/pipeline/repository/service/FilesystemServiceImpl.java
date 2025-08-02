@@ -6,6 +6,7 @@ import com.google.protobuf.Timestamp;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.pipeline.repository.filesystem.*;
+import io.vertx.mutiny.redis.client.Command;
 import io.pipeline.repository.redis.RedisFilesystemNode;
 import io.pipeline.repository.config.NamespacedRedisKeyService;
 import io.quarkus.grpc.GrpcService;
@@ -21,6 +22,7 @@ import org.jboss.logging.Logger;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Drive-aware implementation of the FilesystemService.
@@ -90,15 +92,15 @@ public class FilesystemServiceImpl implements FilesystemService {
             );
         }
         
-        if (request.getName().contains(":")) {
+        // Validate drive name - no special characters
+        String driveName = request.getName().trim();
+        if (driveName.contains(":") || driveName.contains("/") || driveName.contains("\\") || driveName.isEmpty()) {
             return Uni.createFrom().failure(
                 new StatusRuntimeException(
-                    Status.INVALID_ARGUMENT.withDescription("Drive name cannot contain colons")
+                    Status.INVALID_ARGUMENT.withDescription("Drive name cannot contain special characters (: / \\) and cannot be empty")
                 )
             );
         }
-        
-        String driveName = request.getName();
         String driveMetaKey = keyService.driveMetadataKey(driveName);
         
         // Check if drive already exists
@@ -173,8 +175,40 @@ public class FilesystemServiceImpl implements FilesystemService {
                     );
                 }
                 
+                // Apply filter if provided
+                Stream<String> filteredNames = driveNames.stream();
+                if (request.getFilter() != null && !request.getFilter().isEmpty()) {
+                    String filter = request.getFilter();
+                    if (filter.startsWith("name:")) {
+                        String nameFilter = filter.substring(5);
+                        filteredNames = filteredNames.filter(name -> name.contains(nameFilter));
+                    }
+                }
+                
+                List<String> filteredList = filteredNames.sorted().collect(Collectors.toList());
+                final int totalCount = filteredList.size();
+                
+                // Apply pagination
+                final int pageSize = request.getPageSize() > 0 ? request.getPageSize() : 10;
+                int initialOffset = 0;
+                
+                if (request.getPageToken() != null && !request.getPageToken().isEmpty()) {
+                    try {
+                        initialOffset = Integer.parseInt(request.getPageToken());
+                    } catch (NumberFormatException e) {
+                        // Ignore bad page tokens
+                    }
+                }
+                
+                final int offset = initialOffset;
+                
+                List<String> pagedNames = filteredList.stream()
+                    .skip(offset)
+                    .limit(pageSize)
+                    .collect(Collectors.toList());
+                
                 // Load drive metadata for each drive
-                List<Uni<Drive>> driveUnis = driveNames.stream()
+                List<Uni<Drive>> driveUnis = pagedNames.stream()
                     .map(name -> hash().hgetall(keyService.driveMetadataKey(name))
                         .map(meta -> buildDriveProto(name, meta)))
                     .collect(Collectors.toList());
@@ -183,13 +217,18 @@ public class FilesystemServiceImpl implements FilesystemService {
                     .with(drives -> {
                         List<Drive> driveList = drives.stream()
                             .map(d -> (Drive) d)
-                            .sorted((a, b) -> a.getName().compareTo(b.getName()))
                             .collect(Collectors.toList());
                         
-                        return ListDrivesResponse.newBuilder()
+                        ListDrivesResponse.Builder response = ListDrivesResponse.newBuilder()
                             .addAllDrives(driveList)
-                            .setTotalCount(driveList.size())
-                            .build();
+                            .setTotalCount(totalCount);
+                        
+                        // Add next page token if there are more results
+                        if (offset + pageSize < totalCount) {
+                            response.setNextPageToken(String.valueOf(offset + pageSize));
+                        }
+                        
+                        return response.build();
                     });
             });
     }
@@ -204,31 +243,44 @@ public class FilesystemServiceImpl implements FilesystemService {
             );
         }
         
-        if (!"DELETE_DRIVE_DATA".equals(request.getConfirmation())) {
-            return Uni.createFrom().failure(
-                new StatusRuntimeException(
-                    Status.INVALID_ARGUMENT.withDescription("Invalid confirmation. Must be 'DELETE_DRIVE_DATA'")
-                )
-            );
-        }
-        
         String driveName = request.getName();
         
-        // First format the drive to delete all its data
-        return formatFilesystem(FormatFilesystemRequest.newBuilder()
-                .setDrive(driveName)
-                .setConfirmation("DELETE_FILESYSTEM_DATA")
-                .setDryRun(false)
-                .build())
-            .flatMap(formatResult -> {
-                // Remove drive from list
-                return set().srem(keyService.allDrivesKey(), driveName)
-                    .flatMap(v -> keys().del(keyService.driveMetadataKey(driveName)))
-                    .map(v -> DeleteDriveResponse.newBuilder()
-                        .setSuccess(true)
-                        .setMessage("Deleted drive: " + driveName)
-                        .setNodesDeleted(formatResult.getNodesDeleted() + formatResult.getFoldersDeleted())
-                        .build());
+        // Check if drive exists first
+        return hash().hgetall(keyService.driveMetadataKey(driveName))
+            .flatMap(meta -> {
+                if (meta.isEmpty()) {
+                    return Uni.createFrom().failure(
+                        new StatusRuntimeException(
+                            Status.NOT_FOUND.withDescription("Drive not found: " + driveName)
+                        )
+                    );
+                }
+                
+                // Check confirmation
+                if (!"DELETE_DRIVE_DATA".equals(request.getConfirmation())) {
+                    return Uni.createFrom().failure(
+                        new StatusRuntimeException(
+                            Status.FAILED_PRECONDITION.withDescription("Invalid confirmation. Must be 'DELETE_DRIVE_DATA'")
+                        )
+                    );
+                }
+                
+                // Format the drive to delete all its data
+                return formatFilesystem(FormatFilesystemRequest.newBuilder()
+                        .setDrive(driveName)
+                        .setConfirmation("DELETE_FILESYSTEM_DATA")
+                        .setDryRun(false)
+                        .build())
+                    .flatMap(formatResult -> {
+                        // Remove drive from list
+                        return set().srem(keyService.allDrivesKey(), driveName)
+                            .flatMap(v -> keys().del(keyService.driveMetadataKey(driveName)))
+                            .map(v -> DeleteDriveResponse.newBuilder()
+                                .setSuccess(true)
+                                .setMessage("Deleted drive: " + driveName)
+                                .setNodesDeleted(formatResult.getNodesDeleted() + formatResult.getFoldersDeleted())
+                                .build());
+                    });
             });
     }
     
@@ -363,10 +415,12 @@ public class FilesystemServiceImpl implements FilesystemService {
                 // Update parent's children set
                 if (node.getParentId() != null) {
                     return set().sadd(childrenKey(drive, node.getParentId()), nodeId)
+                        .flatMap(x -> updateDriveStats(drive, 1, 0L))
                         .map(x -> toProto(node));
                 } else {
                     // Add to root nodes
                     return set().sadd(rootNodesKey(drive), nodeId)
+                        .flatMap(x -> updateDriveStats(drive, 1, 0L))
                         .map(x -> toProto(node));
                 }
             });
@@ -600,6 +654,7 @@ public class FilesystemServiceImpl implements FilesystemService {
                 }
                 return Uni.createFrom().item(0L);
             })
+            .flatMap(v -> updateDriveStats(drive, -count, 0L))
             .map(v -> DeleteNodeResponse.newBuilder()
                 .setSuccess(true)
                 .setDeletedCount(count)
@@ -699,16 +754,16 @@ public class FilesystemServiceImpl implements FilesystemService {
                                     )
                                 );
                             }
-                            return moveNodeInternal(drive, node, newParentId);
+                            return moveNodeInternal(drive, node, newParentId, request.getNewName());
                         });
                 } else {
                     // Moving to root
-                    return moveNodeInternal(drive, node, null);
+                    return moveNodeInternal(drive, node, null, request.getNewName());
                 }
             });
     }
     
-    private Uni<Node> moveNodeInternal(String drive, RedisFilesystemNode node, String newParentId) {
+    private Uni<Node> moveNodeInternal(String drive, RedisFilesystemNode node, String newParentId, String newName) {
         String nodeId = node.getId();
         String oldParentId = node.getParentId();
         
@@ -732,8 +787,12 @@ public class FilesystemServiceImpl implements FilesystemService {
                 }
             })
             .flatMap(v -> {
-                // Update node's parent reference
+                // Update node's parent reference and name if provided
                 node.setParentId(newParentId);
+                if (newName != null && !newName.trim().isEmpty()) {
+                    node.setName(newName);
+                }
+                node.setUpdatedAt(Instant.now());
                 return storeNode(drive, node);
             })
             .map(v -> toProto(node));
@@ -804,7 +863,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         RedisFilesystemNode copyNode = new RedisFilesystemNode();
         copyNode.setId(UUID.randomUUID().toString());
         copyNode.setParentId(newParentId);
-        copyNode.setName(newName != null && !newName.trim().isEmpty() ? newName : sourceNode.getName() + "_copy");
+        copyNode.setName(newName != null && !newName.trim().isEmpty() ? newName : sourceNode.getName());
         copyNode.setType(sourceNode.getType());
         copyNode.setMimeType(sourceNode.getMimeType());
         copyNode.setSize(sourceNode.getSize());
@@ -812,6 +871,18 @@ public class FilesystemServiceImpl implements FilesystemService {
         copyNode.setServiceType(sourceNode.getServiceType());
         copyNode.setPayloadTypeUrl(sourceNode.getPayloadTypeUrl());
         copyNode.setPayloadRef(sourceNode.getPayloadRef()); // Share the same payload
+        
+        // Set path
+        if (newParentId != null) {
+            copyNode.setPath("," + newParentId + ",");
+        } else {
+            copyNode.setPath(",");
+        }
+        
+        // Set timestamps
+        Instant now = Instant.now();
+        copyNode.setCreatedAt(now);
+        copyNode.setUpdatedAt(now);
         
         // Store the copy
         return storeNode(drive, copyNode)
@@ -939,11 +1010,38 @@ public class FilesystemServiceImpl implements FilesystemService {
                             )
                         );
                     }
-                    return buildTreeNode(drive, rootNode, 0, maxDepth, includeFiles)
-                        .map(treeNode -> GetTreeResponse.newBuilder()
-                            .setRoot(toProto(rootNode))
-                            .addChildren(treeNode)
-                            .build());
+                    // Get children of the root node
+                    return set().smembers(childrenKey(drive, rootId))
+                        .flatMap(childIds -> {
+                            if (childIds.isEmpty()) {
+                                return Uni.createFrom().item(GetTreeResponse.newBuilder()
+                                    .setRoot(toProto(rootNode))
+                                    .build());
+                            }
+                            
+                            List<Uni<TreeNode>> childTreeOps = childIds.stream()
+                                .map(childId -> loadNode(drive, childId)
+                                    .flatMap(childNode -> {
+                                        if (childNode == null || 
+                                            (!includeFiles && Node.NodeType.FILE.name().equals(childNode.getType()))) {
+                                            return Uni.createFrom().nullItem();
+                                        }
+                                        return buildTreeNode(drive, childNode, 1, maxDepth, includeFiles);
+                                    }))
+                                .collect(Collectors.toList());
+                            
+                            return Uni.combine().all().unis(childTreeOps)
+                                .with(childTrees -> {
+                                    GetTreeResponse.Builder builder = GetTreeResponse.newBuilder()
+                                        .setRoot(toProto(rootNode));
+                                    
+                                    childTrees.stream()
+                                        .filter(Objects::nonNull)
+                                        .forEach(tn -> builder.addChildren((TreeNode) tn));
+                                    
+                                    return builder.build();
+                                });
+                        });
                 });
         } else {
             // Get all root nodes
@@ -1048,13 +1146,13 @@ public class FilesystemServiceImpl implements FilesystemService {
                     return true;
                 }
                 
-                // Filter by name
+                // Simple name matching
                 if (node.getName() != null && 
                     node.getName().toLowerCase().contains(query)) {
                     return true;
                 }
                 
-                // Filter by metadata values
+                // Simple metadata value matching
                 if (node.getMetadata() != null) {
                     for (String value : node.getMetadata().values()) {
                         if (value != null && value.toLowerCase().contains(query)) {
@@ -1281,10 +1379,10 @@ public class FilesystemServiceImpl implements FilesystemService {
         nodeData.put("name", node.getName());
         nodeData.put("type", node.getType());
         nodeData.put("parentId", node.getParentId() != null ? node.getParentId() : "");
-        nodeData.put("path", node.getPath());
-        nodeData.put("createdAt", node.getCreatedAt().toString());
-        nodeData.put("updatedAt", node.getUpdatedAt().toString());
-        nodeData.put("size", String.valueOf(node.getSize()));
+        nodeData.put("path", node.getPath() != null ? node.getPath() : "");
+        nodeData.put("createdAt", node.getCreatedAt() != null ? node.getCreatedAt().toString() : "");
+        nodeData.put("updatedAt", node.getUpdatedAt() != null ? node.getUpdatedAt().toString() : "");
+        nodeData.put("size", node.getSize() != null ? String.valueOf(node.getSize()) : "0");
         nodeData.put("payloadRef", node.getPayloadRef() != null ? node.getPayloadRef() : "");
         nodeData.put("payloadTypeUrl", node.getPayloadTypeUrl() != null ? node.getPayloadTypeUrl() : "");
         
@@ -1314,9 +1412,25 @@ public class FilesystemServiceImpl implements FilesystemService {
                 node.setType(data.get("type"));
                 node.setParentId(data.get("parentId").isEmpty() ? null : data.get("parentId"));
                 node.setPath(data.get("path"));
-                node.setCreatedAt(Instant.parse(data.get("createdAt")));
-                node.setUpdatedAt(Instant.parse(data.get("updatedAt")));
-                node.setSize(Long.parseLong(data.get("size")));
+                String createdAtStr = data.get("createdAt");
+                if (createdAtStr != null && !createdAtStr.isEmpty()) {
+                    node.setCreatedAt(Instant.parse(createdAtStr));
+                } else {
+                    node.setCreatedAt(Instant.now()); // Fallback for nodes without timestamps
+                }
+                
+                String updatedAtStr = data.get("updatedAt");
+                if (updatedAtStr != null && !updatedAtStr.isEmpty()) {
+                    node.setUpdatedAt(Instant.parse(updatedAtStr));
+                } else {
+                    node.setUpdatedAt(node.getCreatedAt()); // Use createdAt as fallback
+                }
+                String sizeStr = data.get("size");
+                if (sizeStr != null && !sizeStr.isEmpty()) {
+                    node.setSize(Long.parseLong(sizeStr));
+                } else {
+                    node.setSize(0L); // Default size
+                }
                 node.setPayloadRef(data.get("payloadRef").isEmpty() ? null : data.get("payloadRef"));
                 node.setPayloadTypeUrl(data.get("payloadTypeUrl").isEmpty() ? null : data.get("payloadTypeUrl"));
                 
@@ -1421,5 +1535,30 @@ public class FilesystemServiceImpl implements FilesystemService {
         } else {
             return Uni.createFrom().item(builder.build());
         }
+    }
+    
+    private Uni<Void> updateDriveStats(String driveName, int nodeCountDelta, long sizeDelta) {
+        String driveMetaKey = keyService.driveMetadataKey(driveName);
+        
+        return hash().hget(driveMetaKey, "node_count")
+            .flatMap(currentCountStr -> {
+                long currentCount = currentCountStr != null ? Long.parseLong(currentCountStr) : 0L;
+                long newCount = Math.max(0, currentCount + nodeCountDelta);
+                
+                return hash().hset(driveMetaKey, "node_count", String.valueOf(newCount));
+            })
+            .flatMap(v -> {
+                if (sizeDelta != 0) {
+                    return hash().hget(driveMetaKey, "total_size")
+                        .flatMap(currentSizeStr -> {
+                            long currentSize = currentSizeStr != null ? Long.parseLong(currentSizeStr) : 0L;
+                            long newSize = Math.max(0, currentSize + sizeDelta);
+                            
+                            return hash().hset(driveMetaKey, "total_size", String.valueOf(newSize));
+                        });
+                }
+                return Uni.createFrom().voidItem();
+            })
+            .replaceWithVoid();
     }
 }
