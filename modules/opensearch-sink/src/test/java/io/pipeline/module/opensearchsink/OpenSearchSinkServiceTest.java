@@ -1,9 +1,9 @@
 package io.pipeline.module.opensearchsink;
 
+import io.pipeline.data.model.ChunkEmbedding;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.model.SemanticChunk;
 import io.pipeline.data.model.SemanticProcessingResult;
-import io.pipeline.data.model.EmbeddingInfo;
 import io.pipeline.ingestion.proto.IngestionRequest;
 import io.pipeline.ingestion.proto.IngestionResponse;
 import io.pipeline.module.opensearchsink.util.OpenSearchTestClient;
@@ -58,7 +58,7 @@ public class OpenSearchSinkServiceTest {
                 .addSemanticResults(SemanticProcessingResult.newBuilder()
                         .addChunks(SemanticChunk.newBuilder()
                                 .setChunkId("chunk-abc")
-                                .setEmbeddingInfo(EmbeddingInfo.newBuilder()
+                                .setEmbeddingInfo(ChunkEmbedding.newBuilder()
                                         .setTextContent("This is a test chunk.")
                                         .addVector(1.0f).addVector(2.0f).addVector(3.0f)
                                 )

@@ -5,7 +5,7 @@ import io.pipeline.ingestion.proto.IngestionResponse;
 import io.pipeline.ingestion.proto.MutinyOpenSearchIngestionGrpc;
 import io.pipeline.module.opensearchsink.service.DocumentConverterService;
 import io.pipeline.module.opensearchsink.service.OpenSearchRepository;
-import io.pipeline.module.opensearchsink.service.SchemaManagerService;
+import io.pipeline.module.opensearchsink.SchemaManagerService;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;

@@ -9,7 +9,7 @@ import io.pipeline.data.module.*;
 import io.pipeline.module.opensearchsink.service.DocumentConverterService;
 import io.pipeline.module.opensearchsink.service.OpenSearchRepository;
 import io.pipeline.module.opensearchsink.config.opensearch.BatchOptions;
-import io.pipeline.module.opensearchsink.service.SchemaManagerService;
+import io.pipeline.module.opensearchsink.SchemaManagerService;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -45,9 +45,11 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
 
         BatchOptions options = extractConfiguration(request);
 
-        return schemaManager.ensureSchemaIsReady(request.getDocument(), options)
+        String indexName = schemaManager.determineIndexName(request.getDocument().getDocumentType());
+
+        return schemaManager.ensureIndexExists(indexName)
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool()) // Offload blocking schema work
-                .onItem().transform(indexName -> documentConverter.prepareBulkOperations(request.getDocument(), indexName))
+                .onItem().transform(v -> documentConverter.prepareBulkOperations(request.getDocument(), indexName))
                 .onItem().transformToUni(openSearchRepository::bulk)
                 .onItem().transform(bulkResponse -> {
                     ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder().setOutputDoc(request.getDocument());

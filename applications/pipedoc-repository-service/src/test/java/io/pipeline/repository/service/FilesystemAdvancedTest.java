@@ -167,9 +167,18 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
             .awaitItem()
             .getItem();
         
-        // Should delete half the hierarchy plus files
-        int expectedDeleted = (depth / 2) + (depth / 2 * 3) + 3; // folders + files
-        assertThat(deleteResponse.getDeletedCount(), greaterThanOrEqualTo(expectedDeleted));
+        // Should delete:
+        // - The middle folder itself (1)
+        // - All folders below it: depth - (depth/2) - 1 = 10 - 5 - 1 = 4 folders (levels 6,7,8,9)
+        // - Files in middle folder: 3
+        // - Files in child folders: 4 folders * 3 files = 12 files
+        // Total: 1 + 4 + 3 + 12 = 20
+        int foldersBelow = depth - (depth / 2) - 1; // 4
+        int filesInMiddle = 3;
+        int filesInChildren = foldersBelow * 3; // 12
+        int expectedDeleted = 1 + foldersBelow + filesInMiddle + filesInChildren; // 20
+        
+        assertThat(deleteResponse.getDeletedCount(), equalTo(expectedDeleted));
     }
     
     @Test
@@ -341,7 +350,7 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
                 .awaitItem();
         });
         
-        assertThat(exception.getStatus().getCode(), equalTo(Status.Code.NOT_FOUND));
+        assertThat(exception.getStatus().getCode(), equalTo(Status.NOT_FOUND.getCode()));
         
         // Format drive1 should not affect drive2
         setTestDrive(drive1);
@@ -540,7 +549,7 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
                         .awaitItem();
                 });
                 
-                assertThat(exception.getStatus().getCode(), equalTo(Status.Code.INVALID_ARGUMENT));
+                assertThat(exception.getStatus().getCode(), equalTo(Status.INVALID_ARGUMENT.getCode()));
             } else {
                 // Other names might be allowed depending on implementation
                 // Just verify it doesn't crash

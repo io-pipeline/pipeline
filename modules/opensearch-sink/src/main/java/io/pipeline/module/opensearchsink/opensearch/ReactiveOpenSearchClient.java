@@ -5,6 +5,8 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch.core.BulkRequest;
+import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.CreateIndexResponse;
 import org.opensearch.client.opensearch.indices.ExistsRequest;
@@ -40,6 +42,16 @@ public class ReactiveOpenSearchClient {
         return Uni.createFrom().item(() -> {
             try {
                 return client.indices().create(request);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    public Uni<BulkResponse> bulk(BulkRequest request) {
+        return Uni.createFrom().item(() -> {
+            try {
+                return client.bulk(request);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -648,26 +648,363 @@ public class FilesystemServiceImpl implements FilesystemService {
     
     @Override
     public Uni<Node> moveNode(MoveNodeRequest request) {
-        // Implementation would follow the same pattern
-        return Uni.createFrom().failure(new StatusRuntimeException(Status.UNIMPLEMENTED));
+        if (request.getDrive() == null || request.getDrive().trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Drive is required")
+                )
+            );
+        }
+        
+        String drive = request.getDrive();
+        String nodeId = request.getNodeId();
+        String newParentId = request.getNewParentId();
+        
+        if (nodeId == null || nodeId.trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Node ID is required")
+                )
+            );
+        }
+        
+        return loadNode(drive, nodeId)
+            .flatMap(node -> {
+                if (node == null) {
+                    return Uni.createFrom().failure(
+                        new StatusRuntimeException(
+                            Status.NOT_FOUND.withDescription("Node not found: " + nodeId)
+                        )
+                    );
+                }
+                
+                // Validate new parent exists (if not root)
+                if (newParentId != null && !newParentId.trim().isEmpty()) {
+                    return loadNode(drive, newParentId)
+                        .flatMap(newParent -> {
+                            if (newParent == null) {
+                                return Uni.createFrom().failure(
+                                    new StatusRuntimeException(
+                                        Status.NOT_FOUND.withDescription("New parent not found: " + newParentId)
+                                    )
+                                );
+                            }
+                            if (!Node.NodeType.FOLDER.name().equals(newParent.getType())) {
+                                return Uni.createFrom().failure(
+                                    new StatusRuntimeException(
+                                        Status.INVALID_ARGUMENT.withDescription("New parent must be a folder")
+                                    )
+                                );
+                            }
+                            return moveNodeInternal(drive, node, newParentId);
+                        });
+                } else {
+                    // Moving to root
+                    return moveNodeInternal(drive, node, null);
+                }
+            });
+    }
+    
+    private Uni<Node> moveNodeInternal(String drive, RedisFilesystemNode node, String newParentId) {
+        String nodeId = node.getId();
+        String oldParentId = node.getParentId();
+        
+        // Remove from old parent/root
+        Uni<Long> removeFromOld;
+        if (oldParentId != null) {
+            removeFromOld = set().srem(childrenKey(drive, oldParentId), nodeId);
+        } else {
+            removeFromOld = set().srem(rootNodesKey(drive), nodeId);
+        }
+        
+        return removeFromOld
+            .flatMap(v -> {
+                // Add to new parent/root
+                if (newParentId != null) {
+                    return set().sadd(childrenKey(drive, newParentId), nodeId);
+                } else {
+                    return set().sadd(rootNodesKey(drive), nodeId);
+                }
+            })
+            .flatMap(v -> {
+                // Update node's parent reference
+                node.setParentId(newParentId);
+                return storeNode(drive, node);
+            })
+            .map(v -> toProto(node));
     }
     
     @Override
     public Uni<Node> copyNode(CopyNodeRequest request) {
-        // Implementation would follow the same pattern
-        return Uni.createFrom().failure(new StatusRuntimeException(Status.UNIMPLEMENTED));
+        if (request.getDrive() == null || request.getDrive().trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Drive is required")
+                )
+            );
+        }
+        
+        String drive = request.getDrive();
+        String nodeId = request.getNodeId();
+        String newParentId = request.getNewParentId();
+        String newName = request.getNewName();
+        
+        if (nodeId == null || nodeId.trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Node ID is required")
+                )
+            );
+        }
+        
+        return loadNode(drive, nodeId)
+            .flatMap(node -> {
+                if (node == null) {
+                    return Uni.createFrom().failure(
+                        new StatusRuntimeException(
+                            Status.NOT_FOUND.withDescription("Node not found: " + nodeId)
+                        )
+                    );
+                }
+                
+                // Validate new parent exists (if not root)
+                if (newParentId != null && !newParentId.trim().isEmpty()) {
+                    return loadNode(drive, newParentId)
+                        .flatMap(newParent -> {
+                            if (newParent == null) {
+                                return Uni.createFrom().failure(
+                                    new StatusRuntimeException(
+                                        Status.NOT_FOUND.withDescription("New parent not found: " + newParentId)
+                                    )
+                                );
+                            }
+                            if (!Node.NodeType.FOLDER.name().equals(newParent.getType())) {
+                                return Uni.createFrom().failure(
+                                    new StatusRuntimeException(
+                                        Status.INVALID_ARGUMENT.withDescription("New parent must be a folder")
+                                    )
+                                );
+                            }
+                            return copyNodeRecursive(drive, node, newParentId, newName);
+                        });
+                } else {
+                    // Copying to root
+                    return copyNodeRecursive(drive, node, null, newName);
+                }
+            });
+    }
+    
+    private Uni<Node> copyNodeRecursive(String drive, RedisFilesystemNode sourceNode, String newParentId, String newName) {
+        // Create a copy of the node
+        RedisFilesystemNode copyNode = new RedisFilesystemNode();
+        copyNode.setId(UUID.randomUUID().toString());
+        copyNode.setParentId(newParentId);
+        copyNode.setName(newName != null && !newName.trim().isEmpty() ? newName : sourceNode.getName() + "_copy");
+        copyNode.setType(sourceNode.getType());
+        copyNode.setMimeType(sourceNode.getMimeType());
+        copyNode.setSize(sourceNode.getSize());
+        copyNode.setIconSvg(sourceNode.getIconSvg());
+        copyNode.setServiceType(sourceNode.getServiceType());
+        copyNode.setPayloadTypeUrl(sourceNode.getPayloadTypeUrl());
+        copyNode.setPayloadRef(sourceNode.getPayloadRef()); // Share the same payload
+        
+        // Store the copy
+        return storeNode(drive, copyNode)
+            .flatMap(v -> {
+                // Add to parent or root
+                if (newParentId != null) {
+                    return set().sadd(childrenKey(drive, newParentId), copyNode.getId());
+                } else {
+                    return set().sadd(rootNodesKey(drive), copyNode.getId());
+                }
+            })
+            .flatMap(v -> {
+                // If it's a folder, recursively copy children
+                if (Node.NodeType.FOLDER.name().equals(sourceNode.getType())) {
+                    return copyChildrenRecursive(drive, sourceNode.getId(), copyNode.getId())
+                        .map(x -> toProto(copyNode));
+                } else {
+                    return Uni.createFrom().item(toProto(copyNode));
+                }
+            });
+    }
+    
+    private Uni<Void> copyChildrenRecursive(String drive, String sourceParentId, String targetParentId) {
+        return set().smembers(childrenKey(drive, sourceParentId))
+            .flatMap(childIds -> {
+                if (childIds.isEmpty()) {
+                    return Uni.createFrom().voidItem();
+                }
+                
+                List<Uni<Node>> copyOps = childIds.stream()
+                    .map(childId -> loadNode(drive, childId)
+                        .flatMap(child -> {
+                            if (child == null) {
+                                return Uni.createFrom().nullItem();
+                            }
+                            return copyNodeRecursive(drive, child, targetParentId, null);
+                        }))
+                    .collect(Collectors.toList());
+                
+                return Uni.combine().all().unis(copyOps)
+                    .discardItems();
+            });
     }
     
     @Override
     public Uni<GetPathResponse> getPath(GetPathRequest request) {
-        // Implementation would follow the same pattern
-        return Uni.createFrom().failure(new StatusRuntimeException(Status.UNIMPLEMENTED));
+        if (request.getDrive() == null || request.getDrive().trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Drive is required")
+                )
+            );
+        }
+        
+        String drive = request.getDrive();
+        String nodeId = request.getNodeId();
+        
+        if (nodeId == null || nodeId.trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Node ID is required")
+                )
+            );
+        }
+        
+        return buildPath(drive, nodeId, new ArrayList<>())
+            .map(path -> {
+                Collections.reverse(path); // Path was built from child to parent
+                return GetPathResponse.newBuilder()
+                    .addAllPath(path)
+                    .build();
+            });
+    }
+    
+    private Uni<List<Node>> buildPath(String drive, String nodeId, List<Node> path) {
+        if (nodeId == null) {
+            return Uni.createFrom().item(path);
+        }
+        
+        return loadNode(drive, nodeId)
+            .flatMap(node -> {
+                if (node == null) {
+                    return Uni.createFrom().failure(
+                        new StatusRuntimeException(
+                            Status.NOT_FOUND.withDescription("Node not found in path: " + nodeId)
+                        )
+                    );
+                }
+                
+                path.add(toProto(node));
+                
+                // Continue building path up to root
+                if (node.getParentId() != null) {
+                    return buildPath(drive, node.getParentId(), path);
+                } else {
+                    return Uni.createFrom().item(path);
+                }
+            });
     }
     
     @Override
     public Uni<GetTreeResponse> getTree(GetTreeRequest request) {
-        // Implementation would follow the same pattern
-        return Uni.createFrom().failure(new StatusRuntimeException(Status.UNIMPLEMENTED));
+        if (request.getDrive() == null || request.getDrive().trim().isEmpty()) {
+            return Uni.createFrom().failure(
+                new StatusRuntimeException(
+                    Status.INVALID_ARGUMENT.withDescription("Drive is required")
+                )
+            );
+        }
+        
+        String drive = request.getDrive();
+        String rootId = request.getRootId();
+        int maxDepth = request.getMaxDepth() > 0 ? request.getMaxDepth() : Integer.MAX_VALUE;
+        boolean includeFiles = request.getIncludeFiles();
+        
+        // Build tree from the specified root or all root nodes
+        if (rootId != null && !rootId.trim().isEmpty()) {
+            return loadNode(drive, rootId)
+                .flatMap(rootNode -> {
+                    if (rootNode == null) {
+                        return Uni.createFrom().failure(
+                            new StatusRuntimeException(
+                                Status.NOT_FOUND.withDescription("Root node not found: " + rootId)
+                            )
+                        );
+                    }
+                    return buildTreeNode(drive, rootNode, 0, maxDepth, includeFiles)
+                        .map(treeNode -> GetTreeResponse.newBuilder()
+                            .addNodes(treeNode)
+                            .build());
+                });
+        } else {
+            // Get all root nodes
+            return set().smembers(rootNodesKey(drive))
+                .flatMap(rootNodeIds -> {
+                    if (rootNodeIds.isEmpty()) {
+                        return Uni.createFrom().item(GetTreeResponse.newBuilder().build());
+                    }
+                    
+                    List<Uni<TreeNode>> treeOps = rootNodeIds.stream()
+                        .map(nodeId -> loadNode(drive, nodeId)
+                            .flatMap(node -> {
+                                if (node == null) {
+                                    return Uni.createFrom().nullItem();
+                                }
+                                return buildTreeNode(drive, node, 0, maxDepth, includeFiles);
+                            }))
+                        .collect(Collectors.toList());
+                    
+                    return Uni.combine().all().unis(treeOps)
+                        .with(treeNodes -> {
+                            GetTreeResponse.Builder builder = GetTreeResponse.newBuilder();
+                            treeNodes.stream()
+                                .filter(Objects::nonNull)
+                                .forEach(tn -> builder.addNodes((TreeNode) tn));
+                            return builder.build();
+                        });
+                });
+        }
+    }
+    
+    private Uni<TreeNode> buildTreeNode(String drive, RedisFilesystemNode node, int currentDepth, int maxDepth, boolean includeFiles) {
+        TreeNode.Builder builder = TreeNode.newBuilder()
+            .setNode(toProto(node));
+        
+        // Don't fetch children if we've reached max depth or if it's a file
+        if (currentDepth >= maxDepth || !Node.NodeType.FOLDER.name().equals(node.getType())) {
+            return Uni.createFrom().item(builder.build());
+        }
+        
+        return set().smembers(childrenKey(drive, node.getId()))
+            .flatMap(childIds -> {
+                if (childIds.isEmpty()) {
+                    return Uni.createFrom().item(builder.build());
+                }
+                
+                List<Uni<TreeNode>> childOps = childIds.stream()
+                    .map(childId -> loadNode(drive, childId)
+                        .flatMap(child -> {
+                            if (child == null) {
+                                return Uni.createFrom().nullItem();
+                            }
+                            // Skip files if not requested
+                            if (!includeFiles && !Node.NodeType.FOLDER.name().equals(child.getType())) {
+                                return Uni.createFrom().nullItem();
+                            }
+                            return buildTreeNode(drive, child, currentDepth + 1, maxDepth, includeFiles);
+                        }))
+                    .collect(Collectors.toList());
+                
+                return Uni.combine().all().unis(childOps)
+                    .with(children -> {
+                        children.stream()
+                            .filter(Objects::nonNull)
+                            .forEach(child -> builder.addChildren((TreeNode) child));
+                        return builder.build();
+                    });
+            });
     }
     
     @Override

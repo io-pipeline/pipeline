@@ -1,7 +1,8 @@
 package io.pipeline.module.opensearchsink;
 
 import io.pipeline.module.opensearchsink.opensearch.ReactiveOpenSearchClient;
-import io.quarkus.redis.client.reactive.ReactiveRedisClient;
+import io.quarkus.redis.datasource.ReactiveRedisDataSource;
+import io.quarkus.redis.datasource.value.SetArgs;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -13,7 +14,6 @@ import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.IndexSettings;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Random;
 
 @ApplicationScoped
@@ -25,7 +25,7 @@ public class SchemaManagerService {
     private static final int LOCK_TIMEOUT_MS = 30000;
 
     private final ReactiveOpenSearchClient osClient;
-    private final ReactiveRedisClient redisClient;
+    private final ReactiveRedisDataSource redis;
     private final Random random = new Random();
 
     @ConfigProperty(name = "opensearch.default.index-prefix", defaultValue = "pipeline")
@@ -35,42 +35,51 @@ public class SchemaManagerService {
     int defaultVectorDimension;
 
     @Inject
-    public SchemaManagerService(ReactiveOpenSearchClient osClient, ReactiveRedisClient redisClient) {
+    public SchemaManagerService(ReactiveOpenSearchClient osClient, ReactiveRedisDataSource redis) {
         this.osClient = osClient;
-        this.redisClient = redisClient;
+        this.redis = redis;
     }
 
     public String determineIndexName(String documentType) {
         String baseName = (documentType == null || documentType.isEmpty()) ? "documents" : documentType;
+        // Corrected the regex to properly escape the hyphen
         return defaultIndexPrefix + "-" + baseName.toLowerCase().replaceAll("[^a-z0-9_\\-]", "_");
     }
 
     public Uni<Void> ensureIndexExists(String indexName) {
         String lockKey = LOCK_PREFIX + indexName;
 
+        // tryToAcquireLock now returns Uni<Void>.
+        // A successful completion (onItem) means the lock was acquired.
+        // A failure means it was not, so we recover and retry.
         return tryToAcquireLock(lockKey)
-                .flatMap(lockAcquired -> {
-                    if (lockAcquired) {
-                        LOG.infof("Lock acquired for index: %s", indexName);
-                        return doSchemaCheckAndCreation(indexName)
-                                .eventually(() -> releaseLock(lockKey));
-                    } else {
-                        LOG.infof("Could not acquire lock for index: %s, retrying...", indexName);
-                        return Uni.createFrom().voidItem()
-                                .onItem().delayIt().by(Duration.ofMillis(100 + random.nextInt(150)))
-                                .onItem().transformToUni(v -> ensureIndexExists(indexName));
-                    }
+                .onItem().transformToUni(v -> {
+                    LOG.infof("Lock acquired for index: %s", indexName);
+                    return doSchemaCheckAndCreation(indexName)
+                            .eventually(() -> releaseLock(lockKey));
+                })
+                .onFailure().recoverWithUni(() -> {
+                    LOG.infof("Could not acquire lock for index: %s, retrying...", indexName);
+                    return Uni.createFrom().voidItem()
+                            .onItem().delayIt().by(Duration.ofMillis(100 + random.nextInt(150)))
+                            .onItem().transformToUni(v -> ensureIndexExists(indexName));
                 });
     }
 
-    private Uni<Boolean> tryToAcquireLock(String key) {
-        return redisClient.set(List.of(key, LOCK_VALUE, "NX", "PX", String.valueOf(LOCK_TIMEOUT_MS)))
-                .map(response -> "OK".equals(response.toString()));
+    /**
+     * Tries to acquire a distributed lock.
+     * The operation completes successfully (onItem) if the lock is acquired.
+     * It fails if the lock is already held (due to the NX argument).
+     * @param key The lock key.
+     * @return a Uni<Void> that completes if the lock is acquired, fails otherwise.
+     */
+    private Uni<Void> tryToAcquireLock(String key) {
+        return redis.value(String.class).set(key, LOCK_VALUE, new SetArgs().nx().px(LOCK_TIMEOUT_MS));
     }
 
     private Uni<Void> releaseLock(String key) {
         LOG.infof("Releasing lock for key: %s", key);
-        return redisClient.del(List.of(key)).replaceWithVoid();
+        return redis.key(String.class).del(key).replaceWithVoid();
     }
 
     private Uni<Void> doSchemaCheckAndCreation(String indexName) {

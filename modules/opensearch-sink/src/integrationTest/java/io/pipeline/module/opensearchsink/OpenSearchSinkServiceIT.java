@@ -2,10 +2,7 @@ package io.pipeline.module.opensearchsink;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.pipeline.data.model.EmbeddingInfo;
-import io.pipeline.data.model.PipeDoc;
-import io.pipeline.data.model.SemanticChunk;
-import io.pipeline.data.model.SemanticProcessingResult;
+import io.pipeline.data.model.*;
 import io.pipeline.ingestion.proto.IngestionRequest;
 import io.pipeline.ingestion.proto.IngestionResponse;
 import io.pipeline.ingestion.proto.MutinyOpenSearchIngestionGrpc;
@@ -57,7 +54,7 @@ public class OpenSearchSinkServiceIT {
                 .addSemanticResults(SemanticProcessingResult.newBuilder()
                         .addChunks(SemanticChunk.newBuilder()
                                 .setChunkId("chunk-def")
-                                .setEmbeddingInfo(EmbeddingInfo.newBuilder()
+                                .setEmbeddingInfo(ChunkEmbedding.newBuilder()
                                         .setTextContent("This is an integration test chunk.")
                                         .addVector(4.0f).addVector(5.0f).addVector(6.0f)
                                 )

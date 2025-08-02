@@ -60,6 +60,18 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
         super.setupTestIsolation(testInfo);
     }
     
+    private Node getNodeWithPayload(String nodeId) {
+        return filesystemService.getNode(
+                GetNodeRequest.newBuilder()
+                    .setDrive(getTestDrive())
+                    .setId(nodeId)
+                    .build()
+            )
+            .subscribe().withSubscriber(UniAssertSubscriber.create())
+            .awaitItem()
+            .getItem();
+    }
+    
     @Test
     void testPipeDocTypePreservation() {
         // Create a PipeDoc with all fields populated
@@ -156,11 +168,10 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
         // Verify type
         assertThat(node.getPayloadType(), equalTo("type.googleapis.com/io.pipeline.search.model.PipeStream"));
         
-        // Retrieve and verify
-        Any retrievedPayload = payloadRepository.getAny(node.getId())
-            .subscribe().withSubscriber(UniAssertSubscriber.create())
-            .awaitItem()
-            .getItem();
+        // Retrieve the full node with payload
+        Node retrievedNode = getNodeWithPayload(node.getId());
+        assertThat(retrievedNode.hasPayload(), is(true));
+        Any retrievedPayload = retrievedNode.getPayload();
         
         PipeStream retrievedStream;
         try {
@@ -213,11 +224,10 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
         // Verify type
         assertThat(node.getPayloadType(), equalTo("type.googleapis.com/io.pipeline.search.model.ModuleProcessRequest"));
         
-        // Retrieve and verify
-        Any retrievedPayload = payloadRepository.getAny(node.getId())
-            .subscribe().withSubscriber(UniAssertSubscriber.create())
-            .awaitItem()
-            .getItem();
+        // Retrieve the full node with payload
+        Node retrievedNode = getNodeWithPayload(node.getId());
+        assertThat(retrievedNode.hasPayload(), is(true));
+        Any retrievedPayload = retrievedNode.getPayload();
         
         ModuleProcessRequest retrievedRequest;
         try {
@@ -301,20 +311,18 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
             equalTo("type.googleapis.com/google.protobuf.ListValue"));
         
         // Retrieve and validate each type
-        Any retrievedStringValue = payloadRepository.getAny(createdNodes.get("string_value.pb").getId())
-            .subscribe().withSubscriber(UniAssertSubscriber.create())
-            .awaitItem()
-            .getItem();
+        Node stringValueNode = getNodeWithPayload(createdNodes.get("string_value.pb").getId());
+        assertThat(stringValueNode.hasPayload(), is(true));
+        Any retrievedStringValue = stringValueNode.getPayload();
         try {
             assertThat(retrievedStringValue.unpack(StringValue.class).getValue(), equalTo("Hello, World!"));
         } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
         }
         
-        Any retrievedTimestamp = payloadRepository.getAny(createdNodes.get("timestamp.pb").getId())
-            .subscribe().withSubscriber(UniAssertSubscriber.create())
-            .awaitItem()
-            .getItem();
+        Node timestampNode = getNodeWithPayload(createdNodes.get("timestamp.pb").getId());
+        assertThat(timestampNode.hasPayload(), is(true));
+        Any retrievedTimestamp = timestampNode.getPayload();
         Timestamp ts;
         try {
             ts = retrievedTimestamp.unpack(Timestamp.class);
@@ -324,10 +332,9 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
         assertThat(ts.getSeconds(), equalTo(1234567890L));
         assertThat(ts.getNanos(), equalTo(123456789));
         
-        Any retrievedStruct = payloadRepository.getAny(createdNodes.get("struct.pb").getId())
-            .subscribe().withSubscriber(UniAssertSubscriber.create())
-            .awaitItem()
-            .getItem();
+        Node structNode = getNodeWithPayload(createdNodes.get("struct.pb").getId());
+        assertThat(structNode.hasPayload(), is(true));
+        Any retrievedStruct = structNode.getPayload();
         Struct struct;
         try {
             struct = retrievedStruct.unpack(Struct.class);
@@ -509,11 +516,10 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
             // Verify type is PipeDoc, not the nested chunk type
             assertThat(node.getPayloadType(), equalTo("type.googleapis.com/io.pipeline.search.model.PipeDoc"));
             
-            // Retrieve and verify nested structure is preserved
-            Any retrievedPayload = payloadRepository.getAny(node.getId())
-                .subscribe().withSubscriber(UniAssertSubscriber.create())
-                .awaitItem()
-                .getItem();
+            // Retrieve the full node with payload
+            Node retrievedNode = getNodeWithPayload(node.getId());
+            assertThat(retrievedNode.hasPayload(), is(true));
+            Any retrievedPayload = retrievedNode.getPayload();
             
             PipeDoc retrievedDoc;
         try {
@@ -570,10 +576,9 @@ public class FilesystemTypeValidationTest extends IsolatedRedisTest {
         assertThat(node.getPayloadType(), equalTo("type.googleapis.com/io.pipeline.search.model.PipeDoc"));
         
         // Retrieve and verify blob is preserved
-        Any retrievedPayload = payloadRepository.getAny(node.getId())
-            .subscribe().withSubscriber(UniAssertSubscriber.create())
-            .awaitItem()
-            .getItem();
+        Node retrievedNode = getNodeWithPayload(node.getId());
+        assertThat(retrievedNode.hasPayload(), is(true));
+        Any retrievedPayload = retrievedNode.getPayload();
         
         PipeDoc retrievedDoc;
         try {
