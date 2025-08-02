@@ -10,7 +10,8 @@ import org.junit.jupiter.api.TestInstance;
 
 import jakarta.inject.Inject;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
 
 @QuarkusTest
 @QuarkusTestResource(OpenSearchTestResource.class)
@@ -42,10 +43,10 @@ class SchemaManagerServiceTest {
                 .await().indefinitely();
 
         // Verify response
-        assertNotNull(response);
+        assertThat("Response should not be null", response, notNullValue());
         // First call should create the schema (schema_existed = false)
         // The schema is being created for the first time, so it shouldn't exist yet
-        assertFalse(response.getSchemaExisted());
+        assertThat("Schema should not exist yet", response.getSchemaExisted(), is(false));
     }
 
     @Test
@@ -72,10 +73,10 @@ class SchemaManagerServiceTest {
                 .await().indefinitely();
 
         // Verify both responses are successful
-        assertNotNull(response1);
-        assertNotNull(response2);
+        assertThat("First response should not be null", response1, notNullValue());
+        assertThat("Second response should not be null", response2, notNullValue());
         
         // Second call should find existing schema (from cache)
-        assertTrue(response2.getSchemaExisted());
+        assertThat("Schema should exist on second call", response2.getSchemaExisted(), is(true));
     }
 }

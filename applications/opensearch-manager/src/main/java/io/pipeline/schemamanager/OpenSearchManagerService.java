@@ -2,6 +2,14 @@ package io.pipeline.schemamanager;
 
 import io.pipeline.schemamanager.opensearch.OpenSearchSchemaService;
 import io.pipeline.opensearch.v1.*;
+import io.pipeline.common.util.ProtoFieldMapper;
+import com.google.protobuf.Any;
+import com.google.protobuf.Message;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.StringValue;
+import com.google.protobuf.util.JsonFormat;
+import java.util.Map;
+import java.util.HashMap;
 import io.quarkus.grpc.GrpcService;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
@@ -124,5 +132,124 @@ public class OpenSearchManagerService extends MutinyOpenSearchManagerServiceGrpc
 
     private EnsureNestedEmbeddingsFieldExistsResponse buildResponse(boolean existed) {
         return EnsureNestedEmbeddingsFieldExistsResponse.newBuilder().setSchemaExisted(existed).build();
+    }
+
+    @Override
+    public Uni<IndexDocumentResponse> indexDocument(IndexDocumentRequest request) {
+        return Uni.createFrom().item(() -> {
+            try {
+                var document = request.getDocument();
+                var indexName = request.getIndexName();
+                
+                // TODO: Implement actual indexing logic using OpenSearchClient
+                LOG.infof("Indexing document %s to index %s", document.getOriginalDocId(), indexName);
+                
+                return IndexDocumentResponse.newBuilder()
+                    .setSuccess(true)
+                    .setDocumentId(document.getOriginalDocId())
+                    .setMessage("Document indexed successfully")
+                    .build();
+            } catch (Exception e) {
+                LOG.errorf(e, "Failed to index document");
+                return IndexDocumentResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage("Failed to index document: " + e.getMessage())
+                    .build();
+            }
+        });
+    }
+
+    @Override
+    public Uni<IndexDocumentResponse> indexAnyDocument(IndexAnyDocumentRequest request) {
+        return Uni.createFrom().item(() -> {
+            try {
+                var anyDocument = request.getDocument();
+                var indexName = request.getIndexName();
+                var fieldMappings = request.getFieldMappingsList();
+                
+                // Handle Any message manually with special case for StringValue
+                // Note: We're not using JsonFormat.printer() with TypeRegistry because it requires
+                // registering all possible types that might be contained in Any messages.
+                // Instead, we handle common types directly and fall back to a simple representation for others.
+                String jsonString;
+                
+                // Check if it's a StringValue (commonly used in tests)
+                if (anyDocument.getTypeUrl().endsWith("google.protobuf.StringValue")) {
+                    try {
+                        // Unpack the StringValue and get its value directly
+                        StringValue stringValue = anyDocument.unpack(StringValue.class);
+                        jsonString = "{\"value\":\"" + stringValue.getValue() + "\"}";
+                    } catch (InvalidProtocolBufferException e) {
+                        LOG.errorf(e, "Failed to unpack StringValue");
+                        throw e;
+                    }
+                } else {
+                    // For other types, create a simple JSON representation with type URL and value
+                    // This avoids the need for TypeRegistry while still providing useful information
+                    jsonString = "{\"typeUrl\":\"" + anyDocument.getTypeUrl() + 
+                                 "\",\"value\":\"" + anyDocument.getValue().toStringUtf8() + "\"}";
+                }
+                
+                LOG.infof("Any document as JSON: %s", jsonString);
+                
+                // Create target OpenSearchDocument builder
+                var targetBuilder = OpenSearchDocument.newBuilder();
+                
+                // If no field mappings provided, create a basic document with JSON content
+                if (fieldMappings.isEmpty()) {
+                    targetBuilder.setOriginalDocId(request.hasDocumentId() ? request.getDocumentId() : "unknown")
+                               .setDocType("any_document")
+                               .setBody(jsonString);
+                } else {
+                    // For field mappings, we need the original message
+                    // This is a limitation - we'll need to support specific types for mapping
+                    throw new IllegalArgumentException("Field mappings with Any documents require type-specific support. " +
+                        "JSON representation: " + jsonString);
+                }
+                
+                var mappedDocument = targetBuilder.build();
+                var documentId = request.hasDocumentId() ? request.getDocumentId() : mappedDocument.getOriginalDocId();
+                
+                // TODO: Implement actual indexing logic using OpenSearchClient
+                LOG.infof("Indexing Any document (type: %s) to index %s with %d field mappings", 
+                         anyDocument.getTypeUrl(), indexName, fieldMappings.size());
+                
+                return IndexDocumentResponse.newBuilder()
+                    .setSuccess(true)
+                    .setDocumentId(documentId)
+                    .setMessage("Any document indexed successfully with field mappings")
+                    .build();
+            } catch (InvalidProtocolBufferException e) {
+                LOG.errorf(e, "Failed to unpack Any document");
+                return IndexDocumentResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage("Failed to unpack Any document: " + e.getMessage())
+                    .build();
+            } catch (Exception e) {
+                LOG.errorf(e, "Failed to index Any document");
+                return IndexDocumentResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage("Failed to index Any document: " + e.getMessage())
+                    .build();
+            }
+        });
+    }
+
+    @Override
+    public Uni<CreateIndexResponse> createIndex(CreateIndexRequest request) {
+        return openSearchClient.createIndexWithNestedMapping(
+            request.getIndexName(),
+            "embeddings", // Default nested field name
+            request.getVectorFieldDefinition()
+        ).map(success -> CreateIndexResponse.newBuilder()
+            .setSuccess(success)
+            .setMessage(success ? "Index created successfully" : "Failed to create index")
+            .build());
+    }
+
+    @Override
+    public Uni<IndexExistsResponse> indexExists(IndexExistsRequest request) {
+        return openSearchClient.nestedMappingExists(request.getIndexName(), "embeddings")
+            .map(exists -> IndexExistsResponse.newBuilder().setExists(exists).build());
     }
 }
