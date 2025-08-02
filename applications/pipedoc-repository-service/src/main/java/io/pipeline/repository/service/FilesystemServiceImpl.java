@@ -736,6 +736,15 @@ public class FilesystemServiceImpl implements FilesystemService {
                     );
                 }
                 
+                // Validate we're not moving to itself
+                if (nodeId.equals(newParentId)) {
+                    return Uni.createFrom().failure(
+                        new StatusRuntimeException(
+                            Status.INVALID_ARGUMENT.withDescription("Cannot move node to itself")
+                        )
+                    );
+                }
+                
                 // Validate new parent exists (if not root)
                 if (newParentId != null && !newParentId.trim().isEmpty()) {
                     return loadNode(drive, newParentId)
@@ -754,7 +763,19 @@ public class FilesystemServiceImpl implements FilesystemService {
                                     )
                                 );
                             }
-                            return moveNodeInternal(drive, node, newParentId, request.getNewName());
+                            
+                            // Check if new parent is a descendant of the node being moved
+                            return isDescendantOf(drive, newParentId, nodeId)
+                                .flatMap(isDescendant -> {
+                                    if (isDescendant) {
+                                        return Uni.createFrom().failure(
+                                            new StatusRuntimeException(
+                                                Status.INVALID_ARGUMENT.withDescription("Cannot move node to its own descendant")
+                                            )
+                                        );
+                                    }
+                                    return moveNodeInternal(drive, node, newParentId, request.getNewName());
+                                });
                         });
                 } else {
                     // Moving to root
@@ -831,31 +852,65 @@ public class FilesystemServiceImpl implements FilesystemService {
                     );
                 }
                 
-                // Validate new parent exists (if not root)
-                if (newParentId != null && !newParentId.trim().isEmpty()) {
-                    return loadNode(drive, newParentId)
-                        .flatMap(newParent -> {
-                            if (newParent == null) {
-                                return Uni.createFrom().failure(
-                                    new StatusRuntimeException(
-                                        Status.NOT_FOUND.withDescription("New parent not found: " + newParentId)
-                                    )
-                                );
-                            }
-                            if (!Node.NodeType.FOLDER.name().equals(newParent.getType())) {
-                                return Uni.createFrom().failure(
-                                    new StatusRuntimeException(
-                                        Status.INVALID_ARGUMENT.withDescription("New parent must be a folder")
-                                    )
-                                );
-                            }
-                            return copyNodeRecursive(drive, node, newParentId, newName);
-                        });
-                } else {
-                    // Copying to root
-                    return copyNodeRecursive(drive, node, null, newName);
+                // For folder copies, validate we're not copying into itself or its descendants
+                if (Node.NodeType.FOLDER.name().equals(node.getType()) && request.getDeep()) {
+                    if (nodeId.equals(newParentId)) {
+                        return Uni.createFrom().failure(
+                            new StatusRuntimeException(
+                                Status.INVALID_ARGUMENT.withDescription("Cannot copy folder into itself")
+                            )
+                        );
+                    }
+                    
+                    // Check if target parent is a descendant of the source folder
+                    if (newParentId != null && !newParentId.trim().isEmpty()) {
+                        return isDescendantOf(drive, newParentId, nodeId)
+                            .flatMap(isDescendant -> {
+                                if (isDescendant) {
+                                    return Uni.createFrom().failure(
+                                        new StatusRuntimeException(
+                                            Status.INVALID_ARGUMENT.withDescription("Cannot copy folder into its own descendant")
+                                        )
+                                    );
+                                }
+                                // Continue with parent validation
+                                return validateParentAndCopy(drive, node, newParentId, newName);
+                            });
+                    } else {
+                        // Copying to root
+                        return copyNodeRecursive(drive, node, null, newName);
+                    }
                 }
+                
+                // For non-folder copies or non-deep copies, just validate parent
+                return validateParentAndCopy(drive, node, newParentId, newName);
             });
+    }
+    
+    private Uni<Node> validateParentAndCopy(String drive, RedisFilesystemNode node, String newParentId, String newName) {
+        if (newParentId != null && !newParentId.trim().isEmpty()) {
+            return loadNode(drive, newParentId)
+                .flatMap(newParent -> {
+                    if (newParent == null) {
+                        return Uni.createFrom().failure(
+                            new StatusRuntimeException(
+                                Status.NOT_FOUND.withDescription("New parent not found: " + newParentId)
+                            )
+                        );
+                    }
+                    if (!Node.NodeType.FOLDER.name().equals(newParent.getType())) {
+                        return Uni.createFrom().failure(
+                            new StatusRuntimeException(
+                                Status.INVALID_ARGUMENT.withDescription("New parent must be a folder")
+                            )
+                        );
+                    }
+                    return copyNodeRecursive(drive, node, newParentId, newName);
+                });
+        } else {
+            // Copying to root
+            return copyNodeRecursive(drive, node, null, newName);
+        }
     }
     
     private Uni<Node> copyNodeRecursive(String drive, RedisFilesystemNode sourceNode, String newParentId, String newName) {
@@ -1560,5 +1615,41 @@ public class FilesystemServiceImpl implements FilesystemService {
                 return Uni.createFrom().voidItem();
             })
             .replaceWithVoid();
+    }
+    
+    /**
+     * Check if a node is a descendant of another node.
+     * This is used to prevent circular references when moving nodes.
+     */
+    private Uni<Boolean> isDescendantOf(String drive, String nodeId, String ancestorId) {
+        if (nodeId == null || ancestorId == null || nodeId.equals(ancestorId)) {
+            return Uni.createFrom().item(false);
+        }
+        
+        return loadNode(drive, nodeId)
+            .flatMap(node -> {
+                if (node == null) {
+                    return Uni.createFrom().item(false);
+                }
+                
+                // Check if the node's path contains the ancestor ID
+                String path = node.getPath();
+                if (path != null && path.contains("," + ancestorId + ",")) {
+                    return Uni.createFrom().item(true);
+                }
+                
+                // If no parent, it's not a descendant
+                if (node.getParentId() == null || node.getParentId().isEmpty()) {
+                    return Uni.createFrom().item(false);
+                }
+                
+                // If parent is the ancestor, it's a descendant
+                if (node.getParentId().equals(ancestorId)) {
+                    return Uni.createFrom().item(true);
+                }
+                
+                // Recursively check the parent
+                return isDescendantOf(drive, node.getParentId(), ancestorId);
+            });
     }
 }
