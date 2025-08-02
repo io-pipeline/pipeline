@@ -329,6 +329,8 @@ public class FilesystemServiceImpl implements FilesystemService {
                             node.setPayloadRef(payloadId);
                             node.setPayloadTypeUrl(payload.getTypeUrl());
                             node.setSize((long) payload.getSerializedSize());
+                            LOG.debugf("Stored payload for node %s: type=%s, size=%d", 
+                                nodeId, payload.getTypeUrl(), payload.getSerializedSize());
                             return null;
                         });
                 }
@@ -660,6 +662,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         String nodeId = request.getNodeId();
         String newParentId = request.getNewParentId();
         
+        String newName = request.getNewName();
         if (nodeId == null || nodeId.trim().isEmpty()) {
             return Uni.createFrom().failure(
                 new StatusRuntimeException(
@@ -712,9 +715,11 @@ public class FilesystemServiceImpl implements FilesystemService {
         // Remove from old parent/root
         Uni<Long> removeFromOld;
         if (oldParentId != null) {
-            removeFromOld = set().srem(childrenKey(drive, oldParentId), nodeId);
+            removeFromOld = set().srem(childrenKey(drive, oldParentId), nodeId)
+                .map(Long::valueOf);
         } else {
-            removeFromOld = set().srem(rootNodesKey(drive), nodeId);
+            removeFromOld = set().srem(rootNodesKey(drive), nodeId)
+                .map(Long::valueOf);
         }
         
         return removeFromOld
@@ -746,7 +751,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         
         String drive = request.getDrive();
         String nodeId = request.getNodeId();
-        String newParentId = request.getNewParentId();
+        String newParentId = request.getTargetParentId();
         String newName = request.getNewName();
         
         if (nodeId == null || nodeId.trim().isEmpty()) {
@@ -862,7 +867,7 @@ public class FilesystemServiceImpl implements FilesystemService {
         }
         
         String drive = request.getDrive();
-        String nodeId = request.getNodeId();
+        String nodeId = request.getId();
         
         if (nodeId == null || nodeId.trim().isEmpty()) {
             return Uni.createFrom().failure(
@@ -876,7 +881,7 @@ public class FilesystemServiceImpl implements FilesystemService {
             .map(path -> {
                 Collections.reverse(path); // Path was built from child to parent
                 return GetPathResponse.newBuilder()
-                    .addAllPath(path)
+                    .addAllAncestors(path)
                     .build();
             });
     }
@@ -920,7 +925,8 @@ public class FilesystemServiceImpl implements FilesystemService {
         String drive = request.getDrive();
         String rootId = request.getRootId();
         int maxDepth = request.getMaxDepth() > 0 ? request.getMaxDepth() : Integer.MAX_VALUE;
-        boolean includeFiles = request.getIncludeFiles();
+        // GetTreeRequest doesn't have includeFiles, assume we include all types
+        boolean includeFiles = true;
         
         // Build tree from the specified root or all root nodes
         if (rootId != null && !rootId.trim().isEmpty()) {
@@ -935,7 +941,8 @@ public class FilesystemServiceImpl implements FilesystemService {
                     }
                     return buildTreeNode(drive, rootNode, 0, maxDepth, includeFiles)
                         .map(treeNode -> GetTreeResponse.newBuilder()
-                            .addNodes(treeNode)
+                            .setRoot(toProto(rootNode))
+                            .addChildren(treeNode)
                             .build());
                 });
         } else {
@@ -961,7 +968,7 @@ public class FilesystemServiceImpl implements FilesystemService {
                             GetTreeResponse.Builder builder = GetTreeResponse.newBuilder();
                             treeNodes.stream()
                                 .filter(Objects::nonNull)
-                                .forEach(tn -> builder.addNodes((TreeNode) tn));
+                                .forEach(tn -> builder.addChildren((TreeNode) tn));
                             return builder.build();
                         });
                 });
@@ -1176,10 +1183,14 @@ public class FilesystemServiceImpl implements FilesystemService {
                             if (node != null) {
                                 boolean shouldDelete = true;
                                 
+                                LOG.debugf("Processing node %s: type=%s, payloadType=%s", 
+                                    node.getId(), node.getType(), node.getPayloadTypeUrl());
+                                
                                 if (Node.NodeType.FOLDER.name().equals(node.getType())) {
                                     // For now, only delete folders if no type filter is specified
                                     if (hasTypeFilter) {
                                         shouldDelete = false;
+                                        LOG.debugf("Skipping folder %s due to type filter", node.getId());
                                     } else {
                                         folderCount++;
                                     }
@@ -1187,6 +1198,8 @@ public class FilesystemServiceImpl implements FilesystemService {
                                     // File node
                                     if (hasTypeFilter && !typeUrls.contains(node.getPayloadTypeUrl())) {
                                         shouldDelete = false;
+                                        LOG.debugf("Skipping file %s: payloadType %s not in filter %s", 
+                                            node.getId(), node.getPayloadTypeUrl(), typeUrls);
                                     } else {
                                         fileCount++;
                                         // Count by payload type
@@ -1197,6 +1210,7 @@ public class FilesystemServiceImpl implements FilesystemService {
                                 }
                                 
                                 if (shouldDelete) {
+                                    LOG.debugf("Will delete node %s", node.getId());
                                     keysToDelete.add(nodeKeys.get(i));
                                 }
                             }
@@ -1221,6 +1235,9 @@ public class FilesystemServiceImpl implements FilesystemService {
                                 }
                             }
                         }
+                        
+                        LOG.infof("Format operation: dryRun=%s, fileCount=%d, folderCount=%d, typeFilter=%s, typeCounts=%s",
+                            dryRun, fileCount, folderCount, typeUrls, typeCountMap);
                         
                         String message = dryRun ? 
                             String.format("Would delete %d files and %d folders", fileCount, folderCount) :

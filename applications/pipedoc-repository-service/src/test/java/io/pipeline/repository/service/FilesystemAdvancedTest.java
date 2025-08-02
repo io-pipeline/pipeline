@@ -34,11 +34,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.jboss.logging.Logger;
+
 /**
  * Advanced tests for FilesystemService including performance, concurrency, and edge cases.
  */
 @QuarkusTest
 public class FilesystemAdvancedTest extends IsolatedRedisTest {
+    
+    private static final Logger LOG = Logger.getLogger(FilesystemAdvancedTest.class);
     
     @GrpcClient("test-filesystem")
     MutinyFilesystemServiceGrpc.MutinyFilesystemServiceStub filesystemService;
@@ -312,6 +316,21 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
         // Set drive overrides for each drive
         String originalDrive = getTestDrive();
         
+        // Create drives first
+        filesystemService.createDrive(CreateDriveRequest.newBuilder()
+            .setName(drive1)
+            .setDescription("Test drive 1")
+            .build())
+            .subscribe().withSubscriber(UniAssertSubscriber.create())
+            .awaitItem();
+            
+        filesystemService.createDrive(CreateDriveRequest.newBuilder()
+            .setName(drive2)
+            .setDescription("Test drive 2")
+            .build())
+            .subscribe().withSubscriber(UniAssertSubscriber.create())
+            .awaitItem();
+        
         // Create in drive1
         setTestDrive(drive1);
         CreateNodeRequest request1 = CreateNodeRequest.newBuilder()
@@ -340,17 +359,18 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
         
         // Verify isolation - node1 should not exist in drive2
         setTestDrive(drive2);
-        StatusRuntimeException exception = assertThrows(StatusRuntimeException.class, () -> {
-            filesystemService.getNode(
-                GetNodeRequest.newBuilder()
-                    .setDrive(drive2)
-                    .setId(node1.getId())
-                    .build()
-            ).subscribe().withSubscriber(UniAssertSubscriber.create())
-                .awaitItem();
-        });
+        Throwable exception = filesystemService.getNode(
+            GetNodeRequest.newBuilder()
+                .setDrive(drive2)
+                .setId(node1.getId())
+                .build()
+        ).subscribe().withSubscriber(UniAssertSubscriber.create())
+            .awaitFailure()
+            .getFailure();
         
-        assertThat(exception.getStatus().getCode(), equalTo(Status.NOT_FOUND.getCode()));
+        assertThat(exception, instanceOf(StatusRuntimeException.class));
+        StatusRuntimeException sre = (StatusRuntimeException) exception;
+        assertThat(sre.getStatus().getCode(), equalTo(Status.NOT_FOUND.getCode()));
         
         // Format drive1 should not affect drive2
         setTestDrive(drive1);
@@ -401,6 +421,7 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
         // Add different types of files to each folder
         Collection<PipeDoc> pipeDocs = testDataHelper.getSamplePipeDocuments();
         Collection<PipeStream> pipeStreams = testDataHelper.getSamplePipeStreams();
+        LOG.infof("Test data: PipeDocs=%d, PipeStreams=%d", pipeDocs.size(), pipeStreams.size());
         
         // Category 0: PipeDocs
         Iterator<PipeDoc> docIter = pipeDocs.iterator();
@@ -426,21 +447,54 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
         // Category 1: PipeStreams
         Iterator<PipeStream> streamIter = pipeStreams.iterator();
         List<Node> pipeStreamNodes = new ArrayList<>();
-        for (int i = 0; i < 3 && streamIter.hasNext(); i++) {
-            PipeStream stream = streamIter.next();
-            CreateNodeRequest request = CreateNodeRequest.newBuilder()
-                .setDrive(getTestDrive())
-                .setName("stream_" + i + ".pb")
-                .setType(Node.NodeType.FILE)
-                .setParentId(rootFolders.get(1).getId())
-                .setPayload(Any.pack(stream))
-                .build();
-            
-            Node node = filesystemService.createNode(request)
-                .subscribe().withSubscriber(UniAssertSubscriber.create())
-                .awaitItem()
-                .getItem();
-            pipeStreamNodes.add(node);
+        LOG.debugf("Creating PipeStream nodes, available streams: %s", streamIter.hasNext());
+        
+        // If no PipeStreams available, create them manually
+        if (!streamIter.hasNext()) {
+            LOG.warn("No PipeStreams available from test data helper, creating manually");
+            pipeStreamNodes = IntStream.range(0, 3)
+                .mapToObj(i -> {
+                    PipeStream stream = PipeStream.newBuilder()
+                        .setStreamId("stream-" + i)
+                        .setDocument(PipeDoc.newBuilder()
+                            .setId("stream-doc-" + i)
+                            .setTitle("Doc in stream " + i)
+                            .build())
+                        .setCurrentPipelineName("test-pipeline")
+                        .setTargetStepName("test-step")
+                        .build();
+                        
+                    CreateNodeRequest request = CreateNodeRequest.newBuilder()
+                        .setDrive(getTestDrive())
+                        .setName("stream_" + i + ".pb")
+                        .setType(Node.NodeType.FILE)
+                        .setParentId(rootFolders.get(1).getId())
+                        .setPayload(Any.pack(stream))
+                        .build();
+                    
+                    return filesystemService.createNode(request)
+                        .subscribe().withSubscriber(UniAssertSubscriber.create())
+                        .awaitItem()
+                        .getItem();
+                })
+                .collect(Collectors.toList());
+        } else {
+            for (int i = 0; i < 3 && streamIter.hasNext(); i++) {
+                PipeStream stream = streamIter.next();
+                CreateNodeRequest request = CreateNodeRequest.newBuilder()
+                    .setDrive(getTestDrive())
+                    .setName("stream_" + i + ".pb")
+                    .setType(Node.NodeType.FILE)
+                    .setParentId(rootFolders.get(1).getId())
+                    .setPayload(Any.pack(stream))
+                    .build();
+                
+                Node node = filesystemService.createNode(request)
+                    .subscribe().withSubscriber(UniAssertSubscriber.create())
+                    .awaitItem()
+                    .getItem();
+                pipeStreamNodes.add(node);
+            }
         }
         nodesByType.put("type.googleapis.com/io.pipeline.search.model.PipeStream", pipeStreamNodes);
         
@@ -503,6 +557,7 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
             .awaitItem()
             .getItem();
         
+        LOG.infof("Second format result: deleted=%d, byType=%s", multiFormat.getNodesDeleted(), multiFormat.getDeletedByTypeMap());
         assertThat(multiFormat.getNodesDeleted(), equalTo(5)); // 3 PipeStreams + 2 ModuleProcessRequests
         
         // 3. Format all remaining
@@ -543,13 +598,14 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
             
             if (invalidName == null || invalidName.trim().isEmpty()) {
                 // Should fail for null or empty names
-                StatusRuntimeException exception = assertThrows(StatusRuntimeException.class, () -> {
-                    filesystemService.createNode(request)
-                        .subscribe().withSubscriber(UniAssertSubscriber.create())
-                        .awaitItem();
-                });
+                Throwable exception = filesystemService.createNode(request)
+                    .subscribe().withSubscriber(UniAssertSubscriber.create())
+                    .awaitFailure()
+                    .getFailure();
                 
-                assertThat(exception.getStatus().getCode(), equalTo(Status.INVALID_ARGUMENT.getCode()));
+                assertThat(exception, instanceOf(StatusRuntimeException.class));
+                StatusRuntimeException sre = (StatusRuntimeException) exception;
+                assertThat(sre.getStatus().getCode(), equalTo(Status.INVALID_ARGUMENT.getCode()));
             } else {
                 // Other names might be allowed depending on implementation
                 // Just verify it doesn't crash
@@ -557,9 +613,16 @@ public class FilesystemAdvancedTest extends IsolatedRedisTest {
                     filesystemService.createNode(request)
                         .subscribe().withSubscriber(UniAssertSubscriber.create())
                         .awaitItem();
-                } catch (StatusRuntimeException e) {
+                } catch (AssertionError e) {
                     // Some names might be rejected, which is fine
-                    assertThat(e.getStatus().getCode(), equalTo(Status.Code.INVALID_ARGUMENT));
+                    // Check if the failure is a StatusRuntimeException with INVALID_ARGUMENT
+                    Throwable cause = e.getCause();
+                    if (cause instanceof StatusRuntimeException) {
+                        StatusRuntimeException sre = (StatusRuntimeException) cause;
+                        assertThat(sre.getStatus().getCode(), equalTo(Status.INVALID_ARGUMENT.getCode()));
+                    } else {
+                        throw e;
+                    }
                 }
             }
         }
