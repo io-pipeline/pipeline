@@ -352,14 +352,22 @@ public class RedisGenericRepository implements GenericRepositoryService {
                             }
                             
                             // Delete all nodes of this type
-                            List<Uni<Boolean>> deleteOps = ids.stream()
-                                .map(this::delete)
-                                .collect(Collectors.toList());
+                            // Use batch operations to avoid connection pool exhaustion
+                            List<String> keysToDelete = new ArrayList<>();
+                            for (String id : ids) {
+                                keysToDelete.add(payloadKey(id));
+                                keysToDelete.add(metadataKey(id));
+                            }
                             
-                            return Uni.combine().all().unis(deleteOps)
-                                .with(results -> results.stream()
-                                    .filter(Boolean.class::cast)
-                                    .count());
+                            // Delete in a single DEL command
+                            return keys().del(keysToDelete.toArray(new String[0]))
+                                .flatMap(deletedCount -> {
+                                    // Remove from index sets
+                                    String[] idsArray = ids.toArray(new String[0]);
+                                    return set().srem(typeKey, idsArray)
+                                        .flatMap(v -> set().srem(allIdsKey(), idsArray))
+                                        .map(v -> (long) ids.size());
+                                });
                         });
                 })
                 .collect(Collectors.toList());
@@ -383,30 +391,67 @@ public class RedisGenericRepository implements GenericRepositoryService {
                     // Get type counts before deletion
                     Map<String, Long> typeCounts = new HashMap<>();
                     
-                    // Collect all unique type URLs
-                    // First, get all type URLs to count by type
-                    List<Uni<String>> typeUrlOps = allIds.stream()
-                        .map(this::getTypeUrl)
-                        .collect(Collectors.toList());
+                    // Process in smaller batches to avoid connection pool exhaustion
+                    int batchSize = 10;
+                    List<List<String>> batches = new ArrayList<>();
+                    for (int i = 0; i < allIds.size(); i += batchSize) {
+                        batches.add(new ArrayList<>(allIds).subList(i, 
+                            Math.min(i + batchSize, allIds.size())));
+                    }
                     
-                    return Uni.combine().all().unis(typeUrlOps)
-                        .withUni(typeUrlResults -> {
-                            // Count by type
-                            for (Object typeUrl : typeUrlResults) {
-                                if (typeUrl != null) {
-                                    String typeUrlStr = typeUrl.toString();
-                                    typeCounts.merge(typeUrlStr, 1L, Long::sum);
-                                }
-                            }
-                            
-                            // Now delete all nodes
-                            List<Uni<Boolean>> deleteOps = allIds.stream()
-                                .map(this::delete)
+                    // Process batches sequentially to avoid overwhelming the pool
+                    Uni<Map<String, Long>> result = Uni.createFrom().item(typeCounts);
+                    
+                    for (List<String> batch : batches) {
+                        result = result.flatMap(counts -> {
+                            // Get type URLs for this batch
+                            List<Uni<String>> typeUrlOps = batch.stream()
+                                .map(this::getTypeUrl)
                                 .collect(Collectors.toList());
                             
-                            return Uni.combine().all().unis(deleteOps)
-                                .with(results -> typeCounts);
+                            return Uni.combine().all().unis(typeUrlOps)
+                                .with(typeUrls2 -> {
+                                    // Count types
+                                    for (Object typeUrl : typeUrls2) {
+                                        if (typeUrl != null) {
+                                            String typeUrlStr = typeUrl.toString();
+                                            counts.merge(typeUrlStr, 1L, Long::sum);
+                                        }
+                                    }
+                                    return counts;
+                                })
+                                .flatMap(updatedCounts -> {
+                                    // Delete this batch
+                                    List<String> keysToDelete = new ArrayList<>();
+                                    for (String id : batch) {
+                                        keysToDelete.add(payloadKey(id));
+                                        keysToDelete.add(metadataKey(id));
+                                    }
+                                    
+                                    return keys().del(keysToDelete.toArray(new String[0]))
+                                        .flatMap(v -> {
+                                            // Remove from indexes
+                                            String[] batchArray = batch.toArray(new String[0]);
+                                            return set().srem(allIdsKey(), batchArray)
+                                                .map(v2 -> updatedCounts);
+                                        });
+                                });
                         });
+                    }
+                    
+                    // Finally, clear all type indexes
+                    return result.flatMap(finalCounts -> {
+                        List<String> typeIndexKeys = finalCounts.keySet().stream()
+                            .map(this::typeIndexKey)
+                            .collect(Collectors.toList());
+                        
+                        if (typeIndexKeys.isEmpty()) {
+                            return Uni.createFrom().item(finalCounts);
+                        }
+                        
+                        return keys().del(typeIndexKeys.toArray(new String[0]))
+                            .map(v -> finalCounts);
+                    });
                 });
         }
     }
