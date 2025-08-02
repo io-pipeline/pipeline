@@ -1,18 +1,12 @@
 package io.pipeline.module.opensearchsink;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.protobuf.Struct;
-import com.google.protobuf.util.JsonFormat;
 import io.pipeline.api.annotation.PipelineAutoRegister;
 import io.pipeline.common.service.SchemaExtractorService;
 import io.pipeline.data.module.*;
-import io.pipeline.module.opensearchsink.service.DocumentConverterService;
-import io.pipeline.module.opensearchsink.service.OpenSearchRepository;
 import io.pipeline.module.opensearchsink.config.opensearch.BatchOptions;
-import io.pipeline.module.opensearchsink.SchemaManagerService;
+import io.pipeline.opensearch.v1.*;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -26,76 +20,77 @@ public class OpenSearchSinkServiceImpl implements PipeStepProcessor {
     SchemaExtractorService schemaExtractorService;
 
     @Inject
-    SchemaManagerService schemaManager;
-
-    @Inject
-    DocumentConverterService documentConverter;
-
-    @Inject
-    OpenSearchRepository openSearchRepository;
-
-    @Inject
-    ObjectMapper objectMapper;
+    MutinyOpenSearchManagerServiceGrpc.MutinyOpenSearchManagerServiceStub openSearchManager;
 
     @Override
     public Uni<ModuleProcessResponse> processData(ModuleProcessRequest request) {
         if (!request.hasDocument()) {
-            return Uni.createFrom().item(ModuleProcessResponse.newBuilder().setSuccess(true).addProcessorLogs("No document to process.").build());
+            return Uni.createFrom().item(ModuleProcessResponse.newBuilder()
+                .setSuccess(true)
+                .addProcessorLogs("No document to process.")
+                .build());
         }
 
-        BatchOptions options = extractConfiguration(request);
+        OpenSearchDocument osDoc = convertToOpenSearchDocument(request.getDocument());
+        String indexName = "pipeline-" + request.getDocument().getDocumentType().toLowerCase();
 
-        String indexName = schemaManager.determineIndexName(request.getDocument().getDocumentType());
+        return openSearchManager.indexDocument(IndexDocumentRequest.newBuilder()
+                .setIndexName(indexName)
+                .setDocument(osDoc)
+                .build())
+            .map(response -> ModuleProcessResponse.newBuilder()
+                .setOutputDoc(request.getDocument())
+                .setSuccess(response.getSuccess())
+                .addProcessorLogs(response.getMessage())
+                .build());
+    }
 
-        return schemaManager.ensureIndexExists(indexName)
-                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool()) // Offload blocking schema work
-                .onItem().transform(v -> documentConverter.prepareBulkOperations(request.getDocument(), indexName))
-                .onItem().transformToUni(openSearchRepository::bulk)
-                .onItem().transform(bulkResponse -> {
-                    ModuleProcessResponse.Builder responseBuilder = ModuleProcessResponse.newBuilder().setOutputDoc(request.getDocument());
-                    if (bulkResponse.errors()) {
-                        responseBuilder.setSuccess(false).addProcessorLogs("Bulk operation completed with errors.");
-                    } else {
-                        responseBuilder.setSuccess(true).addProcessorLogs("Document indexed successfully.");
-                    }
-                    return responseBuilder.build();
-                })
-                .onFailure().recoverWithItem(error -> {
-                    LOG.errorf(error, "Failed to process document %s", request.getDocument().getId());
-                    return ModuleProcessResponse.newBuilder().setSuccess(false).addProcessorLogs("Failed to process document: " + error.getMessage()).build();
-                });
+    private OpenSearchDocument convertToOpenSearchDocument(io.pipeline.data.model.PipeDoc pipeDoc) {
+        OpenSearchDocument.Builder builder = OpenSearchDocument.newBuilder()
+            .setOriginalDocId(pipeDoc.getId())
+            .setDocType(pipeDoc.getDocumentType())
+            //.setCreatedBy(pipeDoc.getCreatedBy())
+            //.setCreatedAt(pipeDoc.getCreatedDate())
+            .setLastModifiedAt(pipeDoc.getLastModifiedDate());
+
+        if (pipeDoc.hasTitle()) builder.setTitle(pipeDoc.getTitle());
+        if (pipeDoc.hasBody()) builder.setBody(pipeDoc.getBody());
+        if (pipeDoc.getKeywordsCount() > 0) builder.addAllTags(pipeDoc.getKeywordsList());
+
+        // Convert embeddings
+        for (var result : pipeDoc.getSemanticResultsList()) {
+            for (var chunk : result.getChunksList()) {
+                if (chunk.hasEmbeddingInfo() && chunk.getEmbeddingInfo().getVectorCount() > 0) {
+                    builder.addEmbeddings(Embedding.newBuilder()
+                        .addAllVector(chunk.getEmbeddingInfo().getVectorList())
+                        .setSourceText(chunk.getEmbeddingInfo().getTextContent())
+                        .setChunkConfigId(result.getChunkConfigId())
+                        .setEmbeddingId(result.getEmbeddingConfigId())
+                        .setIsPrimary(result.getChunkConfigId().contains("title"))
+                        .build());
+                }
+            }
+        }
+
+        return builder.build();
     }
 
     @Override
     public Uni<ServiceRegistrationResponse> getServiceRegistration(RegistrationRequest request) {
         ServiceRegistrationResponse.Builder responseBuilder = ServiceRegistrationResponse.newBuilder()
-                .setModuleName("opensearch-sink")
-                .setCapabilities(Capabilities.newBuilder().addTypes(CapabilityType.SINK).build());
+            .setModuleName("opensearch-sink")
+            .setCapabilities(Capabilities.newBuilder().addTypes(CapabilityType.SINK).build())
+            .setHealthCheckPassed(true)
+            .setHealthCheckMessage("Service is running.");
 
-        schemaExtractorService.extractSchemaForClass(BatchOptions.class).ifPresentOrElse(
-                responseBuilder::setJsonConfigSchema,
-                () -> LOG.error("Could not extract schema for OpenSearchSinkOptions.class")
-        );
+        schemaExtractorService.extractSchemaForClass(BatchOptions.class)
+            .ifPresent(responseBuilder::setJsonConfigSchema);
 
-        responseBuilder.setHealthCheckPassed(true).setHealthCheckMessage("Service is running.");
         return Uni.createFrom().item(responseBuilder.build());
     }
 
     @Override
     public Uni<ModuleProcessResponse> testProcessData(ModuleProcessRequest request) {
         return processData(request);
-    }
-
-    private BatchOptions extractConfiguration(ModuleProcessRequest request) {
-        if (request.hasConfig() && request.getConfig().hasCustomJsonConfig()) {
-            try {
-                Struct jsonConfig = request.getConfig().getCustomJsonConfig();
-                String jsonString = JsonFormat.printer().print(jsonConfig);
-                return objectMapper.readValue(jsonString, BatchOptions.class);
-            } catch (Exception e) {
-                LOG.warnf(e, "Failed to parse OpenSearchSinkOptions from JSON, using defaults.");
-            }
-        }
-        return new BatchOptions();
     }
 }

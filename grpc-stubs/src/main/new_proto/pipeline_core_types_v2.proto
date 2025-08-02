@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package io.pipeline.data.v2;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+option java_multiple_files = true;
+option java_package = "io.pipeline.data.v2";
+option java_outer_classname = "PipelineCoreTypesV2Proto";
+
+// PipeStream V2 - TCP-like packet header for node-to-node processing
+message PipeStream {
+  string stream_id = 1;
+  string cluster_id = 2;
+  string current_node_id = 3;
+  string target_node_id = 4;
+  int64 hop_count = 5;
+  repeated string processing_path = 6; // Node IDs traversed
+  string trace_id = 7; // Distributed tracing
+  map<string, string> routing_context = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp last_processed_at = 10;
+  PipeDoc document = 11; // The actual payload
+  
+  // Kafka routing metadata (when stream comes from/goes to Kafka)
+  optional string source_topic = 12;
+  optional string target_topic = 13;
+  optional string partition_key = 14;
+}
+
+// PipeDoc V2 - Clean document structure
+message PipeDoc {
+  string doc_id = 1;
+  SearchMetadata search_metadata = 2;
+  repeated Blob blobs = 3;
+  google.protobuf.Any structured_data = 4; // For OpenSearch indexing
+}
+
+// Search metadata - identical to current plus additions
+message SearchMetadata {
+  optional string title = 1;
+  optional string body = 2;
+  repeated string keywords = 3;
+  optional string document_type = 4;
+  optional string source_uri = 5;
+  optional string source_mime_type = 6;
+  optional google.protobuf.Timestamp creation_date = 7;
+  optional google.protobuf.Timestamp last_modified_date = 8;
+  optional google.protobuf.Timestamp processed_date = 9;
+  
+  // New fields for enhanced search
+  optional string language = 10;
+  optional string author = 11;
+  optional string category = 12;
+  repeated string tags = 13;
+  optional int32 content_length = 14;
+  optional double relevance_score = 15;
+  map<string, string> custom_fields = 16;
+}
+
+// Enhanced Blob with checksum
+message Blob {
+  string blob_id = 1;
+  bytes data = 2;
+  optional string mime_type = 3;
+  optional string filename = 4;
+  optional string encoding = 5;
+  optional int64 size_bytes = 6;
+  optional string checksum = 7;
+  ChecksumType checksum_type = 8;
+  map<string, string> metadata = 9;
+}
+
+enum ChecksumType {
+  CHECKSUM_TYPE_UNSPECIFIED = 0;
+  CHECKSUM_TYPE_MD5 = 1;
+  CHECKSUM_TYPE_SHA1 = 2;
+  CHECKSUM_TYPE_SHA256 = 3;
+  CHECKSUM_TYPE_SHA512 = 4;
+}
+
+// Pre/Post processing mappings for protobuf transformation
+message ProcessingMapping {
+  string mapping_id = 1;
+  string source_field_path = 2; // JSONPath or protobuf field path
+  string target_field_path = 3;
+  MappingType mapping_type = 4;
+  optional string transformation_rule = 5; // Optional transformation logic
+}
+
+enum MappingType {
+  MAPPING_TYPE_UNSPECIFIED = 0;
+  MAPPING_TYPE_DIRECT = 1; // Direct field copy
+  MAPPING_TYPE_TRANSFORM = 2; // Apply transformation
+  MAPPING_TYPE_AGGREGATE = 3; // Combine multiple fields
+  MAPPING_TYPE_SPLIT = 4; // Split field into multiple
+}
+
+// Node processing configuration with mappings
+message NodeProcessingConfig {
+  string node_id = 1;
+  repeated ProcessingMapping pre_mappings = 2;
+  repeated ProcessingMapping post_mappings = 3;
+  google.protobuf.Any node_config = 4; // Node-specific configuration
+}

@@ -237,6 +237,7 @@ const loadChildren = async (parentId: string = '') => {
   loading.value = true
   try {
     const request: GetChildrenRequest = { 
+      drive: 'default',
       parentId,
       pageSize: 100,
       orderBy: 'name',
@@ -261,7 +262,7 @@ const navigateToNode = async (node: Node | null) => {
     currentNodeId.value = node.id
     // Build path from ancestors
     try {
-      const pathResponse = await filesystemService.getPath({ id: node.id })
+      const pathResponse = await filesystemService.getPath({ drive: 'default', id: node.id })
       currentPath.value = ['Root', ...pathResponse.ancestors.map(n => n.name)]
     } catch (error) {
       currentPath.value.push(node.name)
@@ -298,6 +299,7 @@ const confirmCreateFolder = async () => {
   
   try {
     const request: CreateNodeRequest = {
+      drive: 'default',
       parentId: currentNodeId.value,
       name: newFolderName.value,
       type: Node_NodeType.FOLDER,
@@ -337,6 +339,7 @@ const deleteItem = async (item: Node) => {
   
   try {
     const request: DeleteNodeRequest = { 
+      drive: 'default',
       id: item.id,
       recursive: isFolder
     }
@@ -352,7 +355,7 @@ const deleteItem = async (item: Node) => {
 // Download item
 const downloadItem = async (item: Node) => {
   try {
-    const request: GetNodeRequest = { id: item.id }
+    const request: GetNodeRequest = { drive: 'default', id: item.id }
     const response = await filesystemService.getNode(request)
     
     if (response.payload) {

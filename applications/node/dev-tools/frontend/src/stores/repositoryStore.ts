@@ -122,7 +122,7 @@ export const useRepositoryStore = defineStore('repository', () => {
   }
   
   // Save file to repository
-  async function saveFile(path: string, content: string, mimeType = 'application/octet-stream') {
+  async function saveFile(path: string, content: string, mimeType = 'application/octet-stream', drive = 'default') {
     if (!isConnected.value) {
       throw new Error('Repository not connected')
     }
@@ -141,7 +141,8 @@ export const useRepositoryStore = defineStore('repository', () => {
         
         // Check if directory exists
         const listRequest = create(GetChildrenRequestSchema, {
-          nodeId: currentParentId
+          drive: drive,
+          parentId: currentParentId
         })
         
         const listResponse = await filesystemService.getChildren(listRequest)
@@ -154,7 +155,8 @@ export const useRepositoryStore = defineStore('repository', () => {
         } else {
           // Create directory
           const createDirRequest = create(CreateNodeRequestSchema, {
-            parent_id: currentParentId,
+            drive: drive,
+            parentId: currentParentId,
             name: part,
             type: Node_NodeType.FOLDER
           })
@@ -185,7 +187,8 @@ export const useRepositoryStore = defineStore('repository', () => {
       })
       
       const createFileRequest = create(CreateNodeRequestSchema, {
-        parent_id: currentParentId,
+        drive: drive,
+        parentId: currentParentId,
         name: filename,
         type: Node_NodeType.FILE,
         payload: anyPayload,

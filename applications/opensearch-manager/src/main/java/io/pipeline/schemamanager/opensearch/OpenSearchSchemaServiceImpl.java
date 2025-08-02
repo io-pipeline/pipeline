@@ -60,8 +60,12 @@ public class OpenSearchSchemaServiceImpl implements OpenSearchSchemaService {
                     .properties(nestedFieldName, Property.of(property -> property
                         .nested(NestedProperty.of(nested -> nested
                             .properties(Map.of(
-                                "model_name", Property.of(p -> p.text(TextProperty.of(t -> t))),
-                                "vector", Property.of(p -> p.knnVector(createKnnVectorProperty(vectorFieldDefinition)))
+                                "vector", Property.of(p -> p.knnVector(createKnnVectorProperty(vectorFieldDefinition))),
+                                "source_text", Property.of(p -> p.text(TextProperty.of(t -> t))),
+                                "context_text", Property.of(p -> p.text(TextProperty.of(t -> t))),
+                                "chunk_config_id", Property.of(p -> p.keyword(k -> k)),
+                                "embedding_id", Property.of(p -> p.keyword(k -> k)),
+                                "is_primary", Property.of(p -> p.boolean_(b -> b))
                             ))
                         ))
                     ))

@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package io.pipeline.registration.v2;
+
+import "pipeline_config_models_v2.proto";
+
+option java_package = "io.pipeline.registration.v2";
+option java_multiple_files = true;
+
+// V2 Module Registration - Enhanced metadata with graph support
+service ModuleRegistrationV2Service {
+  // Enhanced registration with graph capabilities
+  rpc RegisterModuleV2(RegisterModuleV2Request) returns (RegisterModuleV2Response);
+  
+  // Update module metadata (graph nodes, capabilities, etc.)
+  rpc UpdateModuleMetadata(UpdateModuleMetadataRequest) returns (UpdateModuleMetadataResponse);
+  
+  // Get enhanced module info for graph building
+  rpc GetModuleForGraph(GetModuleForGraphRequest) returns (GetModuleForGraphResponse);
+  
+  // List modules with graph capabilities
+  rpc ListGraphCapableModules(ListGraphCapableModulesRequest) returns (ListGraphCapableModulesResponse);
+}
+
+message RegisterModuleV2Request {
+  // Standard registration info (same as V1)
+  string module_id = 1;
+  string host = 2;
+  int32 port = 3;
+  map<string, string> metadata = 4;
+  
+  // V2 enhancements
+  io.pipeline.config.v2.ModuleDefinition module_definition = 5;
+  repeated string supported_node_types = 6; // CONNECTOR, PROCESSOR, SINK
+  bool supports_v2_interface = 7; // Can handle PipeDoc V2
+  string config_schema_json = 8; // JSON schema for UI
+}
+
+message RegisterModuleV2Response {
+  bool success = 1;
+  string message = 2;
+  string assigned_module_id = 3;
+  repeated string warnings = 4;
+}
+
+message UpdateModuleMetadataRequest {
+  string module_id = 1;
+  io.pipeline.config.v2.ModuleDefinition updated_definition = 2;
+  string config_schema_json = 3;
+}
+
+message UpdateModuleMetadataResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetModuleForGraphRequest {
+  string module_id = 1;
+}
+
+message GetModuleForGraphResponse {
+  io.pipeline.config.v2.ModuleDefinition module_definition = 1;
+  string config_schema_json = 2;
+  repeated string supported_node_types = 3;
+  bool supports_v2_interface = 4;
+  // Health status available via standard grpc.health.v1.Health service
+}
+
+message ListGraphCapableModulesRequest {
+  string cluster_id = 1; // Optional filter
+  io.pipeline.config.v2.ModuleVisibility visibility = 2; // Optional filter
+}
+
+message ListGraphCapableModulesResponse {
+  repeated GraphCapableModule modules = 1;
+}
+
+message GraphCapableModule {
+  string module_id = 1;
+  string implementation_name = 2;
+  string grpc_service_name = 3;
+  repeated string supported_node_types = 4;
+  bool supports_v2_interface = 5;
+  // Health status available via standard grpc.health.v1.Health service
+}

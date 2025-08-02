@@ -10,6 +10,17 @@ option java_package = "io.pipeline.repository.filesystem";
 option java_multiple_files = true;
 option java_outer_classname = "FilesystemServiceProto";
 
+// Drive information for isolated filesystem namespaces
+message Drive {
+  string name = 1;          // Drive name (no colons allowed)
+  string description = 2;   // Human-readable description
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_accessed = 4;
+  int64 total_size = 5;     // Total size in bytes
+  int64 node_count = 6;     // Total number of nodes
+  map<string, string> metadata = 7; // Drive metadata
+}
+
 // The central Node message, representing a file or a folder in the virtual filesystem.
 message Node {
   enum NodeType {
@@ -47,6 +58,12 @@ message Node {
 
 // Service definition for filesystem operations
 service FilesystemService {
+  // Drive management operations
+  rpc CreateDrive(CreateDriveRequest) returns (Drive);
+  rpc GetDrive(GetDriveRequest) returns (Drive);
+  rpc ListDrives(ListDrivesRequest) returns (ListDrivesResponse);
+  rpc DeleteDrive(DeleteDriveRequest) returns (DeleteDriveResponse);
+  
   // Node CRUD operations
   rpc CreateNode(CreateNodeRequest) returns (Node);
   rpc GetNode(GetNodeRequest) returns (Node);
@@ -72,27 +89,31 @@ service FilesystemService {
 // Request and Response messages
 
 message CreateNodeRequest {
-  string parent_id = 1;     // Parent folder ID (empty for root)
-  string name = 2;          // Node name
-  Node.NodeType type = 3;   // FOLDER or FILE
-  google.protobuf.Any payload = 4;  // File content (for FILE type)
-  map<string, string> metadata = 5; // Additional metadata
+  string drive = 1;         // Drive name (required - no default drive)
+  string parent_id = 2;     // Parent folder ID (empty for root)
+  string name = 3;          // Node name
+  Node.NodeType type = 4;   // FOLDER or FILE
+  google.protobuf.Any payload = 5;  // File content (for FILE type)
+  map<string, string> metadata = 6; // Additional metadata
 }
 
 message GetNodeRequest {
-  string id = 1;
+  string drive = 1;         // Drive name (required)
+  string id = 2;
 }
 
 message UpdateNodeRequest {
-  string id = 1;
-  string name = 2;          // New name (optional)
-  google.protobuf.Any payload = 3;  // New content (optional, for files)
-  map<string, string> metadata = 4; // Updated metadata (optional)
+  string drive = 1;         // Drive name (required)
+  string id = 2;
+  string name = 3;          // New name (optional)
+  google.protobuf.Any payload = 4;  // New content (optional, for files)
+  map<string, string> metadata = 5; // Updated metadata (optional)
 }
 
 message DeleteNodeRequest {
-  string id = 1;
-  bool recursive = 2;       // Delete children for folders
+  string drive = 1;         // Drive name (required)
+  string id = 2;
+  bool recursive = 3;       // Delete children for folders
 }
 
 message DeleteNodeResponse {
@@ -101,11 +122,12 @@ message DeleteNodeResponse {
 }
 
 message GetChildrenRequest {
-  string parent_id = 1;     // Parent folder ID (empty for root)
-  int32 page_size = 2;      // Pagination
-  string page_token = 3;    // Pagination token
-  string order_by = 4;      // Sort field (name, created_at, etc.)
-  bool ascending = 5;       // Sort order
+  string drive = 1;         // Drive name (required)
+  string parent_id = 2;     // Parent folder ID (empty for root)
+  int32 page_size = 3;      // Pagination
+  string page_token = 4;    // Pagination token
+  string order_by = 5;      // Sort field (name, created_at, etc.)
+  bool ascending = 6;       // Sort order
 }
 
 message GetChildrenResponse {
@@ -115,7 +137,8 @@ message GetChildrenResponse {
 }
 
 message GetPathRequest {
-  string id = 1;            // Node ID to get path for
+  string drive = 1;         // Drive name (required)
+  string id = 2;            // Node ID to get path for
 }
 
 message GetPathResponse {
@@ -123,8 +146,9 @@ message GetPathResponse {
 }
 
 message GetTreeRequest {
-  string root_id = 1;       // Starting node (empty for absolute root)
-  int32 max_depth = 2;      // Maximum depth to traverse
+  string drive = 1;         // Drive name (required)
+  string root_id = 2;       // Starting node (empty for absolute root)
+  int32 max_depth = 3;      // Maximum depth to traverse
 }
 
 message GetTreeResponse {
@@ -138,25 +162,28 @@ message TreeNode {
 }
 
 message MoveNodeRequest {
-  string node_id = 1;
-  string new_parent_id = 2;
-  string new_name = 3;      // Optional rename during move
+  string drive = 1;         // Drive name (required)
+  string node_id = 2;
+  string new_parent_id = 3;
+  string new_name = 4;      // Optional rename during move
 }
 
 message CopyNodeRequest {
-  string node_id = 1;
-  string target_parent_id = 2;
-  string new_name = 3;      // Optional rename during copy
-  bool deep = 4;            // Deep copy for folders
+  string drive = 1;         // Drive name (required)
+  string node_id = 2;
+  string target_parent_id = 3;
+  string new_name = 4;      // Optional rename during copy
+  bool deep = 5;            // Deep copy for folders
 }
 
 message SearchNodesRequest {
-  string query = 1;         // Search query
-  repeated string paths = 2;  // Limit search to these paths
-  repeated Node.NodeType types = 3;  // Filter by node types
-  map<string, string> metadata_filters = 4;  // Filter by metadata
-  int32 page_size = 5;
-  string page_token = 6;
+  string drive = 1;         // Drive name (required)
+  string query = 2;         // Search query
+  repeated string paths = 3;  // Limit search to these paths
+  repeated Node.NodeType types = 4;  // Filter by node types
+  map<string, string> metadata_filters = 5;  // Filter by metadata
+  int32 page_size = 6;
+  string page_token = 7;
 }
 
 message SearchNodesResponse {
@@ -167,9 +194,10 @@ message SearchNodesResponse {
 
 // Format filesystem messages
 message FormatFilesystemRequest {
-  string confirmation = 1; // Must be "DELETE_FILESYSTEM_DATA" to proceed
-  repeated string type_urls = 2; // Optional: only delete nodes with these payload types
-  bool dry_run = 3; // If true, return what would be deleted without deleting
+  string drive = 1;         // Drive name (required)
+  string confirmation = 2;  // Must be "DELETE_FILESYSTEM_DATA" to proceed
+  repeated string type_urls = 3; // Optional: only delete nodes with these payload types
+  bool dry_run = 4;         // If true, return what would be deleted without deleting
 }
 
 message FormatFilesystemResponse {
@@ -179,4 +207,38 @@ message FormatFilesystemResponse {
   int32 folders_deleted = 4;
   map<string, int32> deleted_by_type = 5; // Count by payload type URL
   repeated string deleted_paths = 6; // Only populated if dry_run=true
+}
+
+// Drive management messages
+message CreateDriveRequest {
+  string name = 1;          // Drive name (no colons allowed)
+  string description = 2;   // Optional description
+  map<string, string> metadata = 3; // Optional metadata
+}
+
+message GetDriveRequest {
+  string name = 1;          // Drive name
+}
+
+message ListDrivesRequest {
+  int32 page_size = 1;      // Pagination
+  string page_token = 2;    // Pagination token
+  string filter = 3;        // Optional filter expression
+}
+
+message ListDrivesResponse {
+  repeated Drive drives = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteDriveRequest {
+  string name = 1;          // Drive name to delete
+  string confirmation = 2;  // Must be "DELETE_DRIVE_DATA" to proceed
+}
+
+message DeleteDriveResponse {
+  bool success = 1;
+  string message = 2;
+  int32 nodes_deleted = 3;  // Total nodes deleted with the drive
 }

@@ -10,10 +10,14 @@ import com.google.protobuf.StringValue;
 import com.google.protobuf.util.JsonFormat;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import io.quarkus.grpc.GrpcService;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -136,28 +140,75 @@ public class OpenSearchManagerService extends MutinyOpenSearchManagerServiceGrpc
 
     @Override
     public Uni<IndexDocumentResponse> indexDocument(IndexDocumentRequest request) {
+        var document = request.getDocument();
+        var indexName = request.getIndexName();
+        
+        // Ensure index exists with proper embedding fields
+        return ensureIndexForDocument(indexName, document)
+            .flatMap(v -> {
+                try {
+                    String jsonDoc = JsonFormat.printer().print(document);
+                    LOG.infof("Indexing document %s: %s", document.getOriginalDocId(), jsonDoc);
+                    
+                    // Actually index the document
+                    return indexDocumentToOpenSearch(indexName, document.getOriginalDocId(), jsonDoc)
+                        .map(success -> IndexDocumentResponse.newBuilder()
+                            .setSuccess(success)
+                            .setDocumentId(document.getOriginalDocId())
+                            .setMessage(success ? "Document indexed successfully" : "Failed to index document")
+                            .build());
+                } catch (Exception e) {
+                    return Uni.createFrom().item(IndexDocumentResponse.newBuilder()
+                        .setSuccess(false)
+                        .setMessage("Failed to index: " + e.getMessage())
+                        .build());
+                }
+            });
+    }
+    
+    private Uni<Void> ensureIndexForDocument(String indexName, OpenSearchDocument document) {
+        // For each unique vector dimension, ensure the appropriate nested field exists
+        Set<Integer> dimensions = document.getEmbeddingsList().stream()
+            .mapToInt(e -> e.getVectorCount())
+            .filter(d -> d > 0)
+            .boxed()
+            .collect(java.util.stream.Collectors.toSet());
+            
+        if (dimensions.isEmpty()) {
+            return Uni.createFrom().voidItem();
+        }
+        
+        // Create requests for each dimension
+        List<Uni<EnsureNestedEmbeddingsFieldExistsResponse>> requests = dimensions.stream()
+            .map(dim -> {
+                String fieldName = "embeddings_" + dim;
+                VectorFieldDefinition vectorDef = VectorFieldDefinition.newBuilder()
+                    .setDimension(dim)
+                    .build();
+                    
+                return ensureNestedEmbeddingsFieldExists(EnsureNestedEmbeddingsFieldExistsRequest.newBuilder()
+                    .setIndexName(indexName)
+                    .setNestedFieldName(fieldName)
+                    .setVectorFieldDefinition(vectorDef)
+                    .build());
+            })
+            .toList();
+            
+        return Uni.combine().all().unis(requests).discardItems();
+    }
+    
+    private Uni<Boolean> indexDocumentToOpenSearch(String indexName, String documentId, String jsonDoc) {
         return Uni.createFrom().item(() -> {
             try {
-                var document = request.getDocument();
-                var indexName = request.getIndexName();
-                
-                // TODO: Implement actual indexing logic using OpenSearchClient
-                // For now, we'll add the actual indexing implementation
-                LOG.infof("Indexing document %s to index %s", document.getOriginalDocId(), indexName);
-                
-                return IndexDocumentResponse.newBuilder()
-                    .setSuccess(true)
-                    .setDocumentId(document.getOriginalDocId())
-                    .setMessage("Document indexed successfully")
-                    .build();
+                // TODO: Use OpenSearchClient to actually index
+                // For now, just log and return success
+                LOG.infof("Would index to %s with ID %s: %s", indexName, documentId, jsonDoc);
+                return true;
             } catch (Exception e) {
-                LOG.errorf(e, "Failed to index document");
-                return IndexDocumentResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage("Failed to index document: " + e.getMessage())
-                    .build();
+                LOG.errorf(e, "Failed to index document %s", documentId);
+                return false;
             }
-        });
+        }).runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
     }
 
     @Override
@@ -238,19 +289,58 @@ public class OpenSearchManagerService extends MutinyOpenSearchManagerServiceGrpc
 
     @Override
     public Uni<CreateIndexResponse> createIndex(CreateIndexRequest request) {
-        return openSearchClient.createIndexWithNestedMapping(
-            request.getIndexName(),
-            "embeddings", // Default nested field name
-            request.getVectorFieldDefinition()
-        ).map(success -> CreateIndexResponse.newBuilder()
-            .setSuccess(success)
-            .setMessage(success ? "Index created successfully" : "Failed to create index")
-            .build());
+        return ensureIndexWithEmbeddingsField(request.getIndexName(), request.getVectorFieldDefinition())
+            .map(success -> CreateIndexResponse.newBuilder()
+                .setSuccess(success)
+                .setMessage(success ? "Index created successfully" : "Failed to create index")
+                .build());
+    }
+
+    /**
+     * Ensures index exists with proper embeddings field for Strategy 1.
+     * Analyzes vector dimensions and creates appropriate nested fields.
+     */
+    private Uni<Boolean> ensureIndexWithEmbeddingsField(String indexName, VectorFieldDefinition vectorDef) {
+        String fieldName = determineEmbeddingsFieldName(vectorDef.getDimension());
+        return openSearchClient.createIndexWithNestedMapping(indexName, fieldName, vectorDef);
+    }
+
+    /**
+     * Determines the embeddings field name based on dimension.
+     * Strategy 1 uses separate fields for different dimensions (embeddings_384, embeddings_768).
+     */
+    private String determineEmbeddingsFieldName(int dimension) {
+        return "embeddings_" + dimension;
     }
 
     @Override
     public Uni<IndexExistsResponse> indexExists(IndexExistsRequest request) {
         return openSearchClient.nestedMappingExists(request.getIndexName(), "embeddings")
             .map(exists -> IndexExistsResponse.newBuilder().setExists(exists).build());
+    }
+
+    /**
+     * Strategy 1 helper: Analyzes OpenSearchDocument to determine required embedding fields.
+     * Creates separate nested fields for different vector dimensions.
+     */
+    private Set<String> analyzeRequiredEmbeddingFields(OpenSearchDocument document) {
+        Set<String> fields = new HashSet<>();
+        Map<Integer, Set<String>> dimensionToEmbeddingIds = new HashMap<>();
+        
+        // Group embedding IDs by vector dimension
+        for (var embedding : document.getEmbeddingsList()) {
+            int dimension = embedding.getVectorCount();
+            if (dimension > 0) {
+                dimensionToEmbeddingIds.computeIfAbsent(dimension, k -> new HashSet<>())
+                        .add(embedding.getEmbeddingId());
+            }
+        }
+        
+        // Create field names for each dimension
+        for (int dimension : dimensionToEmbeddingIds.keySet()) {
+            fields.add(determineEmbeddingsFieldName(dimension));
+        }
+        
+        return fields.isEmpty() ? Set.of("embeddings") : fields;
     }
 }

@@ -421,6 +421,7 @@ const saveDocument = async () => {
       }
       
       const request: CreateNodeRequest = {
+        drive: 'default',
         parentId: '', // Root for now, could add folder selection
         name: `${pipeDoc.value.title}.pipedoc`,
         type: Node_NodeType.FILE,
@@ -441,6 +442,7 @@ const saveDocument = async () => {
       }
       
       const request: UpdateNodeRequest = {
+        drive: 'default',
         id: currentDocument.value.id,
         name: `${pipeDoc.value.title}.pipedoc`,
         payload,

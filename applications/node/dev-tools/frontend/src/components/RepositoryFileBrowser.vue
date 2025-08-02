@@ -88,6 +88,7 @@ import {
 const props = defineProps<{
   fileFilter?: (node: Node) => boolean
   initialPath?: string
+  drive?: string
 }>()
 
 // Emits
@@ -130,6 +131,7 @@ const loadChildren = async (parentId: string = '') => {
   loading.value = true
   try {
     const request: GetChildrenRequest = { 
+      drive: props.drive || 'default',
       parentId,
       pageSize: 1000,
       orderBy: 'name',
@@ -142,7 +144,10 @@ const loadChildren = async (parentId: string = '') => {
     if (parentId !== currentNodeId.value) {
       currentNodeId.value = parentId
       if (parentId) {
-        const pathRequest: GetPathRequest = { id: parentId }
+        const pathRequest: GetPathRequest = { 
+          drive: props.drive || 'default',
+          id: parentId 
+        }
         const pathResponse = await filesystemService.getPath(pathRequest)
         currentPath.value = pathResponse.ancestors
       } else {

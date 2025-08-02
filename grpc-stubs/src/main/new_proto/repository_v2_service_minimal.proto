@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package io.pipeline.repository.v2;
+
+import "pipeline_config_models_v2.proto";
+
+option java_package = "io.pipeline.repository.v2";
+option java_multiple_files = true;
+
+// Minimal V2 Repository - just what the engine needs
+service RepositoryV2Service {
+  // DNS-like node resolution (engine's main need)
+  rpc ResolveNode(ResolveNodeRequest) returns (io.pipeline.config.v2.NodeLookupResponse);
+  rpc ResolveNextNodes(ResolveNextNodesRequest) returns (ResolveNextNodesResponse);
+}
+
+message ResolveNodeRequest {
+  string node_id = 1;
+  string cluster_id = 2;
+  bool use_cache = 3;
+}
+
+message ResolveNextNodesRequest {
+  string current_node_id = 1;
+  string current_cluster_id = 2;
+  string condition = 3;
+}
+
+message ResolveNextNodesResponse {
+  repeated io.pipeline.config.v2.NodeLookupResponse next_nodes = 1;
+}

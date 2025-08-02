@@ -91,6 +91,7 @@ enum CapabilityType {
   
   // Module converts raw input (files, URLs) to documents
   PARSER = 1;
+  SINK = 2;
   
   // Future capabilities (commented until needed):
   // TRANSFORM = 2;           // Document to document modifications

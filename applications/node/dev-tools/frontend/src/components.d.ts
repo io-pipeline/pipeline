@@ -18,6 +18,7 @@ declare module 'vue' {
     PipeDocEditor: typeof import('./components/PipeDocEditor.vue')['default']
     PipeDocEditorNative: typeof import('./components/PipeDocEditorNative.vue')['default']
     ProcessDocument: typeof import('./components/ProcessDocument.vue')['default']
+    ProtobufFileBrowser: typeof import('./components/ProtobufFileBrowser.vue')['default']
     RepositoryConfigDialog: typeof import('./components/RepositoryConfigDialog.vue')['default']
     RepositoryConnectionStatus: typeof import('./components/RepositoryConnectionStatus.vue')['default']
     RepositoryDataSeeding: typeof import('./components/RepositoryDataSeeding.vue')['default']

@@ -10,7 +10,12 @@ import {
   GetTreeRequest,
   MoveNodeRequest,
   CopyNodeRequest,
-  SearchNodesRequest
+  SearchNodesRequest,
+  CreateDriveRequest,
+  GetDriveRequest,
+  ListDrivesRequest,
+  DeleteDriveRequest,
+  FormatFilesystemRequest
 } from "../gen/filesystem_service_pb";
 import { 
   PipeDocRepository,
@@ -291,6 +296,61 @@ export default (router: ConnectRouter) => {
         return response;
       } catch (error) {
         console.error("[Connect] Error proxying searchNodes:", error);
+        throw error;
+      }
+    },
+
+    async createDrive(request: CreateDriveRequest) {
+      console.log("[Connect] Proxying createDrive request to gRPC server...");
+      try {
+        const response = await filesystemClient.createDrive(request);
+        return response;
+      } catch (error) {
+        console.error("[Connect] Error proxying createDrive:", error);
+        throw error;
+      }
+    },
+
+    async getDrive(request: GetDriveRequest) {
+      console.log("[Connect] Proxying getDrive request to gRPC server...");
+      try {
+        const response = await filesystemClient.getDrive(request);
+        return response;
+      } catch (error) {
+        console.error("[Connect] Error proxying getDrive:", error);
+        throw error;
+      }
+    },
+
+    async listDrives(request: ListDrivesRequest) {
+      console.log("[Connect] Proxying listDrives request to gRPC server...");
+      try {
+        const response = await filesystemClient.listDrives(request);
+        return response;
+      } catch (error) {
+        console.error("[Connect] Error proxying listDrives:", error);
+        throw error;
+      }
+    },
+
+    async deleteDrive(request: DeleteDriveRequest) {
+      console.log("[Connect] Proxying deleteDrive request to gRPC server...");
+      try {
+        const response = await filesystemClient.deleteDrive(request);
+        return response;
+      } catch (error) {
+        console.error("[Connect] Error proxying deleteDrive:", error);
+        throw error;
+      }
+    },
+
+    async formatFilesystem(request: FormatFilesystemRequest) {
+      console.log("[Connect] Proxying formatFilesystem request to gRPC server...");
+      try {
+        const response = await filesystemClient.formatFilesystem(request);
+        return response;
+      } catch (error) {
+        console.error("[Connect] Error proxying formatFilesystem:", error);
         throw error;
       }
     },

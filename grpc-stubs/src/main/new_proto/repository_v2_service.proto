@@ -1,0 +1,235 @@
+syntax = "proto3";
+
+package io.pipeline.repository.v2;
+
+import "pipeline_config_models_v2.proto";
+import "google/protobuf/struct.proto";
+
+option java_package = "io.pipeline.repository.v2";
+option java_multiple_files = true;
+
+// V2 Repository Service - normalized storage and real-time updates
+service RepositoryV2Service {
+  // Node operations
+  rpc CreateNode(CreateNodeRequest) returns (io.pipeline.config.v2.GraphNode);
+  rpc GetNode(GetNodeRequest) returns (io.pipeline.config.v2.GraphNode);
+  rpc UpdateNode(UpdateNodeRequest) returns (io.pipeline.config.v2.GraphNode);
+  rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+  
+  // Graph operations
+  rpc CreateGraph(CreateGraphRequest) returns (io.pipeline.config.v2.PipelineGraph);
+  rpc GetGraph(GetGraphRequest) returns (io.pipeline.config.v2.NetworkTopology);
+  rpc UpdateGraph(UpdateGraphRequest) returns (io.pipeline.config.v2.PipelineGraph);
+  rpc DeleteGraph(DeleteGraphRequest) returns (DeleteGraphResponse);
+  rpc ListGraphs(ListGraphsRequest) returns (ListGraphsResponse);
+  
+  // Module operations
+  rpc CreateModule(CreateModuleRequest) returns (io.pipeline.config.v2.ModuleDefinition);
+  rpc GetModule(GetModuleRequest) returns (io.pipeline.config.v2.ModuleDefinition);
+  rpc UpdateModule(UpdateModuleRequest) returns (io.pipeline.config.v2.ModuleDefinition);
+  rpc DeleteModule(DeleteModuleRequest) returns (DeleteModuleResponse);
+  rpc ListModules(ListModulesRequest) returns (ListModulesResponse);
+  
+  // DNS-like node resolution (no full graph awareness needed)
+  rpc ResolveNode(ResolveNodeRequest) returns (io.pipeline.config.v2.NodeLookupResponse);
+  rpc ResolveNextNodes(ResolveNextNodesRequest) returns (ResolveNextNodesResponse);
+  rpc ResolveCrossClusterNode(io.pipeline.config.v2.CrossClusterNodeLookup) returns (io.pipeline.config.v2.NodeLookupResponse);
+  
+  // Kafka topic discovery
+  rpc FindNodesByInputTopic(FindNodesByTopicRequest) returns (FindNodesByTopicResponse);
+  rpc FindNodesByOutputTopic(FindNodesByTopicRequest) returns (FindNodesByTopicResponse);
+  
+  // Loop detection (for UI/validation, not runtime)
+  rpc DetectLoops(DetectLoopsRequest) returns (DetectLoopsResponse);
+  
+  // Network topology (for visualization)
+  rpc GetNetworkTopology(GetNetworkTopologyRequest) returns (io.pipeline.config.v2.NetworkTopology);
+  
+  // Real-time updates
+  rpc SubscribeToUpdates(SubscribeToUpdatesRequest) returns (stream io.pipeline.config.v2.GraphUpdateNotification);
+}
+
+// Node requests/responses
+message CreateNodeRequest {
+  string cluster_id = 1;
+  string name = 2;
+  io.pipeline.config.v2.NodeType node_type = 3;
+  string module_id = 4;
+  io.pipeline.config.v2.JsonConfigOptions custom_config = 5;
+  io.pipeline.config.v2.TransportConfig transport = 6;
+}
+
+message GetNodeRequest {
+  string node_id = 1;
+}
+
+message UpdateNodeRequest {
+  string node_id = 1;
+  string name = 2;
+  io.pipeline.config.v2.JsonConfigOptions custom_config = 3;
+  io.pipeline.config.v2.TransportConfig transport = 4;
+}
+
+message DeleteNodeRequest {
+  string node_id = 1;
+}
+
+message DeleteNodeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListNodesRequest {
+  string cluster_id = 1;
+  io.pipeline.config.v2.NodeType node_type = 2; // Optional filter
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListNodesResponse {
+  repeated io.pipeline.config.v2.GraphNode nodes = 1;
+  string next_page_token = 2;
+}
+
+// Graph requests/responses
+message CreateGraphRequest {
+  string cluster_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string node_ids = 4;
+  repeated io.pipeline.config.v2.GraphEdge edges = 5;
+}
+
+message GetGraphRequest {
+  string graph_id = 1;
+}
+
+message UpdateGraphRequest {
+  string graph_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string node_ids = 4;
+  repeated io.pipeline.config.v2.GraphEdge edges = 5;
+}
+
+message DeleteGraphRequest {
+  string graph_id = 1;
+}
+
+message DeleteGraphResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListGraphsRequest {
+  string cluster_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListGraphsResponse {
+  repeated io.pipeline.config.v2.PipelineGraph graphs = 1;
+  string next_page_token = 2;
+}
+
+// Module requests/responses
+message CreateModuleRequest {
+  string implementation_name = 1;
+  string grpc_service_name = 2;
+  io.pipeline.config.v2.SchemaReference config_schema = 3;
+  google.protobuf.Struct default_config = 4;
+  io.pipeline.config.v2.ModuleVisibility visibility = 5;
+}
+
+message GetModuleRequest {
+  string module_id = 1;
+}
+
+message UpdateModuleRequest {
+  string module_id = 1;
+  string implementation_name = 2;
+  io.pipeline.config.v2.SchemaReference config_schema = 3;
+  google.protobuf.Struct default_config = 4;
+  io.pipeline.config.v2.ModuleVisibility visibility = 5;
+}
+
+message DeleteModuleRequest {
+  string module_id = 1;
+}
+
+message DeleteModuleResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListModulesRequest {
+  io.pipeline.config.v2.ModuleVisibility visibility = 1; // Optional filter
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListModulesResponse {
+  repeated io.pipeline.config.v2.ModuleDefinition modules = 1;
+  string next_page_token = 2;
+}
+
+// DNS-like resolution requests/responses
+message ResolveNodeRequest {
+  string node_id = 1;
+  string cluster_id = 2; // Optional: for cross-cluster resolution
+  bool use_cache = 3; // Default true
+}
+
+message ResolveNextNodesRequest {
+  string current_node_id = 1;
+  string current_cluster_id = 2;
+  string condition = 3; // Optional routing condition
+  bool include_cross_cluster = 4; // Default false
+}
+
+message ResolveNextNodesResponse {
+  repeated io.pipeline.config.v2.NodeLookupResponse next_nodes = 1;
+  repeated io.pipeline.config.v2.CrossClusterNodeLookup cross_cluster_nodes = 2;
+}
+
+// Kafka topic discovery
+message FindNodesByTopicRequest {
+  string topic_name = 1;
+  string cluster_id = 2; // Optional: search specific cluster
+  bool input_topic = 3; // true for input, false for output
+}
+
+message FindNodesByTopicResponse {
+  repeated io.pipeline.config.v2.GraphNode nodes = 1;
+}
+
+// Loop detection
+message DetectLoopsRequest {
+  string starting_node_id = 1;
+  string cluster_id = 2;
+  int32 max_depth = 3; // Prevent infinite traversal
+}
+
+message DetectLoopsResponse {
+  bool has_loops = 1;
+  repeated LoopPath detected_loops = 2;
+}
+
+message LoopPath {
+  repeated string node_ids = 1;
+  repeated string cluster_ids = 2; // Parallel to node_ids
+}
+
+// Network topology
+message GetNetworkTopologyRequest {
+  string cluster_id = 1;
+  bool include_cross_cluster = 2;
+  int32 max_depth = 3; // For large networks
+}
+
+// Real-time updates
+message SubscribeToUpdatesRequest {
+  string cluster_id = 1;
+  repeated io.pipeline.config.v2.UpdateType update_types = 2; // Filter by update types
+}

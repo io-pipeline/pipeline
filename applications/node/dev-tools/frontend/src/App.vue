@@ -49,6 +49,9 @@
             <v-tab value="process" prepend-icon="mdi-file-document-outline">
               Process Document
             </v-tab>
+            <v-tab value="protobuf" prepend-icon="mdi-file-code-outline">
+              Protobuf Browser
+            </v-tab>
             <v-tab value="admin" prepend-icon="mdi-shield-crown-outline">
               Admin
             </v-tab>
@@ -134,6 +137,11 @@
               headline="No module selected"
               text="Select a module from the registry to process documents"
             />
+          </v-tabs-window-item>
+          
+          <!-- Protobuf Browser Tab -->
+          <v-tabs-window-item value="protobuf">
+            <ProtobufBrowser />
           </v-tabs-window-item>
           
           <!-- Admin Tab -->
@@ -385,6 +393,24 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    
+    <!-- Global Snackbar -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :timeout="snackbar.timeout"
+      :color="snackbar.color"
+      :location="snackbar.location"
+    >
+      {{ snackbar.message }}
+      <template v-slot:actions>
+        <v-btn
+          variant="text"
+          @click="snackbar.show = false"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 
@@ -400,10 +426,12 @@ import RepositoryDataSeeding from './components/RepositoryDataSeeding.vue'
 import ConnectHealthCheck from './components/ConnectHealthCheck.vue'
 import RepositoryConnectionStatus from './components/RepositoryConnectionStatus.vue'
 import RepositoryConfigDialog from './components/RepositoryConfigDialog.vue'
+import ProtobufBrowser from './components/ProtobufFileBrowser.vue'
 import { useModuleStore } from './stores/moduleStore'
 import { useConfigStore } from './stores/configStore'
 import { useDatabaseStore } from './stores/databaseStore'
 import { useRepositoryStore } from './stores/repositoryStore'
+import { useSnackbar } from './composables/useSnackbar'
 import { filesystemService, pipeDocRepositoryService } from './services/connectService'
 import { create } from '@bufbuild/protobuf'
 import { FormatFilesystemRequestSchema } from '@/gen/filesystem_service_pb'
@@ -414,6 +442,7 @@ const moduleStore = useModuleStore()
 const configStore = useConfigStore()
 const databaseStore = useDatabaseStore()
 const repositoryStore = useRepositoryStore()
+const { snackbar } = useSnackbar()
 
 // Toggle theme
 const toggleTheme = () => {
@@ -540,6 +569,7 @@ const executeFormatFilesystem = async () => {
   
   try {
     const request = create(FormatFilesystemRequestSchema, {
+      drive: 'default',
       confirmation: filesystemConfirmation.value,
       dryRun: false
     })

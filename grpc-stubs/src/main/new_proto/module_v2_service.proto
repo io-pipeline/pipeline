@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package io.pipeline.module.v2;
+
+import "pipeline_core_types_v2.proto";
+
+option java_package = "io.pipeline.module.v2";
+option java_multiple_files = true;
+
+// V2 Module Processor - Clean interface for all processing modules
+service ModuleV2Service {
+  // Process a document (replaces old PipeStepProcessor)
+  rpc ProcessDocument(ProcessDocumentRequest) returns (ProcessDocumentResponse);
+  
+  // Stream processing for high throughput
+  rpc ProcessDocumentStream(stream ProcessDocumentRequest) returns (stream ProcessDocumentResponse);
+  
+  // Get module health and capabilities
+  rpc GetModuleInfo(ModuleInfoRequest) returns (ModuleInfoResponse);
+}
+
+message ProcessDocumentRequest {
+  io.pipeline.data.v2.PipeDoc document = 1;
+  io.pipeline.data.v2.NodeProcessingConfig config = 2;
+  string trace_id = 3;
+  map<string, string> context = 4;
+}
+
+message ProcessDocumentResponse {
+  bool success = 1;
+  string message = 2;
+  io.pipeline.data.v2.PipeDoc processed_document = 3;
+  ProcessingStats stats = 4;
+  repeated string warnings = 5;
+}
+
+message ProcessingStats {
+  int64 processing_time_ms = 1;
+  int64 input_size_bytes = 2;
+  int64 output_size_bytes = 3;
+  string module_version = 4;
+  map<string, string> custom_metrics = 5;
+}
+
+message ModuleInfoRequest {}
+
+message ModuleInfoResponse {
+  string module_id = 1;
+  string module_name = 2;
+  string version = 3;
+  repeated string supported_input_types = 4;
+  repeated string supported_output_types = 5;
+  ModuleCapabilities capabilities = 6;
+  // Health status available via standard grpc.health.v1.Health service
+}
+
+message ModuleCapabilities {
+  bool supports_streaming = 1;
+  bool supports_batch = 2;
+  bool supports_binary_data = 3;
+  bool supports_structured_data = 4;
+  int64 max_document_size_bytes = 5;
+  repeated string required_config_fields = 6;
+}
+
+// Use standard grpc.health.v1.Health service instead of custom enum
