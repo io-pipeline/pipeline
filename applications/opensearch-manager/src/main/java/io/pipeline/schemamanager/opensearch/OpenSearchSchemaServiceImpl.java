@@ -88,6 +88,7 @@ public class OpenSearchSchemaServiceImpl implements OpenSearchSchemaService {
             if (vectorDef.hasKnnMethod()) {
                 var method = vectorDef.getKnnMethod();
                 knn.method(methodDef -> {
+                    methodDef.name(getMethodName(method.getSpaceType()));
                     methodDef.engine(method.getEngine().name().toLowerCase());
                     methodDef.spaceType(mapSpaceType(method.getSpaceType()));
                     
@@ -123,6 +124,15 @@ public class OpenSearchSchemaServiceImpl implements OpenSearchSchemaService {
             case COSINESIMIL -> "cosinesimil";
             case INNERPRODUCT -> "innerproduct";
             case UNRECOGNIZED -> "cosinesimil";
+        };
+    }
+    
+    private String getMethodName(KnnMethodDefinition.SpaceType spaceType) {
+        return switch (spaceType) {
+            case L2 -> "hnsw";
+            case COSINESIMIL -> "hnsw";
+            case INNERPRODUCT -> "hnsw";
+            case UNRECOGNIZED -> "hnsw";
         };
     }
 }

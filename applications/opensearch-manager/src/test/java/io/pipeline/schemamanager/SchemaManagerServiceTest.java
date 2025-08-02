@@ -44,8 +44,8 @@ class SchemaManagerServiceTest {
         // Verify response
         assertNotNull(response);
         // First call should create the schema (schema_existed = false)
-        // Note: This might be true if the index already exists from previous tests
-        assertTrue(response.getSchemaExisted());
+        // The schema is being created for the first time, so it shouldn't exist yet
+        assertFalse(response.getSchemaExisted());
     }
 
     @Test
