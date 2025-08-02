@@ -5,6 +5,8 @@ import org.jboss.logging.Logger;
 import org.opensearch.testcontainers.OpenSearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.Duration;
+
 import java.util.Map;
 
 public class OpenSearchTestResource implements QuarkusTestResourceLifecycleManager {
@@ -16,12 +18,7 @@ public class OpenSearchTestResource implements QuarkusTestResourceLifecycleManag
     @Override
     public Map<String, String> start() {
         LOG.info("Starting OpenSearch test container...");
-        opensearch = new OpenSearchContainer<>(DockerImageName.parse("opensearchproject/opensearch:3.1.0"))
-                .withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m")
-                .withEnv("discovery.type", "single-node")
-                // Disable security for easier testing
-                .withEnv("plugins.security.disabled", "true");
-
+        opensearch = new OpenSearchContainer<>(DockerImageName.parse("opensearchproject/opensearch:3")).withAccessToHost(true).withReuse(true);
         opensearch.start();
         LOG.info("OpenSearch test container started at: " + opensearch.getHost() + ":" + opensearch.getFirstMappedPort());
 

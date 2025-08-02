@@ -1,9 +1,7 @@
 package io.pipeline.schemamanager;
 
 import io.pipeline.schemamanager.opensearch.OpenSearchSchemaService;
-import io.pipeline.schemamanager.v1.EnsureNestedEmbeddingsFieldExistsRequest;
-import io.pipeline.schemamanager.v1.EnsureNestedEmbeddingsFieldExistsResponse;
-import io.pipeline.schemamanager.v1.MutinySchemaManagerServiceGrpc;
+import io.pipeline.opensearch.v1.*;
 import io.quarkus.grpc.GrpcService;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
@@ -17,9 +15,9 @@ import java.util.List;
 import java.util.UUID;
 
 @GrpcService
-public class SchemaManagerService extends MutinySchemaManagerServiceGrpc.SchemaManagerServiceImplBase {
+public class OpenSearchManagerService extends MutinyOpenSearchManagerServiceGrpc.OpenSearchManagerServiceImplBase {
 
-    private static final Logger LOG = Logger.getLogger(SchemaManagerService.class);
+    private static final Logger LOG = Logger.getLogger(OpenSearchManagerService.class);
 
     @Inject
     ReactiveRedisDataSource redis;

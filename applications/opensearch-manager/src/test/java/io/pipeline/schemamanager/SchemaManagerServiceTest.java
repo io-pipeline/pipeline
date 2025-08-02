@@ -1,8 +1,10 @@
 package io.pipeline.schemamanager;
 
-import io.pipeline.schemamanager.v1.*;
+import io.pipeline.opensearch.v1.*;
+import io.quarkus.grpc.GrpcClient;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.common.QuarkusTestResource;
+import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -11,11 +13,12 @@ import jakarta.inject.Inject;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
+@QuarkusTestResource(OpenSearchTestResource.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SchemaManagerServiceTest {
 
-    @Inject
-    SchemaManagerService schemaManagerService;
+    @GrpcClient
+    MutinyOpenSearchManagerServiceGrpc.MutinyOpenSearchManagerServiceStub openSearchManagerService;
 
     @Test
     void testEnsureNestedEmbeddingsFieldExists() {
@@ -35,7 +38,7 @@ class SchemaManagerServiceTest {
                 .build();
 
         // Execute the request
-        var response = schemaManagerService.ensureNestedEmbeddingsFieldExists(request)
+        var response = openSearchManagerService.ensureNestedEmbeddingsFieldExists(request)
                 .await().indefinitely();
 
         // Verify response
@@ -63,9 +66,9 @@ class SchemaManagerServiceTest {
                 .build();
 
         // Execute the request twice
-        var response1 = schemaManagerService.ensureNestedEmbeddingsFieldExists(request)
+        var response1 = openSearchManagerService.ensureNestedEmbeddingsFieldExists(request)
                 .await().indefinitely();
-        var response2 = schemaManagerService.ensureNestedEmbeddingsFieldExists(request)
+        var response2 = openSearchManagerService.ensureNestedEmbeddingsFieldExists(request)
                 .await().indefinitely();
 
         // Verify both responses are successful

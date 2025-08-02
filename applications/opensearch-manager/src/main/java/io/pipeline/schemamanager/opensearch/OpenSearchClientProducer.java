@@ -17,7 +17,7 @@ public class OpenSearchClientProducer {
     String openSearchHosts;
 
     @Produces
-    @ApplicationScoped
+    @jakarta.inject.Singleton
     public OpenSearchClient openSearchClient() {
         try {
             final HttpHost host = HttpHost.create(openSearchHosts);

@@ -1,6 +1,6 @@
 package io.pipeline.schemamanager.opensearch;
 
-import io.pipeline.schemamanager.v1.VectorFieldDefinition;
+import io.pipeline.opensearch.v1.VectorFieldDefinition;
 import io.smallrye.mutiny.Uni;
 
 /**
