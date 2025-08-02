@@ -142,6 +142,7 @@ public class OpenSearchManagerService extends MutinyOpenSearchManagerServiceGrpc
                 var indexName = request.getIndexName();
                 
                 // TODO: Implement actual indexing logic using OpenSearchClient
+                // For now, we'll add the actual indexing implementation
                 LOG.infof("Indexing document %s to index %s", document.getOriginalDocId(), indexName);
                 
                 return IndexDocumentResponse.newBuilder()
