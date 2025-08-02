@@ -6,6 +6,8 @@ import io.smallrye.config.WithDefault;
 /**
  * Configuration for Redis key prefixes to support jailing of pipeline data.
  * This ensures pipeline data is isolated from other Redis uses.
+ * 
+ * Supports test isolation by allowing an optional test namespace to be injected.
  */
 @ConfigMapping(prefix = "pipeline.repository.redis")
 public interface RedisKeyConfig {
@@ -47,24 +49,55 @@ public interface RedisKeyConfig {
     @WithDefault("chain:")
     String chainPrefix();
     
-    // Helper methods to construct full keys
-    default String filesystemKey(String key) {
-        return rootPrefix() + filesystemPrefix() + key;
+    /**
+     * Drives namespace prefix
+     */
+    @WithDefault("drives:")
+    String drivesPrefix();
+    
+    // Helper methods to construct full keys with drive support
+    default String driveKey(String drive, String serviceNamespace, String key) {
+        return rootPrefix() + drivesPrefix() + drive + ":" + serviceNamespace + ":" + key;
     }
     
-    default String pipedocKey(String key) {
-        return rootPrefix() + pipedocPrefix() + key;
+    default String filesystemKey(String drive, String key) {
+        return driveKey(drive, filesystemPrefix().replace(":", ""), key);
     }
     
-    default String requestKey(String key) {
-        return rootPrefix() + requestPrefix() + key;
+    default String pipedocKey(String drive, String key) {
+        return driveKey(drive, pipedocPrefix().replace(":", ""), key);
     }
     
-    default String bulkKey(String key) {
-        return rootPrefix() + bulkPrefix() + key;
+    default String requestKey(String drive, String key) {
+        return driveKey(drive, requestPrefix().replace(":", ""), key);
     }
     
-    default String chainKey(String key) {
-        return rootPrefix() + chainPrefix() + key;
+    default String bulkKey(String drive, String key) {
+        return driveKey(drive, bulkPrefix().replace(":", ""), key);
+    }
+    
+    default String chainKey(String drive, String key) {
+        return driveKey(drive, chainPrefix().replace(":", ""), key);
+    }
+    
+    /**
+     * Get the drive metadata key
+     */
+    default String driveMetadataKey(String drive) {
+        return rootPrefix() + drivesPrefix() + drive + ":metadata";
+    }
+    
+    /**
+     * Get the list of all drives key
+     */
+    default String allDrivesKey() {
+        return rootPrefix() + drivesPrefix() + "all";
+    }
+    
+    /**
+     * Get the full drive prefix for clearing operations
+     */
+    default String drivePrefix(String drive) {
+        return rootPrefix() + drivesPrefix() + drive + ":";
     }
 }

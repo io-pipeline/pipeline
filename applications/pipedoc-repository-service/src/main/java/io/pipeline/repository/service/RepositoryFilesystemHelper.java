@@ -2,12 +2,15 @@ package io.pipeline.repository.service;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import io.pipeline.data.model.PipeDoc;
 import io.pipeline.data.module.ModuleProcessRequest;
 import io.pipeline.data.module.ModuleProcessResponse;
 import io.pipeline.repository.filesystem.CreateNodeRequest;
+import io.pipeline.repository.filesystem.GetNodeRequest;
 import io.pipeline.repository.filesystem.Node;
 import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -28,6 +31,9 @@ public class RepositoryFilesystemHelper {
     @GrpcService
     FilesystemServiceImpl filesystemService;
     
+    @Inject
+    io.pipeline.repository.config.DriveConfig driveConfig;
+    
     // Common SVG icons for different document types
     private static final String FOLDER_ICON = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z\"/></svg>";
     private static final String PIPEDOC_ICON = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,19H7V17H13V19M17,15H7V13H17V15M17,11H7V9H17V11M13,9V3.5L18.5,9H13Z\"/></svg>";
@@ -39,6 +45,7 @@ public class RepositoryFilesystemHelper {
      */
     public Node createFolder(String parentId, String name, Map<String, String> metadata) {
         CreateNodeRequest request = CreateNodeRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setParentId(parentId != null ? parentId : "")
             .setName(name)
             .setType(Node.NodeType.FOLDER)
@@ -77,6 +84,7 @@ public class RepositoryFilesystemHelper {
         LOG.debugf("Packed payload: typeUrl=%s, size=%d bytes", payload.getTypeUrl(), payload.getValue().size());
         
         CreateNodeRequest request = CreateNodeRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setParentId(parentId != null ? parentId : "")
             .setName(name)
             .setType(Node.NodeType.FILE)
@@ -110,6 +118,7 @@ public class RepositoryFilesystemHelper {
         Any payload = Any.pack(request);
         
         CreateNodeRequest createRequest = CreateNodeRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setParentId(parentId != null ? parentId : "")
             .setName(name)
             .setType(Node.NodeType.FILE)
@@ -145,6 +154,7 @@ public class RepositoryFilesystemHelper {
         Any payload = Any.pack(response);
         
         CreateNodeRequest createRequest = CreateNodeRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setParentId(parentId != null ? parentId : "")
             .setName(name)
             .setType(Node.NodeType.FILE)
@@ -194,6 +204,63 @@ public class RepositoryFilesystemHelper {
         }
         
         return null;
+    }
+    
+    /**
+     * Generic type-safe method to retrieve a node and unpack its payload.
+     * 
+     * @param nodeId The ID of the node to retrieve
+     * @param clazz The expected protobuf message class
+     * @param <T> The type of the protobuf message
+     * @return A Uni that emits the unpacked payload or null if the node has no payload
+     */
+    public <T extends Message> Uni<T> getNodePayload(String nodeId, Class<T> clazz) {
+        GetNodeRequest request = GetNodeRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
+            .setId(nodeId)
+            .build();
+            
+        return filesystemService.getNode(request)
+            .map(node -> {
+                if (node.hasPayload()) {
+                    try {
+                        return node.getPayload().unpack(clazz);
+                    } catch (InvalidProtocolBufferException e) {
+                        LOG.errorf("Failed to unpack payload as %s: %s", clazz.getSimpleName(), e.getMessage());
+                        throw new RuntimeException("Failed to unpack payload", e);
+                    }
+                }
+                return null;
+            });
+    }
+    
+    /**
+     * Type-safe retrieval with error handling that returns an empty Uni on failure.
+     */
+    public <T extends Message> Uni<T> getNodePayloadSafe(String nodeId, Class<T> clazz) {
+        return getNodePayload(nodeId, clazz)
+            .onFailure().recoverWithNull();
+    }
+    
+    /**
+     * Get a PipeDoc from a node - convenience method
+     */
+    public Uni<PipeDoc> getPipeDoc(String nodeId) {
+        return getNodePayload(nodeId, PipeDoc.class);
+    }
+    
+    /**
+     * Get a ModuleProcessRequest from a node - convenience method
+     */
+    public Uni<ModuleProcessRequest> getProcessRequest(String nodeId) {
+        return getNodePayload(nodeId, ModuleProcessRequest.class);
+    }
+    
+    /**
+     * Get a ModuleProcessResponse from a node - convenience method
+     */
+    public Uni<ModuleProcessResponse> getProcessResponse(String nodeId) {
+        return getNodePayload(nodeId, ModuleProcessResponse.class);
     }
     
     /**

@@ -27,11 +27,15 @@ public class PipeDocRepositoryServiceTest {
     @GrpcClient("test-filesystem")
     MutinyFilesystemServiceGrpc.MutinyFilesystemServiceStub filesystemService;
     
+    @jakarta.inject.Inject
+    io.pipeline.repository.config.DriveConfig driveConfig;
+    
     @BeforeEach
     void cleanupBeforeTest() {
         // Clear any existing data before each test
         try {
             FormatFilesystemRequest formatRequest = FormatFilesystemRequest.newBuilder()
+                .setDrive(driveConfig.defaultDrive())
                 .setConfirmation("DELETE_FILESYSTEM_DATA")
                 .build();
             

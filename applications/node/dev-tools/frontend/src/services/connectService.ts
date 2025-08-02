@@ -5,7 +5,7 @@ import { createClient } from "@connectrpc/connect";
 import type { Transport } from "@connectrpc/connect";
 
 // Import generated schemas
-import { 
+import {
   PipeDocSchema,
   PipeStreamSchema,
   StepExecutionRecordSchema,
@@ -18,15 +18,24 @@ import {
   SemanticChunkSchema,
   FailedStepInputStateSchema
 } from "@/gen/pipeline_core_types_pb";
-import { 
+import {
   ModuleProcessRequestSchema,
   ModuleProcessResponseSchema,
   ServiceRegistrationResponseSchema,
   RegistrationRequestSchema
 } from "@/gen/pipe_step_processor_service_pb";
-import { FilesystemService } from "@/gen/filesystem_service_pb";
+import {
+  FilesystemService,
+  FormatFilesystemRequestSchema,
+  FormatFilesystemResponseSchema
+} from "@/gen/filesystem_service_pb";
 import { PipeStepProcessor } from "@/gen/pipe_step_processor_service_pb";
 import { Health } from "@/gen/health/v1/health_pb";
+import {
+  PipeDocRepository,
+  FormatRepositoryRequestSchema,
+  FormatRepositoryResponseSchema
+} from "@/gen/pipedoc_repository_pb";
 import {
   GetMessageSchemaRequestSchema,
   GetMessageSchemaResponseSchema,
@@ -38,7 +47,7 @@ import {
 const typeRegistry = createRegistry(
   // Google types
   StructSchema,
-  
+
   // Pipeline core types
   PipeDocSchema,
   PipeStreamSchema,
@@ -51,18 +60,24 @@ const typeRegistry = createRegistry(
   ChunkEmbeddingSchema,
   SemanticChunkSchema,
   FailedStepInputStateSchema,
-  
+
   // Module types
   ModuleProcessRequestSchema,
   ModuleProcessResponseSchema,
   ServiceRegistrationResponseSchema,
   RegistrationRequestSchema,
-  
+
   // Schema service types
   GetMessageSchemaRequestSchema,
   GetMessageSchemaResponseSchema,
   GetAllMessageTypesRequestSchema,
-  GetAllMessageTypesResponseSchema
+  GetAllMessageTypesResponseSchema,
+
+  // Format operation types
+  FormatFilesystemRequestSchema,
+  FormatFilesystemResponseSchema,
+  FormatRepositoryRequestSchema,
+  FormatRepositoryResponseSchema
 );
 
 // Create the transport with type registry
@@ -87,6 +102,10 @@ export function createFilesystemClient() {
   return createClient(FilesystemService, getConnectTransport());
 }
 
+export function createPipeDocRepositoryClient() {
+  return createClient(PipeDocRepository, getConnectTransport());
+}
+
 // Create module processor client with custom headers
 export function createModuleProcessorClient(moduleAddress: string) {
   const transport = createConnectTransport({
@@ -104,7 +123,7 @@ export function createModuleProcessorClient(moduleAddress: string) {
       },
     ],
   });
-  
+
   return createClient(PipeStepProcessor, transport);
 }
 
@@ -125,12 +144,15 @@ export function createHealthClient(moduleAddress: string) {
       },
     ],
   });
-  
+
   return createClient(Health, transport);
 }
 
-// Create repository health client (fixed address)
-export function createRepositoryHealthClient() {
+// Create repository health client with configurable address
+export function createRepositoryHealthClient(repositoryAddress?: string) {
+  // Use provided address or default
+  const address = repositoryAddress || 'localhost:38002'
+
   const transport = createConnectTransport({
     baseUrl: `${window.location.protocol}//${window.location.hostname}:3000/connect`,
     jsonOptions: {
@@ -140,18 +162,19 @@ export function createRepositoryHealthClient() {
     useBinaryFormat: true,
     interceptors: [
       (next) => async (req) => {
-        // Repository service is always at localhost:38002
-        req.header.set("x-module-address", "localhost:38002");
+        // Set the repository address header
+        req.header.set("x-module-address", address);
         return await next(req);
       },
     ],
   });
-  
+
   return createClient(Health, transport);
 }
 
 // Export the registry in case components need it
 export { typeRegistry };
 
-// Export filesystem service for convenience
+// Export service instances for convenience
 export const filesystemService = createFilesystemClient();
+export const pipeDocRepositoryService = createPipeDocRepositoryClient();

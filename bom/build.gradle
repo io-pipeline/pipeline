@@ -16,6 +16,7 @@ dependencies {
     // Any additional constraints for libraries not managed by Quarkus
     // These will only apply if Quarkus doesn't already manage them
     constraints {
+        api libs.opensearch.java
         // Our internal libraries will be added here
     }
 }

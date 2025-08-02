@@ -10,6 +10,7 @@ import io.quarkus.redis.datasource.set.ReactiveSetCommands;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.smallrye.mutiny.Uni;
 import io.pipeline.repository.config.RedisKeyConfig;
+import io.pipeline.repository.config.NamespacedRedisKeyService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -33,11 +34,14 @@ public class RedisGenericRepository implements GenericRepositoryService {
     private static final String TYPE_INDEX_PREFIX = "type:";
     private static final String ALL_IDS_SET = "all:ids";
     
+    // Default drive for payload storage - can be overridden in tests
+    private static final String PAYLOAD_DRIVE = "payloads";
+    
     @Inject
     ReactiveRedisDataSource redis;
     
     @Inject
-    RedisKeyConfig keyConfig;
+    NamespacedRedisKeyService keyService;
     
     private ReactiveHashCommands<String, String, String> hash() {
         return redis.hash(String.class, String.class, String.class);
@@ -55,21 +59,21 @@ public class RedisGenericRepository implements GenericRepositoryService {
         return redis.key(String.class);
     }
     
-    // Helper methods for jailed keys
+    // Helper methods for drive-aware keys
     private String metadataKey(String id) {
-        return keyConfig.filesystemKey(METADATA_PREFIX + id);
+        return keyService.filesystemKey(PAYLOAD_DRIVE, METADATA_PREFIX + id);
     }
     
     private String payloadKey(String id) {
-        return keyConfig.filesystemKey(PAYLOAD_PREFIX + id);
+        return keyService.filesystemKey(PAYLOAD_DRIVE, PAYLOAD_PREFIX + id);
     }
     
     private String typeIndexKey(String typeUrl) {
-        return keyConfig.filesystemKey(TYPE_INDEX_PREFIX + typeUrl);
+        return keyService.filesystemKey(PAYLOAD_DRIVE, TYPE_INDEX_PREFIX + typeUrl);
     }
     
     private String allIdsKey() {
-        return keyConfig.filesystemKey(ALL_IDS_SET);
+        return keyService.filesystemKey(PAYLOAD_DRIVE, ALL_IDS_SET);
     }
     
     @Override

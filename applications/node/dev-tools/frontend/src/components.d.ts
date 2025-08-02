@@ -12,7 +12,6 @@ declare module 'vue' {
     ConfigSelector: typeof import('./components/ConfigSelector.vue')['default']
     ConnectHealthCheck: typeof import('./components/ConnectHealthCheck.vue')['default']
     DataSeedingEnhanced: typeof import('./components/DataSeedingEnhanced.vue')['default']
-    HelloWorld: typeof import('./components/HelloWorld.vue')['default']
     MetadataEditor: typeof import('./components/MetadataEditor.vue')['default']
     ModuleRegistry: typeof import('./components/ModuleRegistry.vue')['default']
     ParserDocEditor: typeof import('./components/ParserDocEditor.vue')['default']
@@ -27,9 +26,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SeedDataBuilder: typeof import('./components/SeedDataBuilder.vue')['default']
-    SimpleJsonFormsTest: typeof import('./components/SimpleJsonFormsTest.vue')['default']
     UniversalConfigCard: typeof import('./components/UniversalConfigCard.vue')['default']
-    UniversalConfigCardV2: typeof import('./components/UniversalConfigCardV2.vue')['default']
     VuetifyConfigCard: typeof import('./components/VuetifyConfigCard.vue')['default']
   }
 }

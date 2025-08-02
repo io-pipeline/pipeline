@@ -105,7 +105,7 @@ async function testFilesystemConnection() {
     
     // Create request to get root children
     const request = create(GetChildrenRequestSchema, {
-      nodeId: "" // Use nodeId instead of parentId
+      parent_id: "" // Empty string for root
     })
     
     const response = await client.getChildren(request)
@@ -113,14 +113,14 @@ async function testFilesystemConnection() {
     testResult.value = {
       success: true,
       title: 'Connect Integration Working!',
-      message: `Successfully retrieved ${response.children.length} nodes from filesystem`,
+      message: `Successfully retrieved ${response.nodes.length} nodes from filesystem`,
       data: {
-        totalCount: response.children.length,
-        nodes: response.children.map(node => ({
+        totalCount: response.nodes.length,
+        nodes: response.nodes.map(node => ({
           id: node.id,
           name: node.name,
-          type: node.nodeType === Node_NodeType.FOLDER ? 'FOLDER' : 'FILE',
-          hasPayload: !!node.content
+          type: node.type === Node_NodeType.FOLDER ? 'FOLDER' : 'FILE',
+          hasPayload: !!node.payload
         }))
       }
     }
@@ -152,9 +152,9 @@ async function createFolder() {
     
     // Create request for a new folder
     const request = create(CreateNodeRequestSchema, {
-      parentId: "", // Root level
+      parent_id: "", // Root level
       name: newFolderName.value,
-      nodeType: Node_NodeType.FOLDER,
+      type: Node_NodeType.FOLDER,
       metadata: {
         createdBy: 'Connect Test',
         createdAt: new Date().toISOString()
@@ -166,11 +166,11 @@ async function createFolder() {
     testResult.value = {
       success: true,
       title: 'Folder Created Successfully!',
-      message: `Created folder "${response.node?.name}" with ID: ${response.node?.id}`,
+      message: `Created folder "${response.name}" with ID: ${response.id}`,
       data: {
-        id: response.node?.id,
-        name: response.node?.name,
-        path: response.node?.path,
+        id: response.id,
+        name: response.name,
+        path: response.path,
         type: 'FOLDER'
       }
     }
@@ -210,7 +210,7 @@ async function createSampleData() {
     
     for (const folder of folders) {
       const request = create(CreateNodeRequestSchema, {
-        parentId: folder.parent,
+        parent_id: folder.parent,
         name: folder.name,
         type: Node_NodeType.FOLDER,
         metadata: {
@@ -246,11 +246,21 @@ async function createSampleData() {
       }
     })
     
+    // Import Any schema and toBinary function
+    const { AnySchema } = await import('@bufbuild/protobuf/wkt')
+    const { toBinary } = await import('@bufbuild/protobuf')
+    
+    // Create an Any message wrapping the Struct
+    const anyPayload = create(AnySchema, {
+      typeUrl: 'type.googleapis.com/google.protobuf.Struct',
+      value: toBinary(StructSchema, structData)
+    })
+    
     const fileRequest = create(CreateNodeRequestSchema, {
-      parentId: createdFolders[0].id, // Put in Documents folder
+      parent_id: createdFolders[0].id, // Put in Documents folder
       name: "sample-document.json",
       type: Node_NodeType.FILE,
-      structData: structData,
+      payload: anyPayload,
       metadata: {
         mimeType: 'application/json',
         size: JSON.stringify(toJson(StructSchema, structData)).length.toString()
@@ -268,7 +278,7 @@ async function createSampleData() {
         file: {
           id: fileResponse.id,
           name: fileResponse.name,
-          parentId: fileResponse.parentId
+          parent_id: fileResponse.parent_id
         }
       }
     }

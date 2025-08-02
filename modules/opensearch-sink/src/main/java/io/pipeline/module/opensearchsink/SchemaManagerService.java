@@ -1,16 +1,15 @@
 package io.pipeline.module.opensearchsink;
 
+import io.pipeline.module.opensearchsink.opensearch.ReactiveOpenSearchClient;
 import io.quarkus.redis.client.reactive.ReactiveRedisClient;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.opensearch.client.opensearch.OpenSearchAsyncClient;
 import org.opensearch.client.opensearch._types.mapping.DynamicMapping;
 import org.opensearch.client.opensearch._types.mapping.TypeMapping;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
-import org.opensearch.client.opensearch.indices.ExistsRequest;
 import org.opensearch.client.opensearch.indices.IndexSettings;
 
 import java.time.Duration;
@@ -24,9 +23,8 @@ public class SchemaManagerService {
     private static final String LOCK_PREFIX = "schema-lock:";
     private static final String LOCK_VALUE = "locked";
     private static final int LOCK_TIMEOUT_MS = 30000;
-    private static final String META_INDEX_NAME = ".pipeline_index_schemas";
 
-    private final OpenSearchAsyncClient osClient;
+    private final ReactiveOpenSearchClient osClient;
     private final ReactiveRedisClient redisClient;
     private final Random random = new Random();
 
@@ -37,7 +35,7 @@ public class SchemaManagerService {
     int defaultVectorDimension;
 
     @Inject
-    public SchemaManagerService(OpenSearchAsyncClient osClient, ReactiveRedisClient redisClient) {
+    public SchemaManagerService(ReactiveOpenSearchClient osClient, ReactiveRedisClient redisClient) {
         this.osClient = osClient;
         this.redisClient = redisClient;
     }
@@ -72,15 +70,14 @@ public class SchemaManagerService {
 
     private Uni<Void> releaseLock(String key) {
         LOG.infof("Releasing lock for key: %s", key);
-        return redisClient.del(List.of(key)).toUni().replaceWithVoid();
+        return redisClient.del(List.of(key)).replaceWithVoid();
     }
 
     private Uni<Void> doSchemaCheckAndCreation(String indexName) {
-        return Uni.createFrom().completionStage(() -> osClient.indices().exists(new ExistsRequest.Builder().index(indexName).build()))
-                .flatMap(response -> {
-                    if (response.value()) {
+        return osClient.indexExists(indexName)
+                .flatMap(exists -> {
+                    if (exists) {
                         LOG.infof("Index %s already exists.", indexName);
-                        // In a real implementation, you would also check and update the mapping here.
                         return Uni.createFrom().voidItem();
                     } else {
                         LOG.infof("Index %s does not exist. Creating...", indexName);
@@ -103,7 +100,7 @@ public class SchemaManagerService {
                 .mappings(mapping)
                 .build();
 
-        return Uni.createFrom().completionStage(() -> osClient.indices().create(createIndexRequest))
+        return osClient.createIndex(createIndexRequest)
                 .onItem().invoke(response -> LOG.infof("Successfully created index %s", indexName))
                 .onFailure().invoke(error -> LOG.errorf(error, "Failed to create index %s", indexName))
                 .replaceWithVoid();

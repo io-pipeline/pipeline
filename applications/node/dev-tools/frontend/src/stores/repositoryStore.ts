@@ -30,6 +30,7 @@ export const useRepositoryStore = defineStore('repository', () => {
   
   // Health client
   let healthClient: PromiseClient<typeof Health> | null = null
+  let lastUsedAddress: string | null = null
   let reconnectTimer: NodeJS.Timeout | null = null
   
   // Load saved address from localStorage
@@ -79,13 +80,21 @@ export const useRepositoryStore = defineStore('repository', () => {
     }
     
     try {
-      // Create client if needed
-      if (!healthClient) {
-        healthClient = createRepositoryHealthClient()
+      // Create client if needed (or recreate if address changed)
+      if (!healthClient || lastUsedAddress !== selectedAddress.value) {
+        healthClient = createRepositoryHealthClient(selectedAddress.value)
+        lastUsedAddress = selectedAddress.value
       }
       
-      // Make health check request
-      const response = await healthClient.check({ service: '' })
+      // Make health check request with timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Health check timeout')), 5000) // 5 second timeout
+      })
+      
+      const response = await Promise.race([
+        healthClient.check({ service: '' }),
+        timeoutPromise
+      ])
       
       // Check status
       if (response.status === 1) { // SERVING
@@ -262,8 +271,14 @@ export const useRepositoryStore = defineStore('repository', () => {
   // Auto-connect on startup if address is configured
   if (hasConfiguredAddress.value && selectedAddress.value) {
     // Delay initial connection to avoid startup noise
-    setTimeout(() => {
-      connect()
+    setTimeout(async () => {
+      try {
+        await connect()
+      } catch (error) {
+        // If initial connection fails, make sure we're not stuck in connecting state
+        console.error('[Repository] Initial connection failed:', error)
+        isConnecting.value = false
+      }
     }, 1000)
   }
   

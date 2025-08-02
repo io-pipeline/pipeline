@@ -2,7 +2,7 @@
   <v-dialog
     v-model="dialog"
     max-width="600"
-    persistent
+    :persistent="isConnecting"
   >
     <v-card>
       <v-card-title>

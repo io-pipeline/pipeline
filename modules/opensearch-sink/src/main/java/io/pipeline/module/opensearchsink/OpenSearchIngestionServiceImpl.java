@@ -43,8 +43,10 @@ public class OpenSearchIngestionServiceImpl extends MutinyOpenSearchIngestionGrp
             return Uni.createFrom().item(buildResponse(request, false, "IngestionRequest has no document."));
         }
 
-        return schemaManager.ensureSchemaIsReady(request.getDocument())
-                .onItem().transform(v -> documentConverter.prepareBulkOperations(request.getDocument()))
+        String indexName = schemaManager.determineIndexName(request.getDocument().getDocumentType());
+
+        return schemaManager.ensureIndexExists(indexName)
+                .onItem().transform(v -> documentConverter.prepareBulkOperations(request.getDocument(), indexName))
                 .onItem().transformToUni(openSearchRepository::bulk)
                 .onItem().transform(bulkResponse -> {
                     if (bulkResponse.errors()) {

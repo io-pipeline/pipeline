@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package pipeline.schema;
+
+import "google/protobuf/struct.proto";
+
+service SchemaService {
+  // Get JSON schema for a protobuf message type
+  rpc GetMessageSchema(GetMessageSchemaRequest) returns (GetMessageSchemaResponse);
+  
+  // Get all available message types
+  rpc GetAllMessageTypes(GetAllMessageTypesRequest) returns (GetAllMessageTypesResponse);
+}
+
+message GetMessageSchemaRequest {
+  // The name of the message type (e.g., "PipeDoc")
+  string message_type = 1;
+  
+  // Whether to include UI hints in the schema
+  bool add_ui_hints = 2;
+  
+  // Whether to include comments from proto file
+  bool include_comments = 3;
+}
+
+message GetMessageSchemaResponse {
+  // The JSON schema as a Struct
+  google.protobuf.Struct schema = 1;
+  
+  // The message type name
+  string message_type = 2;
+}
+
+message GetAllMessageTypesRequest {
+  // Empty for now
+}
+
+message GetAllMessageTypesResponse {
+  // List of available message type names
+  repeated string message_types = 1;
+}

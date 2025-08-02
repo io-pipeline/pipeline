@@ -5,6 +5,8 @@ commons-lang3 = "3.18.0"
 opennlp-tools = "2.5.5"
 jackson-module-jsonschema = "2.19.2"
 logging-manager = "3.3.5"
+opensearch = "3.2.0"
+httpclient5 = "5.5"
 
 [libraries]
 # Quarkus BOM
@@ -40,6 +42,12 @@ jackson-module-jsonschema = { module = "com.fasterxml.jackson.module:jackson-mod
 # Testing
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }
 rest-assured = { module = "io.rest-assured:rest-assured" }
+
+# OpenSearch
+opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch" }
+
+# Apache HTTP Client
+httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "httpclient5" }
 
 [plugins]
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }

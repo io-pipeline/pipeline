@@ -3,7 +3,8 @@
 // Used by storageService.ts to persist user data to the local filesystem.
 // This allows the dev tools to work without external database dependencies.
 
-import { ObjectId } from 'mongodb';
+// Simple ObjectId replacement for local storage
+type ObjectId = string;
 
 export interface TestDocument {
   _id?: ObjectId | string;

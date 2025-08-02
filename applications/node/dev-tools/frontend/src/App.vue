@@ -229,41 +229,72 @@
                 </v-card-text>
               </v-card>
               
-              <!-- Redis Management -->
+              <!-- Repository Management -->
               <v-card class="mt-4">
-                <v-card-title>Redis Management</v-card-title>
-                <v-card-subtitle>Manage Redis cache data</v-card-subtitle>
+                <v-card-title>Repository Management</v-card-title>
+                <v-card-subtitle>Manage repository storage</v-card-subtitle>
                 
                 <v-divider />
                 
                 <v-card-text>
-                  <h3 class="text-h6 mb-2">Redis Cache</h3>
-                  <p class="text-body-2 mb-4">Clear all data from Redis cache (localhost:6379)</p>
+                  <h3 class="text-h6 mb-2">Data Storage Management</h3>
+                  <p class="text-body-2 mb-4">Permanently delete data from the repository. These operations cannot be undone.</p>
                   
                   <v-row>
-                    <v-col cols="12" sm="6">
-                      <v-btn
-                        color="error"
-                        variant="flat"
-                        block
-                        @click="clearRedisData"
-                        prepend-icon="mdi-database-remove"
-                        :loading="clearingRedis"
-                      >
-                        Clear All Redis Data
-                      </v-btn>
+                    <v-col cols="12" md="6">
+                      <v-card variant="outlined">
+                        <v-card-title class="text-h6">Format Filesystem</v-card-title>
+                        <v-card-text>
+                          <p class="text-body-2 mb-3">
+                            Deletes all nodes and folders from the virtual filesystem. This includes all stored files, 
+                            folders, and their metadata.
+                          </p>
+                          <v-btn
+                            color="error"
+                            variant="flat"
+                            block
+                            @click="showFormatFilesystemDialog = true"
+                            prepend-icon="mdi-folder-remove"
+                            :loading="clearingFilesystem"
+                          >
+                            Format Filesystem
+                          </v-btn>
+                        </v-card-text>
+                      </v-card>
+                    </v-col>
+                    
+                    <v-col cols="12" md="6">
+                      <v-card variant="outlined">
+                        <v-card-title class="text-h6">Format Repository</v-card-title>
+                        <v-card-text>
+                          <p class="text-body-2 mb-3">
+                            Deletes all PipeDoc documents and process requests from the repository. This clears 
+                            all test data and saved requests.
+                          </p>
+                          <v-btn
+                            color="error"
+                            variant="flat"
+                            block
+                            @click="showFormatRepositoryDialog = true"
+                            prepend-icon="mdi-database-remove"
+                            :loading="clearingPipeDocRepository"
+                          >
+                            Format Repository
+                          </v-btn>
+                        </v-card-text>
+                      </v-card>
                     </v-col>
                   </v-row>
                   
                   <v-alert
-                    v-if="redisCleared"
-                    :type="redisCleared.type"
+                    v-if="repositoryCleared"
+                    :type="repositoryCleared.type"
                     variant="tonal"
                     closable
-                    @click:close="redisCleared = null"
+                    @click:close="repositoryCleared = null"
                     class="mt-4"
                   >
-                    {{ redisCleared.message }}
+                    {{ repositoryCleared.message }}
                   </v-alert>
                 </v-card-text>
               </v-card>
@@ -278,6 +309,82 @@
     
     <!-- Repository Configuration Dialog -->
     <RepositoryConfigDialog v-model="showRepositoryConfig" />
+    
+    <!-- Format Filesystem Confirmation Dialog -->
+    <v-dialog v-model="showFormatFilesystemDialog" max-width="600">
+      <v-card>
+        <v-card-title class="text-h5">Format Filesystem - Confirmation Required</v-card-title>
+        <v-card-text>
+          <v-alert type="warning" variant="tonal" class="mb-4">
+            This operation will permanently delete all nodes and folders from the virtual filesystem.
+            This action cannot be undone.
+          </v-alert>
+          
+          <p class="mb-4">
+            To confirm this operation, please type <strong>DELETE_FILESYSTEM_DATA</strong> below:
+          </p>
+          
+          <v-text-field
+            v-model="filesystemConfirmation"
+            label="Confirmation"
+            placeholder="Type DELETE_FILESYSTEM_DATA"
+            variant="outlined"
+            :error-messages="filesystemConfirmationError"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="closeFormatFilesystemDialog">Cancel</v-btn>
+          <v-btn 
+            color="error" 
+            variant="flat" 
+            @click="executeFormatFilesystem"
+            :disabled="filesystemConfirmation !== 'DELETE_FILESYSTEM_DATA'"
+            :loading="clearingFilesystem"
+          >
+            Format Filesystem
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    
+    <!-- Format Repository Confirmation Dialog -->
+    <v-dialog v-model="showFormatRepositoryDialog" max-width="600">
+      <v-card>
+        <v-card-title class="text-h5">Format Repository - Confirmation Required</v-card-title>
+        <v-card-text>
+          <v-alert type="warning" variant="tonal" class="mb-4">
+            This operation will permanently delete all PipeDoc documents and process requests.
+            This action cannot be undone.
+          </v-alert>
+          
+          <p class="mb-4">
+            To confirm this operation, please type <strong>DELETE_REPOSITORY_DATA</strong> below:
+          </p>
+          
+          <v-text-field
+            v-model="repositoryConfirmation"
+            label="Confirmation"
+            placeholder="Type DELETE_REPOSITORY_DATA"
+            variant="outlined"
+            :error-messages="repositoryConfirmationError"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="closeFormatRepositoryDialog">Cancel</v-btn>
+          <v-btn 
+            color="error" 
+            variant="flat" 
+            @click="executeFormatRepository"
+            :disabled="repositoryConfirmation !== 'DELETE_REPOSITORY_DATA'"
+            :loading="clearingPipeDocRepository"
+          >
+            Format Repository
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
@@ -297,6 +404,10 @@ import { useModuleStore } from './stores/moduleStore'
 import { useConfigStore } from './stores/configStore'
 import { useDatabaseStore } from './stores/databaseStore'
 import { useRepositoryStore } from './stores/repositoryStore'
+import { filesystemService, pipeDocRepositoryService } from './services/connectService'
+import { create } from '@bufbuild/protobuf'
+import { FormatFilesystemRequestSchema } from '@/gen/filesystem_service_pb'
+import { FormatRepositoryRequestSchema as PipeDocFormatRepositoryRequestSchema } from '@/gen/pipedoc_repository_pb'
 
 const theme = useTheme()
 const moduleStore = useModuleStore()
@@ -323,6 +434,19 @@ const configSelector = ref<any>(null)
 const createdRequest = ref<any>(null)
 const storageCleared = ref('')
 const showRepositoryConfig = ref(false)
+
+// Format operation states
+const clearingFilesystem = ref(false)
+const clearingPipeDocRepository = ref(false)
+const repositoryCleared = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+
+// Format dialogs
+const showFormatFilesystemDialog = ref(false)
+const showFormatRepositoryDialog = ref(false)
+const filesystemConfirmation = ref('')
+const repositoryConfirmation = ref('')
+const filesystemConfirmationError = ref('')
+const repositoryConfirmationError = ref('')
 
 // Handle config selection
 const handleConfigSelected = (config: any) => {
@@ -396,6 +520,90 @@ const clearConfigStorage = () => {
   setTimeout(() => {
     storageCleared.value = ''
   }, 3000)
+}
+
+// Format filesystem dialog handlers
+const closeFormatFilesystemDialog = () => {
+  showFormatFilesystemDialog.value = false
+  filesystemConfirmation.value = ''
+  filesystemConfirmationError.value = ''
+}
+
+const executeFormatFilesystem = async () => {
+  if (filesystemConfirmation.value !== 'DELETE_FILESYSTEM_DATA') {
+    filesystemConfirmationError.value = 'Confirmation text does not match'
+    return
+  }
+  
+  clearingFilesystem.value = true
+  repositoryCleared.value = null
+  
+  try {
+    const request = create(FormatFilesystemRequestSchema, {
+      confirmation: filesystemConfirmation.value,
+      dryRun: false
+    })
+    
+    const result = await filesystemService.formatFilesystem(request)
+    
+    repositoryCleared.value = {
+      type: 'success',
+      message: `Successfully formatted filesystem. Deleted ${result.nodesDeleted} nodes and ${result.foldersDeleted} folders.`
+    }
+    
+    closeFormatFilesystemDialog()
+  } catch (error) {
+    console.error('Failed to format filesystem:', error)
+    repositoryCleared.value = {
+      type: 'error',
+      message: `Failed to format filesystem: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  } finally {
+    clearingFilesystem.value = false
+  }
+}
+
+// Format repository dialog handlers
+const closeFormatRepositoryDialog = () => {
+  showFormatRepositoryDialog.value = false
+  repositoryConfirmation.value = ''
+  repositoryConfirmationError.value = ''
+}
+
+const executeFormatRepository = async () => {
+  if (repositoryConfirmation.value !== 'DELETE_REPOSITORY_DATA') {
+    repositoryConfirmationError.value = 'Confirmation text does not match'
+    return
+  }
+  
+  clearingPipeDocRepository.value = true
+  repositoryCleared.value = null
+  
+  try {
+    const request = create(PipeDocFormatRepositoryRequestSchema, {
+      confirmation: repositoryConfirmation.value,
+      includeDocuments: true,
+      includeRequests: true,
+      dryRun: false
+    })
+    
+    const result = await pipeDocRepositoryService.formatRepository(request)
+    
+    repositoryCleared.value = {
+      type: 'success',
+      message: `Successfully formatted repository. Deleted ${result.documentsDeleted} documents and ${result.requestsDeleted} requests.`
+    }
+    
+    closeFormatRepositoryDialog()
+  } catch (error) {
+    console.error('Failed to format repository:', error)
+    repositoryCleared.value = {
+      type: 'error',
+      message: `Failed to format repository: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  } finally {
+    clearingPipeDocRepository.value = false
+  }
 }
 </script>
 

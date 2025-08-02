@@ -43,6 +43,9 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     @GrpcService
     FilesystemServiceImpl filesystemService;
     
+    @Inject
+    io.pipeline.repository.config.DriveConfig driveConfig;
+    
     @Override
     public Uni<CreatePipeDocResponse> createPipeDoc(CreatePipeDocRequest request) {
         return ensureFolderStructure()
@@ -63,6 +66,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                                 additionalMetadata.put("description", request.getDescription());
                                 
                                 UpdateNodeRequest updateRequest = UpdateNodeRequest.newBuilder()
+                                    .setDrive(driveConfig.defaultDrive())
                                     .setId(node.getId())
                                     .setName(node.getName())
                                     // Don't include payload - it's already stored
@@ -104,6 +108,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     public Uni<StoredPipeDoc> getPipeDoc(GetPipeDocRequest request) {
         return filesystemService.getNode(
                 GetNodeRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setId(request.getStorageId())
                     .build()
             )
@@ -168,6 +173,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
         // Get existing node first
         return filesystemService.getNode(
                 GetNodeRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setId(request.getStorageId())
                     .build()
             )
@@ -182,6 +188,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                 
                 // Update the node
                 UpdateNodeRequest updateRequest = UpdateNodeRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setId(request.getStorageId())
                     .setName(request.getDocument().getTitle() != null ? 
                         request.getDocument().getTitle() : existingNode.getName())
@@ -223,6 +230,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     public Uni<Empty> deletePipeDoc(DeletePipeDocRequest request) {
         return filesystemService.deleteNode(
                 DeleteNodeRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setId(request.getStorageId())
                     .build()
             )
@@ -250,20 +258,23 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
         // Get the PipeDocs folder
         return getOrCreatePipeDocFolderUni()
             .flatMap(folderId -> {
-                // Search for all PipeDoc nodes in the folder
+                // Search for all nodes to debug what's being returned
                 SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setQuery("") // Empty query to get all
-                    .addPaths("/" + PIPEDOCS_FOLDER)
-                    .addTypes(Node.NodeType.FILE)
                     .setPageSize(request.getPageSize() > 0 ? request.getPageSize() : 100)
                     .build();
                 
                 return filesystemService.searchNodes(searchRequest)
                     .flatMap(searchResponse -> {
+                        LOG.debugf("Search found %d nodes total", searchResponse.getNodesCount());
+                        
                         // Convert nodes to StoredPipeDocs
                         List<Uni<StoredPipeDoc>> docUnis = new ArrayList<>();
                         
                         for (Node node : searchResponse.getNodesList()) {
+                            LOG.debugf("Found node: id=%s, name=%s, type=%s, hasPayload=%s", 
+                                node.getId(), node.getName(), node.getType(), node.hasPayload());
                             if (node.hasPayload()) {
                                 Uni<StoredPipeDoc> docUni = Uni.createFrom().item(() -> {
                                     try {
@@ -293,6 +304,15 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                             }
                         }
                         
+                        // Handle empty list case
+                        if (docUnis.isEmpty()) {
+                            return Uni.createFrom().item(
+                                ListPipeDocsResponse.newBuilder()
+                                    .setTotalCount(0) // No documents found, count should be 0
+                                    .build()
+                            );
+                        }
+                        
                         return Uni.combine().all().unis(docUnis)
                             .with(results -> {
                                 List<StoredPipeDoc> docs = results.stream()
@@ -303,7 +323,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                                 // Build response
                                 return ListPipeDocsResponse.newBuilder()
                                     .addAllDocuments(docs)
-                                    .setTotalCount(searchResponse.getTotalCount())
+                                    .setTotalCount(docs.size()) // Count actual documents, not all nodes
                                     .build();
                             });
                     });
@@ -365,6 +385,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     public Uni<StoredProcessRequest> getProcessRequest(GetProcessRequestRequest request) {
         return filesystemService.getNode(
                 GetNodeRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setId(request.getStorageId())
                     .build()
             )
@@ -438,6 +459,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
             .flatMap(folderId -> {
                 // Search for all ProcessRequest nodes in the folder
                 SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setQuery("") // Empty query to get all
                     .addPaths("/" + REQUESTS_FOLDER)
                     .addTypes(Node.NodeType.FILE)
@@ -490,6 +512,15 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                             }
                         }
                         
+                        // Handle empty list case
+                        if (requestUnis.isEmpty()) {
+                            return Uni.createFrom().item(
+                                ListProcessRequestsResponse.newBuilder()
+                                    .setTotalCount(0) // No requests found, count should be 0
+                                    .build()
+                            );
+                        }
+                        
                         return Uni.combine().all().unis(requestUnis)
                             .with(results -> {
                                 List<StoredProcessRequest> requests = results.stream()
@@ -499,7 +530,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
                                 
                                 return ListProcessRequestsResponse.newBuilder()
                                     .addAllRequests(requests)
-                                    .setTotalCount(searchResponse.getTotalCount())
+                                    .setTotalCount(requests.size()) // Count actual requests, not all nodes
                                     .build();
                             });
                     });
@@ -510,6 +541,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     public Uni<Empty> deleteProcessRequest(DeleteProcessRequestRequest request) {
         return filesystemService.deleteNode(
                 DeleteNodeRequest.newBuilder()
+                    .setDrive(driveConfig.defaultDrive())
                     .setId(request.getStorageId())
                     .build()
             )
@@ -551,6 +583,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     private Uni<String> getOrCreatePipeDocFolderUni() {
         // Search for existing folder
         SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setQuery(PIPEDOCS_FOLDER)
             .addTypes(Node.NodeType.FOLDER)
             .setPageSize(1)
@@ -578,6 +611,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
     private Uni<String> getOrCreateRequestsFolderUni() {
         // Search for existing folder
         SearchNodesRequest searchRequest = SearchNodesRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setQuery(REQUESTS_FOLDER)
             .addTypes(Node.NodeType.FOLDER)
             .setPageSize(1)
@@ -662,6 +696,7 @@ public class PipeDocRepositoryServiceImpl extends MutinyPipeDocRepositoryGrpc.Pi
         
         // Create FormatFilesystem request to clear specific types
         FormatFilesystemRequest formatRequest = FormatFilesystemRequest.newBuilder()
+            .setDrive(driveConfig.defaultDrive())
             .setConfirmation("DELETE_FILESYSTEM_DATA")
             .setDryRun(dryRun)
             .addAllTypeUrls(typeUrls)

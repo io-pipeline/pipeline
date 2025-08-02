@@ -13,20 +13,21 @@ import {
   SearchNodesRequest
 } from "../gen/filesystem_service_pb";
 import { 
-  PipeDocRepositoryService,
-  InsertDocumentRequest,
-  GetDocumentRequest,
-  GetDocumentsRequest,
-  UpdateDocumentRequest,
-  GetDocumentCountRequest,
-  DeleteDocumentRequest,
-  DeleteDocumentsRequest
+  PipeDocRepository,
+  CreatePipeDocRequest,
+  GetPipeDocRequest,
+  ListPipeDocsRequest,
+  UpdatePipeDocRequest,
+  DeletePipeDocRequest,
+  SaveProcessRequestRequest,
+  GetProcessRequestRequest,
+  ListProcessRequestsRequest,
+  DeleteProcessRequestRequest
 } from "../gen/pipedoc_repository_pb";
 import {
   PipeStepProcessor,
   ModuleProcessRequest,
-  RegistrationRequest,
-  TestProcessDataRequest
+  RegistrationRequest
 } from "../gen/pipe_step_processor_service_pb";
 import { Health } from "../gen/health/v1/health_pb";
 import {
@@ -38,22 +39,20 @@ import { createClient, Code as ConnectCode } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
 import { ProtobufSchemaLoader } from '@pipeline/protobuf-forms';
 import path from 'path';
-import { toStruct } from "@bufbuild/protobuf/wkt";
 
 // Create a gRPC transport to connect to the repository service
 const grpcTransport = createGrpcTransport({
-  baseUrl: "http://localhost:38002",
-  httpVersion: "2",
+  baseUrl: "http://localhost:38002"
 });
 
-// Create a gRPC client for the repository service
+// Create gRPC clients for the repository services
 const filesystemClient = createClient(FilesystemService, grpcTransport);
+const pipeDocRepositoryClient = createClient(PipeDocRepository, grpcTransport);
 
 // Create a dynamic gRPC client factory for module connections
 function createModuleClient(address: string) {
   const moduleTransport = createGrpcTransport({
-    baseUrl: `http://${address}`,
-    httpVersion: "2",
+    baseUrl: `http://${address}`
   });
   return createClient(PipeStepProcessor, moduleTransport);
 }
@@ -61,8 +60,7 @@ function createModuleClient(address: string) {
 // Create health check client factory
 function createHealthClient(address: string) {
   const healthTransport = createGrpcTransport({
-    baseUrl: `http://${address}`,
-    httpVersion: "2",
+    baseUrl: `http://${address}`
   });
   return createClient(Health, healthTransport);
 }
@@ -298,6 +296,20 @@ export default (router: ConnectRouter) => {
     },
   });
 
+  // PipeDocRepository service - manages document storage in the repository
+  router.service(PipeDocRepository, {
+    async formatRepository(request, context) {
+      console.log("[Connect] Proxying formatRepository request to repository...");
+      try {
+        const response = await pipeDocRepositoryClient.formatRepository(request);
+        return response;
+      } catch (error) {
+        console.error("[Connect] Error proxying formatRepository:", error);
+        throw error;
+      }
+    }
+  });
+
   // Schema service - provides JSON schemas for protobuf messages
   router.service(SchemaService, {
     async getMessageSchema(request: GetMessageSchemaRequest) {
@@ -317,11 +329,8 @@ export default (router: ConnectRouter) => {
         // Get schema for the message type
         const jsonSchema = loader.getMessageSchema(request.messageType);
         
-        // Convert JSON schema to Struct
-        const structValue = toStruct(jsonSchema);
-        
         return {
-          schema: structValue,
+          schema: jsonSchema,
           messageType: request.messageType
         };
       } catch (error) {
