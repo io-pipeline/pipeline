@@ -29,6 +29,8 @@ dependencies {
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation("org.opensearch:opensearch-testcontainers:3.0.2")
     testImplementation 'com.networknt:json-schema-validator:1.5.8'
+// https://mvnrepository.com/artifact/org.testcontainers/testcontainers
+    testImplementation("org.testcontainers:testcontainers:1.21.3")
 
     implementation project(':grpc-stubs')
     implementation project(':libraries:pipeline-commons')
@@ -36,7 +38,6 @@ dependencies {
     implementation project(':libraries:data-util')
     implementation libs.opensearch.java
     implementation libs.httpclient5
-    
     implementation libs.commons.lang3
 }
 

@@ -13,7 +13,7 @@ import java.net.URISyntaxException;
 @ApplicationScoped
 public class OpenSearchClientProducer {
 
-    @ConfigProperty(name = "quarkus.opensearch.hosts")
+    @ConfigProperty(name = "quarkus.opensearch.hosts", defaultValue = "http://localhost:9200")
     String openSearchHosts;
 
     @Produces
